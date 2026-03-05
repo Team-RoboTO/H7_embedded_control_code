@@ -48,8 +48,8 @@ FDCAN_TxFrame_TypeDef FDCAN2_TxFrame = {
   .Header.TxFrameType = FDCAN_DATA_FRAME,
   .Header.DataLength = 8,
 	.Header.ErrorStateIndicator =  FDCAN_ESI_ACTIVE,
-  .Header.BitRateSwitch = FDCAN_BRS_ON,
-  .Header.FDFormat =  FDCAN_FD_CAN,           
+  .Header.BitRateSwitch = FDCAN_BRS_OFF,
+  .Header.FDFormat =  FDCAN_CLASSIC_CAN,           
   .Header.TxEventFifoControl =  FDCAN_NO_TX_EVENTS,  
   .Header.MessageMarker = 0,
 };

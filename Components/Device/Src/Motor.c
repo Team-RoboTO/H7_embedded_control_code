@@ -79,8 +79,8 @@ DM_Motor_Info_Typedef DM_8009_Motor[4]= {
 			   .T_MAX = 54.f		
 			},
 		  .FDCANFrame = {
-				 .TxIdentifier = 0x01,
-				 .RxIdentifier = 0x11,
+				 .TxIdentifier = 0x11,
+				 .RxIdentifier = 0x01,
 			},
 		},
 		

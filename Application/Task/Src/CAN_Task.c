@@ -29,6 +29,8 @@
 */
 /* USER CODE END Header_CAN_Task */
 
+
+float velocity_desired = 5;
  void CAN_Task(void const * argument)
 {
 
@@ -40,18 +42,19 @@
   osDelay(30);
   DM_Motor_Command(&FDCAN2_TxFrame,&DM_8009_Motor[2],Motor_Enable);
   osDelay(30);
-	DM_Motor_Command(&FDCAN2_TxFrame,&DM_8009_Motor[4],Motor_Enable);
+	DM_Motor_Command(&FDCAN2_TxFrame,&DM_8009_Motor[3],Motor_Enable);
   osDelay(30);
 	for(;;)
   {
 	
   CAN_Task_SysTick = osKernelSysTick();
 		
-	 // CAN-FD	
-	 DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame,&DM_8009_Motor[0],0,0,0,0,0);
-	 DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame,&DM_8009_Motor[1],0,0,0,0,0);
+	
+	 // CAN-FD	 float Postion, float Velocity, float KP, float KD, float Torque
+	 DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame,&DM_8009_Motor[0],0,velocity_desired,0,1,0);
+	 DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame,&DM_8009_Motor[1],0,5,0,1,0);
    DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame,&DM_8009_Motor[2],0,0,0,0,0);	
-   DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame,&DM_8009_Motor[2],0,0,0,0,0);	
+   DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame,&DM_8009_Motor[3],0,0,0,0,0);	
 		
    FDCAN1_TxFrame.Data[0] = (uint8_t)(Control_Info.SendValue[0]>>8);	
 	 FDCAN1_TxFrame.Data[1] = (uint8_t)(Control_Info.SendValue[0]);	
