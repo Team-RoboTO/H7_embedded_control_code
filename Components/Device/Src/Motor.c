@@ -334,7 +334,7 @@ float DJI_Motor_Encoder_To_Angle(DJI_Motor_Data_Typedef *Data,float torque_ratio
   */
 void DM_Motor_Command(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,DM_Motor_Info_Typedef *DM_Motor,uint8_t CMD){
 
-	 FDCAN_TxFrame->Header.Identifier = DM_Motor->FDCANFrame.RxIdentifier;
+	 FDCAN_TxFrame->Header.Identifier = DM_Motor->FDCANFrame.TxIdentifier;
   	
 	 FDCAN_TxFrame->Data[0] = 0xFF;
    FDCAN_TxFrame->Data[1] = 0xFF;

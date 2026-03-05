@@ -169,7 +169,7 @@
           <Type>0</Type>
           <LineNumber>3147</LineNumber>
           <EnabledFlag>0</EnabledFlag>
-          <Address>134279724</Address>
+          <Address>134279892</Address>
           <ByteObject>0</ByteObject>
           <HtxType>0</HtxType>
           <ManyObjects>0</ManyObjects>
@@ -185,7 +185,7 @@
           <Type>0</Type>
           <LineNumber>5929</LineNumber>
           <EnabledFlag>0</EnabledFlag>
-          <Address>134250700</Address>
+          <Address>134250868</Address>
           <ByteObject>0</ByteObject>
           <HtxType>0</HtxType>
           <ManyObjects>0</ManyObjects>
@@ -201,7 +201,7 @@
           <Type>0</Type>
           <LineNumber>119</LineNumber>
           <EnabledFlag>1</EnabledFlag>
-          <Address>134287976</Address>
+          <Address>134288144</Address>
           <ByteObject>0</ByteObject>
           <HtxType>0</HtxType>
           <ManyObjects>0</ManyObjects>
@@ -228,6 +228,11 @@
           <count>2</count>
           <WinNumber>1</WinNumber>
           <ItemText>FDCAN_TxFrame</ItemText>
+        </Ww>
+        <Ww>
+          <count>3</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>DM_8009_Motor[0]</ItemText>
         </Ww>
       </WatchWindow1>
       <MemoryWindow1>
