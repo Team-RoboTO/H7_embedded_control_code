@@ -10,7 +10,6 @@
 /*************************/
 
 extern controlled_system_t chassis;
-extern fp32 power_cons;
 
   /********************/
  /*   CONTROL LOOP   */

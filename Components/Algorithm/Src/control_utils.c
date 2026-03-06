@@ -16,6 +16,10 @@
  /*   FUNCTIONS   */
 /*****************/
 
+#define TRUE    1
+#define FALSE   0
+#define UNDEF   -1
+
 void saturate(float *value, float bound) {
 	
 	bound = fabs(bound);		// consider the absolute value of the given bound (a negative bound wouldn't make sense)

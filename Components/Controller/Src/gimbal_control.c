@@ -23,7 +23,6 @@
 #include "mouse_keyboard_commands.h"
 #include "pid_controller.h"
 #include "state_machine_std_circ.h"
-#include "logic_utils.h"
 
 /**
  * @brief Gimbal Control System for Standard Circular Robot
@@ -56,8 +55,6 @@ controlled_system_t std_circ_gimbal = {
     .x_prev     = {0},
     .u          = {0},
     .u_prev     = {0},
-    .y          = {0},
-    .y_prev     = {0},
     .r_x        = {0},
     .r_x_prev   = {0},
     .e_x        = {0},
@@ -80,9 +77,9 @@ static pid__t pid_yaw_pos = {
 	.Ki = 2,
 	.Kd = 0,
     .u = 0,
-	    .up = 0,
-	    .ui = 0,
-	    .ud = 0,
+    .up = 0,
+    .ui = 0,
+    .ud = 0,
     .lpf_up = NULL,
     .lpf_ui = NULL,
     .lpf_ud = NULL,
@@ -175,7 +172,7 @@ extern uint8_t is_rotating;
  * 6. runs PID controllers for position and velocity loops.
  * 7. formats and transmits commands to motors.
  */
-void control_loop_std_circ_gimbal() {
+void control_loop_gimbal() {
     
 // if a stop command arrives, send zeros as control signals
     if (state_remote_commands == COMMANDS_STOP) {
@@ -432,5 +429,3 @@ void control_loop_std_circ_gimbal() {
     
     is_first_iter = FALSE;
 }
-
-#endif

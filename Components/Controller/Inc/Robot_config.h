@@ -17,7 +17,7 @@
     IS_STD          < 0 || \
     IS_SENTRY       < 0 || \
     IS_HERO         < 0 || \
-    IS_STD         > 1 || \
+    IS_STD          > 1 || \
     IS_SENTRY       > 1 || \
     IS_HERO         > 1 || \
     IS_STD + IS_SENTRY + IS_HERO != 1
@@ -28,7 +28,7 @@
 
 #define IS_CHASSIS_ENABLED 				    1  // Enable/Disable chassis motors
 #define IS_GIMBAL_ENABLED 			     	1  // Enable/Disable gimbal motors
-#define IS_SHOOT_WHEELS_ENABLED 	        1  // Enable/Disable shooting wheels motors
+#define IS_SHOOT_WHEELS_ENABLED 	    1  // Enable/Disable shooting wheels motors
 #define IS_REV_ENABLED 				      	1  // Enable/Disable REV motor
 
   /********************/
@@ -44,7 +44,7 @@
  /*    EVENT MODE    */
 /********************/
 
-#define IS_EVENT_MODE_ENABLED         0  // Enable/Disable event mode
+#define IS_EVENT_MODE_ENABLED         0  // event mode (specific lower velocity)
 
 #define CONFLICT_EVENT_SHOOTING \    //event mode and shooting cannot be on at the same time
     IS_SHOOT_WHEELS_ENABLED + IS_EVENT_MODE_ENABLED > 1

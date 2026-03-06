@@ -1,6 +1,5 @@
 #include "chassis_control.h"
 #include "PID.h"
-#include "logic_utils.h"
 #include "remote_commands.h"
 #include "state_machine.h"
 #include "can_transmit_std_circ.h"
@@ -26,8 +25,6 @@ controlled_system_t chassis = {
     .u          = {0},
 	  .ud         = {0},
     .u_prev     = {0},
-    .y          = {0},
-    .y_prev     = {0},
     .r_x        = {0},
     .r_x_prev   = {0},
     .e_x        = {0},
@@ -77,7 +74,7 @@ static fp32 MIT_t_ff = 0.0f;   // range -15.0 - 15.0 [Nm]
  /*   CONTROL LOOP   */
 /********************/
 
-void control_loop_std_circ_chassis() {   
+void control_loop_chassis() {   
     // If stop command arrived, send zeros as control signals
     if (state_remote_commands == COMMANDS_STOP) {
             // alternating logic to safely exit control mode for exit MIT control
@@ -140,17 +137,17 @@ void control_loop_std_circ_chassis() {
 				
 					if (is_rotating == 0) {
 						// Forward/Backward
-						r_ang_vel_wheel_1_bwd_fwd       = ((fp32) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels_while_not_rotating;
-						r_ang_vel_wheel_2_bwd_fwd       = ((fp32) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels_while_not_rotating;
-						r_ang_vel_wheel_3_bwd_fwd       = ((fp32) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels_while_not_rotating;
-						r_ang_vel_wheel_4_bwd_fwd       = ((fp32) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels_while_not_rotating;
+						r_ang_vel_wheel_1_bwd_fwd       = ((fp32) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels;
+						r_ang_vel_wheel_2_bwd_fwd       = ((fp32) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels;
+						r_ang_vel_wheel_3_bwd_fwd       = ((fp32) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels;
+						r_ang_vel_wheel_4_bwd_fwd       = ((fp32) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels;
 						// Left/Right
-						r_ang_vel_wheel_1_left_right    = ((fp32) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels_while_not_rotating;
-						r_ang_vel_wheel_2_left_right    = ((fp32) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels_while_not_rotating;
-						r_ang_vel_wheel_3_left_right    = ((fp32) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels_while_not_rotating;
-						r_ang_vel_wheel_4_left_right    = ((fp32) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels_while_not_rotating;
+						r_ang_vel_wheel_1_left_right    = ((fp32) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels;
+						r_ang_vel_wheel_2_left_right    = ((fp32) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels;
+						r_ang_vel_wheel_3_left_right    = ((fp32) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels;
+						r_ang_vel_wheel_4_left_right    = ((fp32) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels;
 						// Align chassis to gimbal
-						r_ang_vel_wheels_chassis_yaw    = max(min(std_circ_chassis.x[4], pi/2), -pi/2) * (2/pi) * max_r_ang_vel_wheels_chassis_follow_gimbal;
+						r_ang_vel_wheels_chassis_yaw    = max(min(std_circ_chassis.x[4], pi/2), -pi/2) * (2/pi) * max_r_ang_vel_wheels;
 						break;
 					}
 					
@@ -158,17 +155,17 @@ void control_loop_std_circ_chassis() {
 					 // Forward/Backward
 						r_ang_vel_wheels_chassis_rotation += (fp32) 44/30000;
 				
-            r_ang_vel_wheel_1_bwd_fwd       = ((fp32) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels_while_rotating * cos(- std_circ_chassis.x[4] + pi/4);
-            r_ang_vel_wheel_2_bwd_fwd       = ((fp32) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels_while_rotating * sin(- std_circ_chassis.x[4] + pi/4);
-            r_ang_vel_wheel_3_bwd_fwd       = ((fp32) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels_while_rotating * cos(- std_circ_chassis.x[4] + pi/4);
-            r_ang_vel_wheel_4_bwd_fwd       = ((fp32) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels_while_rotating * sin(- std_circ_chassis.x[4] + pi/4);
+            r_ang_vel_wheel_1_bwd_fwd       = ((fp32) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels * cos(- std_circ_chassis.x[4] + pi/4);
+            r_ang_vel_wheel_2_bwd_fwd       = ((fp32) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels * sin(- std_circ_chassis.x[4] + pi/4);
+            r_ang_vel_wheel_3_bwd_fwd       = ((fp32) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels * cos(- std_circ_chassis.x[4] + pi/4);
+            r_ang_vel_wheel_4_bwd_fwd       = ((fp32) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels * sin(- std_circ_chassis.x[4] + pi/4);
             // Left/Right
-            r_ang_vel_wheel_1_left_right    = ((fp32) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels_while_rotating * cos(+ std_circ_chassis.x[4] + pi/4);
-            r_ang_vel_wheel_2_left_right    = ((fp32) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels_while_rotating * sin(+ std_circ_chassis.x[4] + pi/4);
-            r_ang_vel_wheel_3_left_right    = ((fp32) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels_while_rotating * cos(+ std_circ_chassis.x[4] + pi/4);
-            r_ang_vel_wheel_4_left_right    = ((fp32) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels_while_rotating * sin(+ std_circ_chassis.x[4] + pi/4);
+            r_ang_vel_wheel_1_left_right    = ((fp32) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels * cos(+ std_circ_chassis.x[4] + pi/4);
+            r_ang_vel_wheel_2_left_right    = ((fp32) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels * sin(+ std_circ_chassis.x[4] + pi/4);
+            r_ang_vel_wheel_3_left_right    = ((fp32) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels * cos(+ std_circ_chassis.x[4] + pi/4);
+            r_ang_vel_wheel_4_left_right    = ((fp32) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels * sin(+ std_circ_chassis.x[4] + pi/4);
             // Chassis contiguous rotation
-            r_ang_vel_wheels_chassis_yaw    = r_ang_vel_wheels_chassis_rotation;
+            r_ang_vel_wheels_chassis_yaw    = max_r_ang_vel_wheels;
 						break;
 					}
 					
@@ -179,17 +176,17 @@ void control_loop_std_circ_chassis() {
         
         case CHASSIS_CONTIGUOUS_ROTATION:
             // Forward/Backward
-            r_ang_vel_wheel_1_bwd_fwd       = ((fp32) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels_while_rotating * cos(- std_circ_chassis.x[4] + pi/4);
-            r_ang_vel_wheel_2_bwd_fwd       = ((fp32) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels_while_rotating * sin(- std_circ_chassis.x[4] + pi/4);
-            r_ang_vel_wheel_3_bwd_fwd       = ((fp32) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels_while_rotating * cos(- std_circ_chassis.x[4] + pi/4);
-            r_ang_vel_wheel_4_bwd_fwd       = ((fp32) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels_while_rotating * sin(- std_circ_chassis.x[4] + pi/4);
+            r_ang_vel_wheel_1_bwd_fwd       = ((fp32) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels * cos(- std_circ_chassis.x[4] + pi/4);
+            r_ang_vel_wheel_2_bwd_fwd       = ((fp32) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels * sin(- std_circ_chassis.x[4] + pi/4);
+            r_ang_vel_wheel_3_bwd_fwd       = ((fp32) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels * cos(- std_circ_chassis.x[4] + pi/4);
+            r_ang_vel_wheel_4_bwd_fwd       = ((fp32) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels * sin(- std_circ_chassis.x[4] + pi/4);
             // Left/Right
-            r_ang_vel_wheel_1_left_right    = ((fp32) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels_while_rotating * cos(+ std_circ_chassis.x[4] + pi/4);
-            r_ang_vel_wheel_2_left_right    = ((fp32) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels_while_rotating * sin(+ std_circ_chassis.x[4] + pi/4);
-            r_ang_vel_wheel_3_left_right    = ((fp32) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels_while_rotating * cos(+ std_circ_chassis.x[4] + pi/4);
-            r_ang_vel_wheel_4_left_right    = ((fp32) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels_while_rotating * sin(+ std_circ_chassis.x[4] + pi/4);
+            r_ang_vel_wheel_1_left_right    = ((fp32) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels * cos(+ std_circ_chassis.x[4] + pi/4);
+            r_ang_vel_wheel_2_left_right    = ((fp32) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels * sin(+ std_circ_chassis.x[4] + pi/4);
+            r_ang_vel_wheel_3_left_right    = ((fp32) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels * cos(+ std_circ_chassis.x[4] + pi/4);
+            r_ang_vel_wheel_4_left_right    = ((fp32) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels * sin(+ std_circ_chassis.x[4] + pi/4);
             // Chassis contiguous rotation
-            r_ang_vel_wheels_chassis_yaw    = r_ang_vel_wheels_chassis_rotation;
+            r_ang_vel_wheels_chassis_yaw    = max_r_ang_vel_wheels;
 						is_rotating = 1;
             break;
   
