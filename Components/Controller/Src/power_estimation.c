@@ -16,24 +16,24 @@
  */
 
 #if IS_STD
-	fp32 k1 = 338.2128;      // Coefficient for losses due to square of torque [W/Nm²]
-	fp32 k2 = 1.3252e-05;    // Coefficient for losses due to square of velocity [W·s²/rad²] (higher for sentry)
-	fp32 p0 = 4.081f;        // Constant losses [W]
+	float k1 = 338.2128;      // Coefficient for losses due to square of torque [W/Nm²]
+	float k2 = 1.3252e-05;    // Coefficient for losses due to square of velocity [W·s²/rad²] (higher for sentry)
+	float p0 = 4.081f;        // Constant losses [W]
 #elif IS_SENTRY
-	fp32 k1 = 338.2128;      // Coefficient for losses due to square of torque [W/Nm²]
-	fp32 k2 = 1.3252e-03;    // Coefficient for losses due to square of velocity [W·s²/rad²] (higher for sentry)
-	fp32 p0 = 4.081f;        // Constant losses [W]
+	float k1 = 338.2128;      // Coefficient for losses due to square of torque [W/Nm²]
+	float k2 = 1.3252e-03;    // Coefficient for losses due to square of velocity [W·s²/rad²] (higher for sentry)
+	float p0 = 4.081f;        // Constant losses [W]
 #elif IS_HERO
-	fp32 k1 = 338.2128;      // Coefficient for losses due to square of torque [W/Nm²]
-	fp32 k2 = 1.3252e-05;    // Coefficient for losses due to square of velocity [W·s²/rad²]
-	fp32 p0 = 4.081f;        // Constant losses [W]
+	float k1 = 338.2128;      // Coefficient for losses due to square of torque [W/Nm²]
+	float k2 = 1.3252e-05;    // Coefficient for losses due to square of velocity [W·s²/rad²]
+	float p0 = 4.081f;        // Constant losses [W]
 #endif
 
 
 // Motor torque conversion coefficient: (gear_ratio) * (Kt_motor)
 // gear_ratio = ratio between motor revolutions and output shaft revolutions ≈ 187/3591 ≈ 0.052
 // Kt_motor ≈ 0.3 Nm/A
-fp32 torque_coefficient = 1.56223893e-2f; // [Nm/A] conversion from current to torque at the output shaft
+float torque_coefficient = 1.56223893e-2f; // [Nm/A] conversion from current to torque at the output shaft
 uint32_t t = 0;
 
 
@@ -53,16 +53,16 @@ uint32_t t = 0;
  * * @param u: Array of 4 motor control currents [A]
  */
  
-void chassis_power_control(uint16_t limit, fp32 *u){
+void chassis_power_control(uint16_t limit, float *u){
 	
-	fp32 chassis_power_limit = limit;  // [W] - Maximum power limit from the referee system
+	float chassis_power_limit = limit;  // [W] - Maximum power limit from the referee system
 	
 	// Arrays for calculating each motor's power
-	fp32 estimated_torque[4];        // [Nm] - Torque at the output shaft for each motor
-	fp32 estimated_give_power[4];    // [W]  - Estimated power for each motor
-	fp32 estimated_total_power = 0;  // [W]  - Estimated total power
-	fp32 scaled_give_power[4];       // [W]  - Scaled power for each motor after limiting
-	fp32 power_scale_factor = 0;            //  Power limiting scale factor
+	float estimated_torque[4];        // [Nm] - Torque at the output shaft for each motor
+	float estimated_give_power[4];    // [W]  - Estimated power for each motor
+	float estimated_total_power = 0;  // [W]  - Estimated total power
+	float scaled_give_power[4];       // [W]  - Scaled power for each motor after limiting
+	float power_scale_factor = 0;            //  Power limiting scale factor
 
 		/************************/
 	 /*   POWER ESTIMATION   */
@@ -111,16 +111,16 @@ void chassis_power_control(uint16_t limit, fp32 *u){
 				continue;
 			}
 			// Coefficients of the quadratic equation normalized by k1
-      fp32 b = M3508_chassis_wheel[i].ang_vel_rpm/9.55/k1;
-			fp32 c = k2 * M3508_chassis_wheel[i].ang_vel_rpm * M3508_chassis_wheel[i].ang_vel_rpm/(k1*9.55*9.55) - scaled_give_power[i]/k1 + p0/k1;
-			fp32 delta = b * b - 4 * c;
+      float b = M3508_chassis_wheel[i].ang_vel_rpm/9.55/k1;
+			float c = k2 * M3508_chassis_wheel[i].ang_vel_rpm * M3508_chassis_wheel[i].ang_vel_rpm/(k1*9.55*9.55) - scaled_give_power[i]/k1 + p0/k1;
+			float delta = b * b - 4 * c;
 
 			// No real solution: impossible to reach the target power --> maintain the current value
 			if (delta < 0) {
 				t += 1;
 				continue; 
 			}
-			fp32 new_output; //new output [A]
+			float new_output; //new output [A]
 			if (u[i] > 0) {  
 				// Positive torque: choose the positive root
 				new_output = (-b + sqrt(delta)) / 2  / torque_coefficient ;

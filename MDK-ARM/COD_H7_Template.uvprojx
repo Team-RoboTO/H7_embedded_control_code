@@ -10,8 +10,8 @@
       <TargetName>COD_H7_Template</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
-      <pArmCC>6220000::V6.22::.\ARM_Compiler_6.22</pArmCC>
-      <pCCUsed>6220000::V6.22::.\ARM_Compiler_6.22</pCCUsed>
+      <pArmCC>6190000::V6.19::ARMCLANG</pArmCC>
+      <pCCUsed>6190000::V6.19::ARMCLANG</pCCUsed>
       <uAC6>1</uAC6>
       <TargetOption>
         <TargetCommonOption>
@@ -510,6 +510,41 @@
               <FileType>1</FileType>
               <FilePath>..\Components\Controller\Src\PID.c</FilePath>
             </File>
+            <File>
+              <FileName>chassis_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Controller\Src\chassis_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>controlled_system.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Controller\Src\controlled_system.c</FilePath>
+            </File>
+            <File>
+              <FileName>gimbal_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Controller\Src\gimbal_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>power_estimation.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Controller\Src\power_estimation.c</FilePath>
+            </File>
+            <File>
+              <FileName>Robot_config.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Controller\Src\Robot_config.c</FilePath>
+            </File>
+            <File>
+              <FileName>shooting_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Controller\Src\shooting_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>state_machine.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Controller\Src\state_machine.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -544,6 +579,16 @@
               <FileName>CRC.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Components\Algorithm\Src\CRC.c</FilePath>
+            </File>
+            <File>
+              <FileName>control_utils.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Algorithm\Src\control_utils.c</FilePath>
+            </File>
+            <File>
+              <FileName>math_utils.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Algorithm\Src\math_utils.c</FilePath>
             </File>
           </Files>
         </Group>

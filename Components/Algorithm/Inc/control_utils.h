@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <float.h>
 #include "math_utils.h"
-#include <struct_typedef.h>
+#include "stdint.h"
 
   /********************************/
  /*   TRANSFER FUNCTION STRUCT   */

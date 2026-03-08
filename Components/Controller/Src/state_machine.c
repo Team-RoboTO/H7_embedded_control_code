@@ -1,12 +1,10 @@
 #include "state_machine.h"
 
-#include "remote_commands.h"
-#include "mouse_keyboard_commands.h"
+#include "Remote_Control.h"
+#include "stm32h7xx_hal.h"
 #include "math_utils.h"
 #include <stdlib.h>
-#include "stm32f4xx_hal.h"
-#include "chassis_task.h"
-#include "motor.h"
+#include "Motor.h"
 
   /**************/
  /*   STATES   */
@@ -134,7 +132,7 @@ uint8_t _state_machine_chassis_remote_controller() {
 
 uint8_t _state_machine_chassis_keyboard_mouse() {
     
-    if (is_keyboard_key_pressed(KEY_SHIFT)) {
+    if (KeyBoard_SHIFT) {
         // Contiguous rotation
 		return CHASSIS_CONTIGUOUS_ROTATION;
         
@@ -169,7 +167,7 @@ uint8_t _state_machine_gimbal_remote_controller() {
 
 uint8_t _state_machine_gimbal_keyboard_mouse() {
     
-    if (is_mouse_key_pressed(MOUSE_RIGHT_KEY)) {
+    if (MOUSE_PRESSED_RIGHT) {
         // Activate auto-aim driven by CV
         return GIMBAL_AUTO_AIM;
     }
@@ -196,7 +194,7 @@ uint8_t _state_machine_shoot_wheels() {
 
 uint8_t _state_machine_shoot_wheels_remote_controller() {
     
-    if (abs(remote_controller_up_left_wheel) >= shoot_wheels_spin.threshold_rc_wheel_released) {
+    if (abs(RC_DIAL) >= shoot_wheels_spin.threshold_rc_wheel_released) {
         // Activate/Continue shooting
         shoot_wheels_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3;
         return SHOOT_WHEELS_SPIN;
@@ -212,7 +210,7 @@ uint8_t _state_machine_shoot_wheels_remote_controller() {
 
 uint8_t _state_machine_shoot_wheels_keyboard_mouse() {
     
-    if (is_mouse_key_pressed(MOUSE_LEFT_KEY) || is_mouse_key_pressed(MOUSE_RIGHT_KEY)) {
+    if (MOUSE_PRESSED_LEFT || MOUSE_PRESSED_RIGHT) {
         // Activate/Continue shooting
         shoot_wheels_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3;
         return SHOOT_WHEELS_SPIN;
@@ -252,20 +250,15 @@ uint8_t _state_machine_rev_remote_controller() {
     if (HAL_GetTick() - time_rev_locked > 0.3*1e3)
         return REV_UNSTUCK;
     
-    if (remote_controller_up_left_wheel >= 600) {
+    if (RC_DIAL >= 300) {
         // Multiple shooting
         rev_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3;
         return REV_MULTIPLE_SHOOTING;
     }
-    else if (remote_controller_up_left_wheel <= -100) {
+    else if (RC_DIAL <= -300) {
         // Single shooting
         rev_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3;
         return REV_SINGLE_SHOOTING;
-    }
-    else if (remote_controller_up_left_wheel >= 100 && remote_controller_up_left_wheel <= 599) {
-        // Triple shooting
-        rev_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3;
-        return REV_TRIPLE_SHOOTING;
     }
     else {
         // Stop shooting
@@ -277,12 +270,12 @@ uint8_t _state_machine_rev_keyboard_mouse() {
     
     // TODO manage REV_UNSTUCK state
     
-    if (is_mouse_key_raising_edge(MOUSE_LEFT_KEY)) {
+    if (MOUSE_PRESSED_LEFT) {
         // Activate shooting
         rev_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3;
         return state_rev;
     }
-    else if (is_mouse_key_falling_edge(MOUSE_LEFT_KEY) && HAL_GetTick() * 1e-3 - rev_spin.timestamp_last_shoot_command < rev_spin.time_threshold_hold_mouse_key_multiple_shooting) {
+    else if (MOUSE_PRESSED_LEFT) && HAL_GetTick() * 1e-3 - rev_spin.timestamp_last_shoot_command < rev_spin.time_threshold_hold_mouse_key_multiple_shooting) {
         // Triple shooting
 		
         return REV_TRIPLE_SHOOTING;

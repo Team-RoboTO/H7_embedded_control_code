@@ -1,24 +1,9 @@
 #include "control_utils.h"
 #include <math.h>
-#include "CAN_receive.h"
-#include "robot_config.h"
-#include "remote_commands.h"
-#include "bmi088driver.h"
-#include "cmsis_os.h"
-#include "INS_task.h"
-#include "AI_receive.h"
-#include "referee.h"
-#include "mouse_keyboard_commands.h"
-#include <stdlib.h>
-#include <stdint.h>
 
   /*****************/
  /*   FUNCTIONS   */
 /*****************/
-
-#define TRUE    1
-#define FALSE   0
-#define UNDEF   -1
 
 void saturate(float *value, float bound) {
 	

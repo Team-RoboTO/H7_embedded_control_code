@@ -22,6 +22,7 @@
 #include "config.h"
 #include "stm32h723xx.h"
 #include "bsp_can.h"
+#include "stdbool.h"
 
 /**
  * @brief typedef enum that contains the type of DJI Motor Device.

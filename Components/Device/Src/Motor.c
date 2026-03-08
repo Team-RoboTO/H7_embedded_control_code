@@ -69,7 +69,7 @@ DJI_Motor_Info_Typedef Chassis_Motor[4] = {
 /**
  * @brief The structure that contains the Information of joint motor.Use DM 8009 motor.
  */
-DM_Motor_Info_Typedef DM_8009_Motor[4]= {
+DM_Motor_Info_Typedef MIT_Chassis_motors[4]= {
     
 	  [0] = {
 			.Control_Mode = MIT,

@@ -46,7 +46,8 @@
 
 #define IS_EVENT_MODE_ENABLED         0  // event mode (specific lower velocity)
 
-#define CONFLICT_EVENT_SHOOTING \    //event mode and shooting cannot be on at the same time
-    IS_SHOOT_WHEELS_ENABLED + IS_EVENT_MODE_ENABLED > 1
+// Event mode and shooting cannot be on at the same time
+#define CONFLICT_EVENT_SHOOTING \
+    (IS_SHOOT_WHEELS_ENABLED + IS_EVENT_MODE_ENABLED) > 1
 
 #endif

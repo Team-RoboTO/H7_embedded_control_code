@@ -1,6 +1,3 @@
-
-
-
 /* Includes ------------------------------------------------------------------*/
 #include "Remote_Control.h"
 #include "ramp.h"
@@ -38,44 +35,36 @@ static void Key_Status_Update(KeyBoard_Info_Typedef *KeyInfo,bool KeyBoard_Statu
   *         contains the information  for the remote control.
   * @retval none
   */
-void SBUS_TO_RC(volatile const uint8_t *sbus_buf, Remote_Info_Typedef  *remote_ctrl)
+void SBUS_TO_RC(volatile const uint8_t *sbus_buf, Remote_Info_Typedef *remote_ctrl)
 {
     if (sbus_buf == NULL || remote_ctrl == NULL) return;
 
-    /* Channel 0, 1, 2, 3 */
-    remote_ctrl->rc.ch[0] = (  sbus_buf[0]       | (sbus_buf[1] << 8 ) ) & 0x07ff;                            //!< Channel 0
-    remote_ctrl->rc.ch[1] = ( (sbus_buf[1] >> 3) | (sbus_buf[2] << 5 ) ) & 0x07ff;                            //!< Channel 1
-    remote_ctrl->rc.ch[2] = ( (sbus_buf[2] >> 6) | (sbus_buf[3] << 2 ) | (sbus_buf[4] << 10) ) & 0x07ff;      //!< Channel 2
-    remote_ctrl->rc.ch[3] = ( (sbus_buf[4] >> 1) | (sbus_buf[5] << 7 ) ) & 0x07ff;                            //!< Channel 3
-    remote_ctrl->rc.ch[4] = (  sbus_buf[16] 	   | (sbus_buf[17] << 8) ) & 0x07ff;                 			      //!< Channel 4
+    /* Channels — data starts at byte 2 (after 0xA9 0x53 header) */
+    remote_ctrl->rc.right_h = (( sbus_buf[2]        | (sbus_buf[3] << 8))                          & 0x07FF) - RC_CH_VALUE_OFFSET;
+    remote_ctrl->rc.right_v = (((sbus_buf[3] >> 3)  | (sbus_buf[4] << 5))                          & 0x07FF) - RC_CH_VALUE_OFFSET;
+    remote_ctrl->rc.left_v  = (((sbus_buf[4] >> 6)  | (sbus_buf[5] << 2)  | (sbus_buf[6] << 10))  & 0x07FF) - RC_CH_VALUE_OFFSET;
+    remote_ctrl->rc.left_h  = (((sbus_buf[6] >> 1)  | (sbus_buf[7] << 7))                          & 0x07FF) - RC_CH_VALUE_OFFSET;
 
-    /* Switch left, right */
-    remote_ctrl->rc.s[0] = ((sbus_buf[5] >> 4) & 0x0003);                  //!< Switch left
-    remote_ctrl->rc.s[1] = ((sbus_buf[5] >> 4) & 0x000C) >> 2;             //!< Switch right
+    /* Buttons — packed across bytes 7-9 */
+    remote_ctrl->rc.mode_switch =  (sbus_buf[7] >> 4) & 0x03;
+    remote_ctrl->rc.pause       =  (sbus_buf[7] >> 6) & 0x01;
+    remote_ctrl->rc.custom_l    =  (sbus_buf[7] >> 7) & 0x01;
+    remote_ctrl->rc.custom_r    =   sbus_buf[8]        & 0x01;
+    remote_ctrl->rc.dial        = (((sbus_buf[8] >> 1) | (sbus_buf[9] << 7)) & 0x07FF) - RC_CH_VALUE_OFFSET;
+    remote_ctrl->rc.trigger     =  (sbus_buf[9] >> 4) & 0x01;
 
-    /* Mouse axis: X, Y, Z */
-    remote_ctrl->mouse.x = sbus_buf[6]  | (sbus_buf[7] << 8);                    //!< Mouse X axis
-    remote_ctrl->mouse.y = sbus_buf[8]  | (sbus_buf[9] << 8);                    //!< Mouse Y axis
-    remote_ctrl->mouse.z = sbus_buf[10] | (sbus_buf[11] << 8);                  //!< Mouse Z axis
+    /* Mouse — bytes 10-16 */
+    remote_ctrl->mouse.x       = sbus_buf[10] | (sbus_buf[11] << 8);
+    remote_ctrl->mouse.y       = sbus_buf[12] | (sbus_buf[13] << 8);
+    remote_ctrl->mouse.z       = sbus_buf[14] | (sbus_buf[15] << 8);
+    remote_ctrl->mouse.press_l =  sbus_buf[16]        & 0x01;
+    remote_ctrl->mouse.press_r = (sbus_buf[16] >> 2)  & 0x01;
 
-    /* Mouse Left, Right Is Press  */
-    remote_ctrl->mouse.press_l = sbus_buf[12];                                  //!< Mouse Left Is Press
-    remote_ctrl->mouse.press_r = sbus_buf[13];                                  //!< Mouse Right Is Press
+    /* Keyboard — bytes 17-18 */
+    remote_ctrl->key.v = sbus_buf[17] | (sbus_buf[18] << 8);
 
-    /* KeyBoard value */
-    remote_ctrl->key.v = sbus_buf[14] | (sbus_buf[15] << 8);                    //!< KeyBoard value
-
-    remote_ctrl->rc.ch[0] -= RC_CH_VALUE_OFFSET;
-    remote_ctrl->rc.ch[1] -= RC_CH_VALUE_OFFSET;
-    remote_ctrl->rc.ch[2] -= RC_CH_VALUE_OFFSET;
-    remote_ctrl->rc.ch[3] -= RC_CH_VALUE_OFFSET;
-    remote_ctrl->rc.ch[4] -= RC_CH_VALUE_OFFSET;
-    
-		/* reset the online count */
-		remote_ctrl->online_cnt = 0xFAU;
-		
-		/* reset the lost flag */
-		remote_ctrl->rc_lost = false;
+    remote_ctrl->online_cnt = 0xFAU;
+    remote_ctrl->rc_lost = false;
 }
 //------------------------------------------------------------------------------
 
@@ -85,25 +74,25 @@ void SBUS_TO_RC(volatile const uint8_t *sbus_buf, Remote_Info_Typedef  *remote_c
   *         contains the information  for the remote control.
   * @retval none
   */
-void Remote_Message_Moniter(Remote_Info_Typedef  *remote_ctrl)
+void Remote_Message_Moniter(Remote_Info_Typedef *remote_ctrl)
 {
-  /* Juege the device status */
-  if(remote_ctrl->online_cnt <= 0x32U)
-  {
-    /* clear the data */
-    memset(remote_ctrl,0,sizeof(Remote_Info_Typedef));
+    if(remote_ctrl->online_cnt <= 0x32U)
+    {
+        memset(remote_ctrl, 0, sizeof(Remote_Info_Typedef));
 
-    /* reset the online count */
-		
-    /* set the lost flag */
-		remote_ctrl->rc_lost = true;
-		
-  }
-  else if(remote_ctrl->online_cnt > 0)
-  {
-    /* online count decrements which reseted in received interrupt  */
-    remote_ctrl->online_cnt--;
-  }
+        /* reset sticks and dial to center so they read 0 after the -1024 offset */
+        remote_ctrl->rc.right_h = 1024U;
+        remote_ctrl->rc.right_v = 1024U;
+        remote_ctrl->rc.left_v  = 1024U;
+        remote_ctrl->rc.left_h  = 1024U;
+        remote_ctrl->rc.dial    = 1024U;
+
+        remote_ctrl->rc_lost = true;
+    }
+    else if(remote_ctrl->online_cnt > 0)
+    {
+        remote_ctrl->online_cnt--;
+    }
 }
 //------------------------------------------------------------------------------
 

@@ -68,7 +68,7 @@ static void Control_Measure_Update(Control_Info_Typedef *Control_Info){
 
 static void Control_Target_Update(Control_Info_Typedef *Control_Info){
 
-  Control_Info->Target.Chassis_Velocity = remote_ctrl.rc.ch[3] * 5.f;
+  Control_Info->Target.Chassis_Velocity = RC_RIGHT_V * 5.f;
 
 
 }

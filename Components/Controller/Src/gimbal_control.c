@@ -13,19 +13,16 @@
 #include <math.h>
 #include <time.h>
 #include "control_utils.h"
-#include "CAN_receive.h"
-#include "bmi088driver.h"
+#include "Bmi088.h"
 #include "cmsis_os.h"
 #include "INS_task.h"
 #include "math_utils.h"
-#include "remote_commands.h"
+#include "Remote_Control.h"
 #include "AI_receive.h"
 #include "robot_config.h"
-#include "gimbal_task.h"
 #include "FreeRTOS.h"
 #include "motor.h"
 #include "chassis_control.h"
-#include "mouse_keyboard_commands.h"
 #include "state_machine.h"
 #include "PID.h"
 
@@ -78,16 +75,16 @@ static float pid_yaw_vel_params[PID_PARAMETER_NUM] = {10.0f, 0.0f, 0.0f, 0.0f, 0
 static int16_t remote_commands_yaw;
 static int16_t remote_commands_pitch;
 
-static fp32 yaw_command_from_cv = 0;
-static fp32 pitch_command_from_cv = 0;
-static fp32 yaw_command_from_cv_prev;
-static fp32 pitch_command_from_cv_prev;
+static float yaw_command_from_cv = 0;
+static float pitch_command_from_cv = 0;
+static float yaw_command_from_cv_prev;
+static float pitch_command_from_cv_prev;
 
 static uint8_t is_first_iter = TRUE;
-static fp32 m_linear_interpolation_yaw = 0;
-static fp32 m_linear_interpolation_pitch = 0;
-static fp32 yaw_sat = 0;
-static fp32 pitch_sat = 0;
+static float m_linear_interpolation_yaw = 0;
+static float m_linear_interpolation_pitch = 0;
+static float yaw_sat = 0;
+static float pitch_sat = 0;
 
 static float MIT_p_des = 0.0f;
 static float MIT_v_des = 0.0f;
@@ -96,7 +93,7 @@ static float MIT_kd = 1.0f;
 static float MIT_t_ff = 0.0f;
 uint16_t ID_pitch = 106;
 
-fp32 cm_p_des_origin = 0;
+float cm_p_des_origin = 0;
 
 extern uint8_t is_rotating;
 
@@ -156,10 +153,10 @@ void control_loop_gimbal() {
     for (uint8_t i = 0; i < gimbal.p; i++) {
         gimbal.x_prev[i] = gimbal.x[i];
     }
-    gimbal.x[0] = (fp32)ins_correct_angle[2] * DEG_TO_RAD;  // yaw position  [rad]
-    gimbal.x[1] = (fp32)ins_correct_angle[1] * DEG_TO_RAD;  // pitch position [rad]
-    gimbal.x[2] = (fp32)gz;                                  // yaw velocity   [rad/s]
-    gimbal.x[3] = (fp32)gy;                                  // pitch velocity [rad/s]
+    gimbal.x[0] = (float)ins_correct_angle[2] * DEG_TO_RAD;  // yaw position  [rad]
+    gimbal.x[1] = (float)ins_correct_angle[1] * DEG_TO_RAD;  // pitch position [rad]
+    gimbal.x[2] = (float)gz;                                  // yaw velocity   [rad/s]
+    gimbal.x[3] = (float)gy;                                  // pitch velocity [rad/s]
 
     // update reference history
     for (uint8_t i = 0; i < 2; i++) {

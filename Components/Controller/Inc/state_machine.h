@@ -3,7 +3,7 @@
 
 #include "robot_config.h"
 
-#include "struct_typedef.h"
+#include "stdint.h"
 
   /**************/
  /*   STATES   */
@@ -52,8 +52,8 @@ extern uint8_t state_rev_prev;
 typedef struct shoot_wheels_spin {
     
     int16_t threshold_rc_wheel_released;  // Threshold below which the RC wheel is considered to be released (in range [0, 660])
-    fp32 timestamp_last_shoot_command;  // Timestamp of last shoot command [s]
-    fp32 time_without_shoot_commands_before_stopping_shoot_wheels;  // Time to elapse from last shoot command before stopping the shoot wheels [s]
+    float timestamp_last_shoot_command;  // Timestamp of last shoot command [s]
+    float time_without_shoot_commands_before_stopping_shoot_wheels;  // Time to elapse from last shoot command before stopping the shoot wheels [s]
     
 } shoot_wheels_spin_t;
 
@@ -65,8 +65,8 @@ extern shoot_wheels_spin_t shoot_wheels_spin;
 
 typedef struct rev_spin {
     
-    fp32 timestamp_last_shoot_command;  // Timestamp of last shoot command [s]
-    fp32 time_threshold_hold_mouse_key_multiple_shooting;  // Threshold time of holding mouse keys after which multiple shooting is triggered [s]
+    float timestamp_last_shoot_command;  // Timestamp of last shoot command [s]
+    float time_threshold_hold_mouse_key_multiple_shooting;  // Threshold time of holding mouse keys after which multiple shooting is triggered [s]
     
 } rev_spin_t;
 
