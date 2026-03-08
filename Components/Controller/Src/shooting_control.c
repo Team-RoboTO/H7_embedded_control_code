@@ -1,16 +1,12 @@
-#include "control_std_circ_shooting.h"
-#include "pid_controller.h"
-#include "can_transmit_std_circ.h"
-#include "motors.h"
-#include "motors_std_circ.h"
-#include "state_machine_std_circ.h"
+#include "shooting_control.h"
+#include "PID.h"
+#include "motor.h"
+#include "state_machine.h"
 #include "control_utils.h"
 #include "string.h"
 #include "referee.h"
 #include "referee_alg.h"
 #include "gimbal_task.h"
-#include "motors_std_circ.h"
-#include "can_transmit_std_circ.h"
 #include "mouse_keyboard_commands.h"
 #include "shooting_task.h"
 
@@ -148,7 +144,7 @@ void control_loop_shooting(void) {
  /*   SHOOT WHEELS CONTROL LOOP   */
 /*********************************/
 
-void _control_loop_std_circ_shoot_wheels(void) {
+void _control_loop_shoot_wheels(void) {
     
     // Update outputs from sensor data
     for (uint8_t i = 0; i < 2; i++) {
@@ -218,7 +214,7 @@ void _control_loop_std_circ_shoot_wheels(void) {
  /*   REV CONTROL LOOP   */
 /************************/
 
-void _control_loop_std_circ_rev(void) {
+void _control_loop_rev(void) {
     
     // If stop command arrived, send zeros as control signals
     if (state_remote_commands == COMMANDS_STOP) {

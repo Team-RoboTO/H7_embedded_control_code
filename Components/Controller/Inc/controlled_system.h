@@ -7,8 +7,8 @@
  /*   CONTROLLED SYSTEM STRUCT   */
 /********************************/
 
-#define MAX_NUM_CONTROLLED_SYSTEM_STATES 5
-#define MAX_NUM_CONTROLLED_SYSTEM_INPUTS 5
+#define MAX_NUM_CONTROLLED_SYSTEM_STATES 4
+#define MAX_NUM_CONTROLLED_SYSTEM_INPUTS 4
 #define MAX_NUM_CONTROLLED_SYSTEM_OUTPUTS 5
 
 typedef struct controlled_system {
@@ -19,8 +19,9 @@ typedef struct controlled_system {
 	fp32 x[MAX_NUM_CONTROLLED_SYSTEM_STATES];  // Current system states outputs
 	fp32 x_prev[MAX_NUM_CONTROLLED_SYSTEM_STATES];  // Previous system states outputs
 	fp32 u[MAX_NUM_CONTROLLED_SYSTEM_INPUTS];  // Current system inputs
-	fp32 ud[MAX_NUM_CONTROLLED_SYSTEM_INPUTS];  // Current digital system inputs
 	fp32 u_prev[MAX_NUM_CONTROLLED_SYSTEM_INPUTS];  // Previous system inputs
+	fp32 ud[MAX_NUM_CONTROLLED_SYSTEM_INPUTS];  // Current digital system inputs
+	fp32 ud_prev[MAX_NUM_CONTROLLED_SYSTEM_INPUTS];  // Previous digital system inputs
 	fp32 r_x[MAX_NUM_CONTROLLED_SYSTEM_STATES];  // Current references for system states
 	fp32 r_x_prev[MAX_NUM_CONTROLLED_SYSTEM_STATES];  // Previous references for system states
 	fp32 e_x[MAX_NUM_CONTROLLED_SYSTEM_STATES];  // Current system errors w.r.t. references

@@ -1,7 +1,5 @@
 #include "state_machine.h"
 
-#if IS_STD_CIRC
-
 #include "remote_commands.h"
 #include "mouse_keyboard_commands.h"
 #include "math_utils.h"
@@ -299,5 +297,3 @@ uint8_t _state_machine_rev_keyboard_mouse() {
         return REV_STOP;
     }
 }
-
-#endif
