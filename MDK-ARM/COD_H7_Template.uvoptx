@@ -212,6 +212,54 @@
           <ExecCommand></ExecCommand>
           <Expression>\\COD_H7_Template\../Core/Src/stm32h7xx_it.c\119</Expression>
         </Bp>
+        <Bp>
+          <Number>3</Number>
+          <Type>0</Type>
+          <LineNumber>75</LineNumber>
+          <EnabledFlag>1</EnabledFlag>
+          <Address>134335824</Address>
+          <ByteObject>0</ByteObject>
+          <HtxType>0</HtxType>
+          <ManyObjects>0</ManyObjects>
+          <SizeOfObject>0</SizeOfObject>
+          <BreakByAccess>0</BreakByAccess>
+          <BreakIfRCount>1</BreakIfRCount>
+          <Filename>..\Components\Device\Src\Image_Transmission.c</Filename>
+          <ExecCommand></ExecCommand>
+          <Expression>\\COD_H7_Template\../Components/Device/Src/Image_Transmission.c\75</Expression>
+        </Bp>
+        <Bp>
+          <Number>4</Number>
+          <Type>0</Type>
+          <LineNumber>293</LineNumber>
+          <EnabledFlag>1</EnabledFlag>
+          <Address>134283194</Address>
+          <ByteObject>0</ByteObject>
+          <HtxType>0</HtxType>
+          <ManyObjects>0</ManyObjects>
+          <SizeOfObject>0</SizeOfObject>
+          <BreakByAccess>0</BreakByAccess>
+          <BreakIfRCount>1</BreakIfRCount>
+          <Filename>..\BSP\Src\bsp_uart.c</Filename>
+          <ExecCommand></ExecCommand>
+          <Expression>\\COD_H7_Template\../BSP/Src/bsp_uart.c\293</Expression>
+        </Bp>
+        <Bp>
+          <Number>5</Number>
+          <Type>0</Type>
+          <LineNumber>29</LineNumber>
+          <EnabledFlag>1</EnabledFlag>
+          <Address>134288978</Address>
+          <ByteObject>0</ByteObject>
+          <HtxType>0</HtxType>
+          <ManyObjects>0</ManyObjects>
+          <SizeOfObject>0</SizeOfObject>
+          <BreakByAccess>0</BreakByAccess>
+          <BreakIfRCount>1</BreakIfRCount>
+          <Filename>..\Components\Device\Src\Image_Transmission.c</Filename>
+          <ExecCommand></ExecCommand>
+          <Expression>\\COD_H7_Template\../Components/Device/Src/Image_Transmission.c\29</Expression>
+        </Bp>
       </Breakpoint>
       <WatchWindow1>
         <Ww>
@@ -288,6 +336,21 @@
           <count>14</count>
           <WinNumber>1</WinNumber>
           <ItemText>fdcan1_rx_callback_count,0x0A</ItemText>
+        </Ww>
+        <Ww>
+          <count>15</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>Buff[0]</ItemText>
+        </Ww>
+        <Ww>
+          <count>16</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>Image_Trans_MultiRx_Buff</ItemText>
+        </Ww>
+        <Ww>
+          <count>17</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>Size,0x0A</ItemText>
         </Ww>
       </WatchWindow1>
       <MemoryWindow1>

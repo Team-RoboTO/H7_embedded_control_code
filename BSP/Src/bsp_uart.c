@@ -125,7 +125,7 @@ static void USER_USART5_RxHandler(UART_HandleTypeDef *huart,uint16_t Size){
 					((DMA_Stream_TypeDef  *)huart->hdmarx->Instance)->CR |= DMA_SxCR_CT;
 					
 				  /* Reset the receive count */
-					__HAL_DMA_SET_COUNTER(huart->hdmarx,SBUS_RX_BUF_NUM*2);
+					__HAL_DMA_SET_COUNTER(huart->hdmarx,SBUS_RX_BUF_NUM);
 
 				  /* Juge whether size is equal to the length of the received data */
 					if(Size == SBUS_RX_BUF_NUM)
@@ -146,7 +146,7 @@ static void USER_USART5_RxHandler(UART_HandleTypeDef *huart,uint16_t Size){
 					((DMA_Stream_TypeDef  *)huart->hdmarx->Instance)->CR &= ~(DMA_SxCR_CT);
 				
 					/* Reset the receive count */
-					__HAL_DMA_SET_COUNTER(huart->hdmarx,SBUS_RX_BUF_NUM*2);
+					__HAL_DMA_SET_COUNTER(huart->hdmarx,SBUS_RX_BUF_NUM);
 
 					if(Size == SBUS_RX_BUF_NUM)
 					{
@@ -185,7 +185,7 @@ static void USER_USART1_RxHandler(UART_HandleTypeDef *huart,uint16_t Size){
 					{
 					
 						/* Memory 0 data update to remote_ctrl*/
-						Image_Transmission_Info_Update(Image_Trans_MultiRx_Buff[0]);
+						Image_Transmission_Info_Update(Image_Trans_MultiRx_Buff[1]);
 					
 					}
 					
