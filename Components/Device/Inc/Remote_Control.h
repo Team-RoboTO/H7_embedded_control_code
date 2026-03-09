@@ -28,16 +28,17 @@
 /**
  * @brief Length of SBUS received data
  */
-#define SBUS_RX_BUF_NUM		21u
+#define SBUS_RX_BUF_NUM		18u
+
 /**
- * @brief offset of remote control channel data
+ * @brief Cache-line aligned buffer size (must be >= SBUS_RX_BUF_NUM, multiple of 32)
  */
-#define RC_CH_VALUE_OFFSET		1024U
+#define SBUS_RX_BUF_ALIGNED    32u
 
 /**
  * @brief offset of remote control channel data
  */
-#define MAX_RC_TILT		660U
+#define RC_CH_VALUE_OFFSET		1024U
 
 /**
  * @brief judgement keyboard set short time
@@ -116,19 +117,11 @@ typedef  struct
 	/**
 	 * @brief structure that contains the information for the lever/Switch.
 	 */
-struct
-{
-    int16_t right_h;     // Channel 0: right stick horizontal
-    int16_t right_v;     // Channel 1: right stick vertical
-    int16_t left_v;      // Channel 2: left stick vertical
-    int16_t left_h;      // Channel 3: left stick horizontal
-    uint8_t mode_switch; // 2-bit: C=0, N=1, S=2
-    uint8_t pause;       // 1-bit
-    uint8_t custom_l;    // 1-bit
-    uint8_t custom_r;    // 1-bit
-    int16_t dial;        // 11-bit dial position
-    uint8_t trigger;     // 1-bit
-} rc;
+	struct
+	{
+		int16_t ch[5];
+		uint8_t s[2];
+	} rc;
 	
 	/**
 	 * @brief structure that contains the information for the mouse.
@@ -179,9 +172,9 @@ struct
  */
 extern Remote_Info_Typedef remote_ctrl;
 /**
- * @brief remote control usart RxDMA MultiBuffer
+ * @brief remote control usart RxDMA MultiBuffer (cache-line aligned)
  */
-extern uint8_t SBUS_MultiRx_Buf[2][SBUS_RX_BUF_NUM];
+extern uint8_t SBUS_MultiRx_Buf[2][SBUS_RX_BUF_ALIGNED];
 
 /* Mouse Exported defines -----------------------------------------------------*/
 #define MOUSE_X_MOVE_SPEED    (remote_ctrl.mouse.x )
@@ -207,18 +200,6 @@ extern uint8_t SBUS_MultiRx_Buf[2][SBUS_RX_BUF_NUM];
 #define KeyBoard_C            (remote_ctrl.key.set.C)
 #define KeyBoard_V            (remote_ctrl.key.set.V)
 #define KeyBoard_B            (remote_ctrl.key.set.B)
-
-/* RC data --------------------------------------------------*/
-#define RC_RIGHT_H      (remote_ctrl.rc.right_h)
-#define RC_RIGHT_V      (remote_ctrl.rc.right_v)
-#define RC_LEFT_V       (remote_ctrl.rc.left_v)
-#define RC_LEFT_H       (remote_ctrl.rc.left_h)
-#define RC_MODE_SWITCH  (remote_ctrl.rc.mode_switch)
-#define RC_PAUSE        (remote_ctrl.rc.pause)
-#define RC_CUSTOM_LEFT  (remote_ctrl.rc.custom_l)
-#define RC_CUSTOM_RIGHT (remote_ctrl.rc.custom_r)
-#define RC_DIAL         (remote_ctrl.rc.dial)
-#define RC_TRIGGER      (remote_ctrl.rc.trigger)
 
 /* Exported functions prototypes ---------------------------------------------*/
 /**
@@ -249,5 +230,3 @@ extern bool Mouse_Pressed_Right(void);
 extern bool Mouse_Pressed_Left(void);
 
 #endif //REMOTE_CONTROL_H
-
-

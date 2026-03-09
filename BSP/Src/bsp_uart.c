@@ -18,8 +18,6 @@
 #include "Referee_System.h"
 #include "Image_Transmission.h"
 
-static void USER_USART5_RxHandler(UART_HandleTypeDef *huart,uint16_t Size);
-
 static void USER_USART2_RxHandler(UART_HandleTypeDef *huart,uint16_t Size);
 
 static void USER_USART3_RxHandler(UART_HandleTypeDef *huart,uint16_t Size);
@@ -55,7 +53,7 @@ void BSP_USART_Init(void){
 	
 	#endif
 	
-	//USART3 Init
+	//UART5 Init (SBUS remote control)
 	 USART_RxDMA_MultiBuffer_Init(&huart5,(uint32_t *)SBUS_MultiRx_Buf[0],(uint32_t *)SBUS_MultiRx_Buf[1],SBUS_RX_BUF_NUM);
 
 }
@@ -107,67 +105,12 @@ static void USART_RxDMA_MultiBuffer_Init(UART_HandleTypeDef *huart, uint32_t *Ds
 
 
 /**
-  * @brief  USER USART5 Reception Event Callback.(SBUS remote_ctrl)
-  * @param  huart UART handle
-  * @param  Size  Number of data available in application reception buffer (indicates a position in
-  *               reception buffer until which, data are available)
-  * @retval None
-  */
-static void USER_USART5_RxHandler(UART_HandleTypeDef *huart,uint16_t Size){
-
-    /* Current memory buffer used is Memory 0 */
-  if(((((DMA_Stream_TypeDef  *)huart->hdmarx->Instance)->CR) & DMA_SxCR_CT ) == RESET){
-		
-					/* Disable DMA */
-					__HAL_DMA_DISABLE(huart->hdmarx);
-          
-				  /* Switch Memory 0 to Memory 1*/
-					((DMA_Stream_TypeDef  *)huart->hdmarx->Instance)->CR |= DMA_SxCR_CT;
-					
-				  /* Reset the receive count */
-					__HAL_DMA_SET_COUNTER(huart->hdmarx,SBUS_RX_BUF_NUM*2);
-
-				  /* Juge whether size is equal to the length of the received data */
-					if(Size == SBUS_RX_BUF_NUM)
-					{
-					
-						/* Memory 0 data update to remote_ctrl*/
-						SBUS_TO_RC(SBUS_MultiRx_Buf[0],&remote_ctrl);
-					
-					}
-					
-			}
-			/* Current memory buffer used is Memory 1 */
-			else{
-					/* Disable DMA */
-					__HAL_DMA_DISABLE(huart->hdmarx);
-				 
-				  /* Switch Memory 1 to Memory 0*/
-					((DMA_Stream_TypeDef  *)huart->hdmarx->Instance)->CR &= ~(DMA_SxCR_CT);
-				
-					/* Reset the receive count */
-					__HAL_DMA_SET_COUNTER(huart->hdmarx,SBUS_RX_BUF_NUM*2);
-
-					if(Size == SBUS_RX_BUF_NUM)
-					{
-						/* Memory 1 to data update to remote_ctrl*/
-						SBUS_TO_RC(SBUS_MultiRx_Buf[1],&remote_ctrl);
-					}
-					
-			}
-			
-}
-
-/**
   * @brief  USER USART1 Reception Event Callback.(Referee_System)
   * @param  huart UART handle
   * @param  Size  Number of data available in application reception buffer (indicates a position in
   *               reception buffer until which, data are available)
   * @retval None
   */
-
-
-
 static void USER_USART1_RxHandler(UART_HandleTypeDef *huart,uint16_t Size){
 
 #if USART1_RX_Switch
@@ -185,7 +128,7 @@ static void USER_USART1_RxHandler(UART_HandleTypeDef *huart,uint16_t Size){
 					{
 					
 						/* Memory 0 data update to remote_ctrl*/
-						Image_Transmission_Info_Update(Image_Trans_MultiRx_Buff[0]);
+						Image_Transmission_Info_Update(Image_Trans_MultiRx_Buff[1]);
 					
 					}
 					
@@ -290,11 +233,7 @@ static void USER_USART2_RxHandler(UART_HandleTypeDef *huart,uint16_t Size){
   */
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart,uint16_t Size)
 {
-	 if(huart == &huart5){
-	
-		  USER_USART5_RxHandler(huart,Size);
-			
-	 } 
+	 /* huart5 (SBUS) is now handled directly in UART5_IRQHandler */
 	 
 	 if(huart == &huart1){
 	 
@@ -345,4 +284,3 @@ void USART_Vofa_Justfloat_Transmit(float SendValue1,float SendValue2,float SendV
 	
 
 }
-

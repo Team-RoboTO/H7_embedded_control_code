@@ -428,10 +428,69 @@ void DMA1_Stream7_IRQHandler(void)
 
 /**
   * @brief This function handles UART5 global interrupt.
+  *        SBUS remote control IDLE line detection is handled directly here,
+  *        bypassing HAL state machine to avoid RxState desync with manual DMA double-buffering.
   */
 void UART5_IRQHandler(void)
 {
   /* USER CODE BEGIN UART5_IRQn 0 */
+
+  if (__HAL_UART_GET_FLAG(&huart5, UART_FLAG_IDLE))
+  {
+      /* Clear IDLE flag by reading SR then DR (or use clear flag macro) */
+      __HAL_UART_CLEAR_IDLEFLAG(&huart5);
+      
+      /* Check if IDLE interrupt is actually enabled */
+      if ((huart5.Instance->CR1 & USART_CR1_IDLEIE) != 0U)
+      {
+          /* Calculate received size */
+          uint16_t remain = __HAL_DMA_GET_COUNTER(huart5.hdmarx);
+          uint16_t size = SBUS_RX_BUF_NUM * 2 - remain;
+
+          /* Disable DMA and WAIT for it to actually stop */
+          __HAL_DMA_DISABLE(huart5.hdmarx);
+          while (((DMA_Stream_TypeDef *)huart5.hdmarx->Instance)->CR & DMA_SxCR_EN);
+
+          /* Current memory buffer used is Memory 0 */
+          if ((((DMA_Stream_TypeDef *)huart5.hdmarx->Instance)->CR & DMA_SxCR_CT) == RESET)
+          {
+              /* Switch to Memory 1 */
+              ((DMA_Stream_TypeDef *)huart5.hdmarx->Instance)->CR |= DMA_SxCR_CT;
+
+              /* Reset counter */
+              ((DMA_Stream_TypeDef *)huart5.hdmarx->Instance)->NDTR = SBUS_RX_BUF_NUM * 2;
+
+              /* Re-enable DMA before processing (so next frame can start arriving) */
+              __HAL_DMA_ENABLE(huart5.hdmarx);
+
+              if (size == SBUS_RX_BUF_NUM)
+              {
+                  SCB_InvalidateDCache_by_Addr((uint32_t *)SBUS_MultiRx_Buf[0], 32);
+                  SBUS_TO_RC(SBUS_MultiRx_Buf[0], &remote_ctrl);
+              }
+          }
+          /* Current memory buffer used is Memory 1 */
+          else
+          {
+              /* Switch to Memory 0 */
+              ((DMA_Stream_TypeDef *)huart5.hdmarx->Instance)->CR &= ~(DMA_SxCR_CT);
+
+              /* Reset counter */
+              ((DMA_Stream_TypeDef *)huart5.hdmarx->Instance)->NDTR = SBUS_RX_BUF_NUM * 2;
+
+              /* Re-enable DMA before processing */
+              __HAL_DMA_ENABLE(huart5.hdmarx);
+
+              if (size == SBUS_RX_BUF_NUM)
+              {
+                  SCB_InvalidateDCache_by_Addr((uint32_t *)SBUS_MultiRx_Buf[1], 32);
+                  SBUS_TO_RC(SBUS_MultiRx_Buf[1], &remote_ctrl);
+              }
+          }
+
+          return;
+      }
+  }
 
   /* USER CODE END UART5_IRQn 0 */
   HAL_UART_IRQHandler(&huart5);
