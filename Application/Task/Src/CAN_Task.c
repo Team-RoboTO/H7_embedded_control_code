@@ -54,21 +54,21 @@ float velocity_desired = 5;
   CAN_Task_SysTick = osKernelSysTick();
 		
 	
-	 // CAN-FD	 float Postion, float Velocity, float KP, float KD, float Torque
-	 MIT_motor_CAN_TxMessage(&FDCAN2_TxFrame,&chassis_motor[0],0,velocity_desired,0,1,0);
-	 MIT_motor_CAN_TxMessage(&FDCAN2_TxFrame,&chassis_motor[1],0,5,0,1,0);
-   MIT_motor_CAN_TxMessage(&FDCAN2_TxFrame,&chassis_motor[2],0,0,0,0,0);	
-   MIT_motor_CAN_TxMessage(&FDCAN2_TxFrame,&chassis_motor[3],0,0,0,0,0);	
-		FDCAN1_TxFrame.Header.Identifier = 0x200;
-		//Control_Info.SendValue[0] = 2000;
-    FDCAN1_TxFrame.Data[0] = 0x07;
-		FDCAN1_TxFrame.Data[1] = 0xD0;
-		FDCAN1_TxFrame.Data[2] = (uint8_t)(Control_Info.SendValue[1] >> 8);
-		FDCAN1_TxFrame.Data[3] = (uint8_t)(Control_Info.SendValue[1]);
-		FDCAN1_TxFrame.Data[4] = (uint8_t)(Control_Info.SendValue[2] >> 8); // motor 3
-		FDCAN1_TxFrame.Data[5] = (uint8_t)(Control_Info.SendValue[2]);
-		FDCAN1_TxFrame.Data[6] = (uint8_t)(Control_Info.SendValue[3] >> 8); // motor 4
-		FDCAN1_TxFrame.Data[7] = (uint8_t)(Control_Info.SendValue[3]);
+//	 // CAN-FD	 float Postion, float Velocity, float KP, float KD, float Torque
+//	 MIT_motor_CAN_TxMessage(&FDCAN2_TxFrame,&chassis_motor[0],0,velocity_desired,0,1,0);
+//	 MIT_motor_CAN_TxMessage(&FDCAN2_TxFrame,&chassis_motor[1],0,5,0,1,0);
+//   MIT_motor_CAN_TxMessage(&FDCAN2_TxFrame,&chassis_motor[2],0,0,0,0,0);	
+//   MIT_motor_CAN_TxMessage(&FDCAN2_TxFrame,&chassis_motor[3],0,0,0,0,0);	
+//		FDCAN1_TxFrame.Header.Identifier = 0x200;
+//		//Control_Info.SendValue[0] = 2000;
+//    FDCAN1_TxFrame.Data[0] = 0x07;
+//		FDCAN1_TxFrame.Data[1] = 0xD0;
+//		FDCAN1_TxFrame.Data[2] = (uint8_t)(Control_Info.SendValue[1] >> 8);
+//		FDCAN1_TxFrame.Data[3] = (uint8_t)(Control_Info.SendValue[1]);
+//		FDCAN1_TxFrame.Data[4] = (uint8_t)(Control_Info.SendValue[2] >> 8); // motor 3
+//		FDCAN1_TxFrame.Data[5] = (uint8_t)(Control_Info.SendValue[2]);
+//		FDCAN1_TxFrame.Data[6] = (uint8_t)(Control_Info.SendValue[3] >> 8); // motor 4
+//		FDCAN1_TxFrame.Data[7] = (uint8_t)(Control_Info.SendValue[3]);
 
    USER_FDCAN_AddMessageToTxFifoQ(&FDCAN1_TxFrame);
 		

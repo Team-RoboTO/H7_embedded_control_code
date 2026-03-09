@@ -73,9 +73,9 @@ void robot_states_update_state_machine() {
 
 uint8_t _state_machine_remote_commands() {
     
-    switch(RC_MODE_SWITCH) {
+    switch(remote_ctrl.rc.s[0]) {
         
-        case 0:
+        case 2:
             // Stop commands
             return COMMANDS_STOP;
 				
@@ -83,7 +83,7 @@ uint8_t _state_machine_remote_commands() {
             // Get commands from remote controller
             return COMMANDS_REMOTE_CONTROLLER;
         
-        case 2:
+        case 3:
             // Get commands from keyboard and mouse
             return COMMANDS_KEYBOARD_MOUSE;
         
@@ -111,15 +111,19 @@ uint8_t _state_machine_chassis() {
 
 uint8_t _state_machine_chassis_remote_controller() {
     
-    switch(RC_TRIGGER) {
+    switch(remote_ctrl.rc.s[1]) {
         
-        case 0:
+        case 1:
             // Chassis-follow-gimbal
             return CHASSIS_FOLLOW_GIMBAL;
         
-        case 1:
+        case 3:
             // Contiguous rotation
             return CHASSIS_CONTIGUOUS_ROTATION;
+				
+				case 2:
+            // Chassis-follow-gimbal
+            return CHASSIS_FOLLOW_GIMBAL;
         
         default:
             return state_chassis;
@@ -190,7 +194,7 @@ uint8_t _state_machine_shoot_wheels() {
 
 uint8_t _state_machine_shoot_wheels_remote_controller() {
     
-    if (abs(RC_DIAL) >= shoot_wheels_spin.threshold_rc_wheel_released) {
+    if (abs(remote_ctrl.rc.ch[4]) >= shoot_wheels_spin.threshold_rc_wheel_released) {
         // Activate/Continue shooting
         shoot_wheels_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3;
         return SHOOT_WHEELS_SPIN;
@@ -246,12 +250,12 @@ uint8_t _state_machine_rev_remote_controller() {
     if (HAL_GetTick() - time_rev_locked > 0.3*1e3)
         return REV_UNSTUCK;
     
-    if (RC_DIAL >= 300) {
+    if (remote_ctrl.rc.ch[4] >= 300) {
         // Multiple shooting
         rev_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3;
         return REV_MULTIPLE_SHOOTING;
     }
-    else if (RC_DIAL <= -300) {
+    else if (remote_ctrl.rc.ch[4] <= -300) {
         // Single shooting
         rev_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3;
         return REV_SINGLE_SHOOTING;

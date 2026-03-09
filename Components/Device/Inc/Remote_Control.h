@@ -24,6 +24,8 @@
 #include "math.h"
 #include <stdio.h>
 #include <string.h>
+
+#define MAX_RC_TILT 660
 /* Exported defines -----------------------------------------------------------*/
 /**
  * @brief Length of SBUS received data

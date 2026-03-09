@@ -53,7 +53,7 @@ static float pid_rev_vel_params[PID_PARAMETER_NUM] = {7.0f,  0.0f, 0.0f, 0.0f, 0
  /*   CONTROL VARIABLES   */
 /*************************/
 
-float r_shoot_wheels_ang_vel = 200;  // [rad/s]
+float r_shoot_wheels_ang_vel = 400;  // [rad/s]
 uint16_t ciao = 0;
 static uint8_t need_to_set_rev_ang_pos_reference = true;
 static float rev_shooting_frequency = 20;  // Bullets per second [Hz]
@@ -74,7 +74,7 @@ static float Kp_pid_rev_pos_triple_shooting = 9.0f;
 void control_loop_shooting(void)
 {
     _control_loop_shoot_wheels();
-    //_control_loop_rev();
+    _control_loop_rev();
 
     is_first_iter = false;
 
@@ -122,8 +122,8 @@ void _control_loop_shoot_wheels(void)
     }
 
     // Set velocity setpoints based on state machine
-    switch (ciao) {
-        case 1:
+    switch (state_shoot_wheels) {
+        case SHOOT_WHEELS_SPIN:
             shoot_wheels_and_rev.r_x[0] = +r_shoot_wheels_ang_vel;
             shoot_wheels_and_rev.r_x[1] = -r_shoot_wheels_ang_vel;
             break;
@@ -134,15 +134,15 @@ void _control_loop_shoot_wheels(void)
             break;
     }
 
-//    // Hard override on STOP command
-//    if (state_remote_commands == COMMANDS_STOP) {
-//        shoot_wheels_and_rev.r_x[0] = 0;
-//        shoot_wheels_and_rev.r_x[1] = 0;
+    // Hard override on STOP command
+    if (state_remote_commands == COMMANDS_STOP) {
+        shoot_wheels_and_rev.r_x[0] = 0;
+        shoot_wheels_and_rev.r_x[1] = 0;
 
-//        // Reset PIDs to avoid windup after stop
-//        pid_shoot_wheel_left.PID_Calc_Clear(&pid_shoot_wheel_left);
-//        pid_shoot_wheel_right.PID_Calc_Clear(&pid_shoot_wheel_right);
-//    }
+        // Reset PIDs to avoid windup after stop
+        pid_shoot_wheel_left.PID_Calc_Clear(&pid_shoot_wheel_left);
+        pid_shoot_wheel_right.PID_Calc_Clear(&pid_shoot_wheel_right);
+    }
 
     // PID_Calculate(pid, Target, Measure) handles error/integral/derivative internally
     shoot_wheels_and_rev.u[0] = PID_Calculate(&pid_shoot_wheel_left,
@@ -183,8 +183,8 @@ void _control_loop_rev(void)
     for (uint8_t i = 2; i < shoot_wheels_and_rev.p; i++) {
         shoot_wheels_and_rev.x_prev[i] = shoot_wheels_and_rev.x[i];
     }
-    shoot_wheels_and_rev.x[2] = (float) 0; //M2006_rev.cumulative_ang_pos_rad;      // REV angular position [rad]
-    shoot_wheels_and_rev.x[3] = (float) shooting_motor[2].Data.Velocity;       // REV angular velocity [rad/s]
+    shoot_wheels_and_rev.x[2] = (float) shooting_motor[2].Data.Angle_sum;      // REV angular position [rad]
+    shoot_wheels_and_rev.x[3] = (float) shooting_motor[2].Data.Velocity*2*pi/60;       // REV angular velocity [rad/s]
 
     // Update reference history
     for (uint8_t i = 2; i < shoot_wheels_and_rev.n; i++) {
@@ -275,11 +275,6 @@ void _control_loop_rev(void)
     shoot_wheels_and_rev.u[2] = PID_Calculate(&pid_rev_vel,
                                                shoot_wheels_and_rev.r_x[3],
                                                shoot_wheels_and_rev.x[3]);
-
-    // Apply overall gain, ADC conversion and output saturation
-    shoot_wheels_and_rev.u[2] *= gain_overall_rev;
-    shoot_wheels_and_rev.u[2] *= M2006_ADC_CONVERTION;
-    saturate(&shoot_wheels_and_rev.u[2], 10000);
 
 #if !IS_REV_ENABLED
     shoot_wheels_and_rev.u[2] = 0;

@@ -96,8 +96,8 @@ void control_loop_chassis() {
         
             case COMMANDS_REMOTE_CONTROLLER:
                 // Update commands from remote controller
-                remote_commands_bwd_fwd     = RC_LEFT_V;
-                remote_commands_left_right  = RC_LEFT_H;
+                remote_commands_bwd_fwd     = remote_ctrl.rc.ch[3];
+                remote_commands_left_right  = remote_ctrl.rc.ch[2];
                 break;
             case COMMANDS_KEYBOARD_MOUSE:
                 // Update commands from keyboard
@@ -201,7 +201,7 @@ void control_loop_chassis() {
 			float abs_val = fabsf(chassis.r_x[i]);
 			if (abs_val > max_reference) max_reference = abs_val;
     }
-		if (max_reference > 44) {
+		if (max_reference > (float)(max_r_ang_vel_wheels)) {
 			for (uint8_t i = 0; i < chassis.n; i++) chassis.r_x[i] *= (44/max_reference);
 		}
 
@@ -214,37 +214,10 @@ void control_loop_chassis() {
 	
     // Send control signals
   #if IS_CHASSIS_ENABLED
-    CAN_Tx_MIT_Control(
-      cm_p_des, 
-      chassis.r_x[0], 
-      cm_kp, 
-      cm_kd, 
-      cm_t_ff,
-      ID_w0);
-          
-    CAN_Tx_MIT_Control(
-      cm_p_des, 
-      chassis.r_x[1], 
-      cm_kp, 
-      cm_kd, 
-      cm_t_ff,
-      ID_w1);	
-                  
-    CAN_Tx_MIT_Control(
-      cm_p_des, 
-      chassis.r_x[2], 
-      cm_kp, 
-      cm_kd, 
-      cm_t_ff,
-      ID_w2);
-            
-    CAN_Tx_MIT_Control(
-      cm_p_des, 
-      chassis.r_x[3], 
-      cm_kp, 
-      cm_kd, 
-      cm_t_ff,
-      ID_w3);
+		MIT_motor_CAN_TxMessage(&FDCAN1_TxFrame,&chassis_motor[0],0,chassis.r_x[0],0,0.2,0);
+		MIT_motor_CAN_TxMessage(&FDCAN1_TxFrame,&chassis_motor[1],0,chassis.r_x[1],0,0.2,0);
+		MIT_motor_CAN_TxMessage(&FDCAN1_TxFrame,&chassis_motor[2],0,chassis.r_x[2],0,0.2,0);	
+		MIT_motor_CAN_TxMessage(&FDCAN1_TxFrame,&chassis_motor[3],0,chassis.r_x[3],0,0.2,0);	
 }
 #endif
-}
+

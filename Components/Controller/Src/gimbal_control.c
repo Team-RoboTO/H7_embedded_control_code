@@ -159,8 +159,8 @@ void control_loop_gimbal() {
             switch (state_remote_commands) {
 
                 case COMMANDS_REMOTE_CONTROLLER:
-                    remote_commands_yaw   = -RC_RIGHT_H;
-                    remote_commands_pitch = +RC_RIGHT_V;
+                    remote_commands_yaw   = -remote_ctrl.rc.ch[0];
+                    remote_commands_pitch = +remote_ctrl.rc.ch[1];
                     if (remote_commands_yaw != 0)
                         gimbal.r_x[0] = gimbal.x[0] + (remote_commands_yaw / MAX_RC_TILT) * 45 * DEG_TO_RAD;
                     if (remote_commands_pitch != 0)
