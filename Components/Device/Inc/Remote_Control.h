@@ -29,6 +29,12 @@
  * @brief Length of SBUS received data
  */
 #define SBUS_RX_BUF_NUM		18u
+
+/**
+ * @brief Cache-line aligned buffer size (must be >= SBUS_RX_BUF_NUM, multiple of 32)
+ */
+#define SBUS_RX_BUF_ALIGNED    32u
+
 /**
  * @brief offset of remote control channel data
  */
@@ -166,9 +172,9 @@ typedef  struct
  */
 extern Remote_Info_Typedef remote_ctrl;
 /**
- * @brief remote control usart RxDMA MultiBuffer
+ * @brief remote control usart RxDMA MultiBuffer (cache-line aligned)
  */
-extern uint8_t SBUS_MultiRx_Buf[2][SBUS_RX_BUF_NUM];
+extern uint8_t SBUS_MultiRx_Buf[2][SBUS_RX_BUF_ALIGNED];
 
 /* Mouse Exported defines -----------------------------------------------------*/
 #define MOUSE_X_MOVE_SPEED    (remote_ctrl.mouse.x )
@@ -224,5 +230,3 @@ extern bool Mouse_Pressed_Right(void);
 extern bool Mouse_Pressed_Left(void);
 
 #endif //REMOTE_CONTROL_H
-
-

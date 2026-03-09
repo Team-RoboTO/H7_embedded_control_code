@@ -41,7 +41,7 @@ void Detect_Task(void const * argument)
   for(;;)
   {
 
-    Remote_Message_Moniter(&remote_ctrl); 
+    //Remote_Message_Moniter(&remote_ctrl); 
     osDelay(1);
   }
   /* USER CODE END Detect_Task */

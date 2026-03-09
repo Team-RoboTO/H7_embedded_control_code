@@ -1,6 +1,3 @@
-
-
-
 /* Includes ------------------------------------------------------------------*/
 #include "Remote_Control.h"
 #include "ramp.h"
@@ -15,9 +12,9 @@
 };
 
 /**
- * @brief remote control usart RxDMA MultiBuffer
+ * @brief remote control usart RxDMA MultiBuffer (cache-line aligned, padded to 32 bytes)
  */
-__attribute__((section (".AXI_SRAM"))) uint8_t SBUS_MultiRx_Buf[2][SBUS_RX_BUF_NUM];
+__attribute__((section (".AXI_SRAM"), aligned(32))) uint8_t SBUS_MultiRx_Buf[2][SBUS_RX_BUF_ALIGNED];
  
 /* Private variables ---------------------------------------------------------*/
 /**
@@ -106,5 +103,3 @@ void Remote_Message_Moniter(Remote_Info_Typedef  *remote_ctrl)
   }
 }
 //------------------------------------------------------------------------------
-
-
