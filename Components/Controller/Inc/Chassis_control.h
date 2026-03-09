@@ -9,11 +9,12 @@
  /*   CONTROLLED SYSTEM   */
 /*************************/
 
-extern controlled_system_t chassis;
+extern controlled_system_MIT_t chassis;
 
   /********************/
  /*   CONTROL LOOP   */
 /********************/
+#define GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD 0;
 
 void control_loop_chassis(void);
 

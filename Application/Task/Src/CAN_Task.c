@@ -36,13 +36,17 @@ float velocity_desired = 5;
 
  
   TickType_t CAN_Task_SysTick = 0;
-	DM_Motor_Command(&FDCAN2_TxFrame,&DM_8009_Motor[0],Motor_Enable);
+	MIT_motor_Command(&FDCAN2_TxFrame,&chassis_motor[0],Motor_Enable);
   osDelay(30);
-	DM_Motor_Command(&FDCAN2_TxFrame,&DM_8009_Motor[1],Motor_Enable);
+	MIT_motor_Command(&FDCAN2_TxFrame,&chassis_motor[1],Motor_Enable);
   osDelay(30);
-  DM_Motor_Command(&FDCAN2_TxFrame,&DM_8009_Motor[2],Motor_Enable);
+  MIT_motor_Command(&FDCAN2_TxFrame,&chassis_motor[2],Motor_Enable);
   osDelay(30);
-	DM_Motor_Command(&FDCAN2_TxFrame,&DM_8009_Motor[3],Motor_Enable);
+	MIT_motor_Command(&FDCAN2_TxFrame,&chassis_motor[3],Motor_Enable);
+  osDelay(30);
+	MIT_motor_Command(&FDCAN2_TxFrame,&gimbal_motor[0],Motor_Enable);
+  osDelay(30);
+	MIT_motor_Command(&FDCAN2_TxFrame,&gimbal_motor[1],Motor_Enable);
   osDelay(30);
 	for(;;)
   {
@@ -51,10 +55,10 @@ float velocity_desired = 5;
 		
 	
 	 // CAN-FD	 float Postion, float Velocity, float KP, float KD, float Torque
-	 DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame,&DM_8009_Motor[0],0,velocity_desired,0,1,0);
-	 DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame,&DM_8009_Motor[1],0,5,0,1,0);
-   DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame,&DM_8009_Motor[2],0,0,0,0,0);	
-   DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame,&DM_8009_Motor[3],0,0,0,0,0);	
+	 MIT_motor_CAN_TxMessage(&FDCAN2_TxFrame,&chassis_motor[0],0,velocity_desired,0,1,0);
+	 MIT_motor_CAN_TxMessage(&FDCAN2_TxFrame,&chassis_motor[1],0,5,0,1,0);
+   MIT_motor_CAN_TxMessage(&FDCAN2_TxFrame,&chassis_motor[2],0,0,0,0,0);	
+   MIT_motor_CAN_TxMessage(&FDCAN2_TxFrame,&chassis_motor[3],0,0,0,0,0);	
 		FDCAN1_TxFrame.Header.Identifier = 0x200;
 		//Control_Info.SendValue[0] = 2000;
     FDCAN1_TxFrame.Data[0] = 0x07;
@@ -70,7 +74,8 @@ float velocity_desired = 5;
 		
 	 if(CAN_Task_SysTick % 2 == 0){
 	 
-	 //500Hz发送 请保证所有任务osDelay(1)
+	  // this block only executes every 2 ticks
+    // 1000Hz / 2 = 500Hz
 	 
 	 }	
 		osDelay(1);

@@ -24,6 +24,9 @@
 #include "bsp_can.h"
 #include "stdbool.h"
 
+#define M2006_ADC_CONVERTION 1000;
+#define GM6020_ADC_CONVERTION 1811.943f // Computed experimentally
+#define M3508_ADC_CONVERTION 819.2f // 819.2 = 16384/20A
 /**
  * @brief typedef enum that contains the type of DJI Motor Device.
  */
@@ -35,24 +38,24 @@ typedef enum{
 }DJI_Motor_Type_e;
 
 /**
- * @brief  typedef enum that control mode the type of DM_Motor.
+ * @brief  typedef enum that control mode the type of MIT_motor.
  */
 typedef enum
 {
   MIT,
 	POSITION_VELOCITY,
 	VELOCITY,
-}DM_Motor_Control_Mode_Type_e;
+}MIT_motor_Control_Mode_Type_e;
 
 /**
- * @brief  typedef enum that CMD of DM_Motor .
+ * @brief  typedef enum that CMD of MIT_motor .
  */
 typedef enum{
   Motor_Enable,
   Motor_Disable,
   Motor_Save_Zero_Position,
-  DM_Motor_CMD_Type_Num,
-}DM_Motor_CMD_Type_e;
+  MIT_motor_CMD_Type_Num,
+}MIT_motor_CMD_Type_e;
 
 /**
  * @brief typedef structure that contains the information for the motor FDCAN transmit and recieved .
@@ -68,46 +71,49 @@ typedef struct
  * @brief typedef structure that contains the data for the Motor Device.
  */
 typedef struct 
-{
-  bool Initlized;   /*!< init flag */
-  int16_t  Current;   /*!< Motor electric current */
-  int16_t  Velocity;    /*!< Motor rotate velocity (RPM)*/
-  int16_t  Encoder;   /*!< Motor encoder angle */
-  int16_t  Last_Encoder;   /*!< previous Motor encoder angle */
-  float    Angle;   /*!< Motor angle in degree */
-  uint8_t  Temperature;   /*!< Motor Temperature */
+{ 
+  bool Initlized;
+  int16_t  Current;
+  int16_t  Velocity;
+  int16_t  Encoder;
+  int16_t  Last_Encoder;
+  float    Angle;          /*!< Motor angle in degree (-180 to 180) */
+  float    Angle_sum;      /*!< Motor cumulative angle in degree (unbounded) */ // ? aggiungi
+  uint8_t  Temperature;
 	
 }DJI_Motor_Data_Typedef;
 
+
 /**
- * @brief typedef structure that contains the param range for the DM_Motor .
+ * @brief typedef structure that contains the param range for the MIT_motor .
  */
 typedef struct 
 {
   float  P_MAX;
 	float  V_MAX;
 	float  T_MAX;
-}DM_Motor_Param_Range_Typedef;
+}MIT_motor_Param_Range_Typedef;
 
 /**
  * @brief typedef structure that contains the data for the DJI Motor Device.
  */
 typedef struct 
 {
+  bool Initlized;
+  uint8_t  State;
+  uint16_t  P_int;
+  uint16_t  V_int;
+  uint16_t  T_int;
+  float  Position;
+  float  Last_Position;   /*!< Previous motor position (rad) */  
+  float  Velocity;
+  float  Torque;
+  float  Temperature_MOS;
+  float  Temperature_Rotor;
+  float  Angle;
+  float  Angle_sum;       /*!< Cumulative motor angle (rad, unbounded) */  
 	
-  bool Initlized;    /*!< init flag */
-  uint8_t  State; 	 /*!< Motor Message */
-  uint16_t  P_int;   /*!< Motor Positon  uint16 */
-	uint16_t  V_int;   /*!< Motor Velocity uint16 */
-	uint16_t  T_int;   /*!< Motor Torque   uint16 */
-	float  Position;   /*!< Motor Positon  */
-  float  Velocity;   /*!< Motor Velocity */
-  float  Torque;     /*!< Motor Torque   */
-  float  Temperature_MOS;   /*!< Motor Temperature_MOS   */
-	float  Temperature_Rotor; /*!< Motor Temperature_Rotor */
-  float  Angle;	
-	
-}DM_Motor_Data_Typedef;
+}MIT_motor_Data_Typedef;
 
 /**
  * @brief typedef structure that contains the information for the Damiao Motor Device.
@@ -125,12 +131,12 @@ typedef struct
 typedef struct
 {
   
-	DM_Motor_Control_Mode_Type_e	Control_Mode;
+	MIT_motor_Control_Mode_Type_e	Control_Mode;
   Motor_CANFrameInfo_typedef FDCANFrame;   
-	DM_Motor_Param_Range_Typedef Param_Range; 
-	DM_Motor_Data_Typedef Data;   
+	MIT_motor_Param_Range_Typedef Param_Range; 
+	MIT_motor_Data_Typedef Data;   
 
-}DM_Motor_Info_Typedef;
+}MIT_motor_Info_Typedef;
 
 /**
  * @brief typedef structure that contains the control information for the DM Motor Device .
@@ -143,21 +149,23 @@ typedef struct
 	float KD;
 	float Torque;
 	float Angle;
-}DM_Motor_Contorl_Info_Typedef;
+}MIT_motor_Contorl_Info_Typedef;
 
 /* Externs ------------------------------------------------------------------*/
-extern DJI_Motor_Info_Typedef DJI_Yaw_Motor,Chassis_Motor[4];
+extern DJI_Motor_Info_Typedef shooting_motor[3];
 
-extern DM_Motor_Info_Typedef DM_8009_Motor[4];
+extern MIT_motor_Info_Typedef chassis_motor[4], gimbal_motor[2];
 
-extern DM_Motor_Contorl_Info_Typedef DM_Motor_Contorl_Info[4];
+extern MIT_motor_Contorl_Info_Typedef chassis_motor_Contorl_Info[4];
+
+extern MIT_motor_Contorl_Info_Typedef gimbal_motor_Contorl_Info[2];
 
 extern void DJI_Motor_Info_Update(uint32_t *Identifier, uint8_t *Rx_Buf,DJI_Motor_Info_Typedef *DJI_Motor);
 
-extern void DM_Motor_Info_Update(uint32_t *Identifier,uint8_t *Rx_Buf,DM_Motor_Info_Typedef *DM_Motor);
+extern void MIT_motor_Info_Update(uint32_t *Identifier,uint8_t *Rx_Buf,MIT_motor_Info_Typedef *MIT_motor);
 
-extern void DM_Motor_Command(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,DM_Motor_Info_Typedef *DM_Motor,uint8_t CMD);
+extern void MIT_motor_Command(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,MIT_motor_Info_Typedef *MIT_motor,uint8_t CMD);
 
-extern void DM_Motor_CAN_TxMessage(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,DM_Motor_Info_Typedef *DM_Motor,float Postion, float Velocity, float KP, float KD, float Torque);
+extern void MIT_motor_CAN_TxMessage(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,MIT_motor_Info_Typedef *MIT_motor,float Postion, float Velocity, float KP, float KD, float Torque);
 
 #endif //DEVICE_MOTOR_H

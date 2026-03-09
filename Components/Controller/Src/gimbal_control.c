@@ -8,20 +8,17 @@
 /* USER CODE END Header */
 
 #include "gimbal_control.h"
+#include "stdbool.h"
 #include <stdlib.h>
 #include <stdint.h>
 #include <math.h>
 #include <time.h>
 #include "control_utils.h"
-#include "Bmi088.h"
-#include "cmsis_os.h"
 #include "INS_task.h"
 #include "math_utils.h"
 #include "Remote_Control.h"
-#include "AI_receive.h"
 #include "robot_config.h"
-#include "FreeRTOS.h"
-#include "motor.h"
+#include "Motor.h"
 #include "chassis_control.h"
 #include "state_machine.h"
 #include "PID.h"
@@ -42,10 +39,6 @@ controlled_system_t gimbal = {
     .ud_prev    = {0},
     .r_x        = {0},
     .r_x_prev   = {0},
-    .e_x        = {0},
-    .e_x_prev   = {0},
-    .ei_x       = {0},
-    .ed_x       = {0}
 };
 
   /*******************/
@@ -80,7 +73,7 @@ static float pitch_command_from_cv = 0;
 static float yaw_command_from_cv_prev;
 static float pitch_command_from_cv_prev;
 
-static uint8_t is_first_iter = TRUE;
+static uint8_t is_first_iter = true;
 static float m_linear_interpolation_yaw = 0;
 static float m_linear_interpolation_pitch = 0;
 static float yaw_sat = 0;
@@ -129,23 +122,12 @@ void control_loop_gimbal() {
 
     // STOP command: zero all outputs and reset
     if (state_remote_commands == COMMANDS_STOP) {
-        switch (iteration_number) {
-            case 0:
-                CAN_Tx_MIT_Exit_Control_Mode(ID_pitch);
-                iteration_number = 1;
-                is_first_iter = 1;
-
-                // reset both PIDs on stop
-                pid_yaw_pos.PID_Calc_Clear(&pid_yaw_pos);
-                pid_yaw_vel.PID_Calc_Clear(&pid_yaw_vel);
-                break;
-            case 1:
-                CAN_Tx_gimbal((int16_t)0, 0);
-                iteration_number = 0;
-                break;
-            default:
-                return;
-        }
+				CAN_Tx_MIT_Exit_Control_Mode(ID_pitch);
+				// reset both PIDs on stop
+				pid_yaw_pos.PID_Calc_Clear(&pid_yaw_pos);
+				pid_yaw_vel.PID_Calc_Clear(&pid_yaw_vel);
+				CAN_Tx_gimbal((int16_t)0, 0);
+				is_first_iter = 1;
         return;
     }
 
@@ -153,10 +135,10 @@ void control_loop_gimbal() {
     for (uint8_t i = 0; i < gimbal.p; i++) {
         gimbal.x_prev[i] = gimbal.x[i];
     }
-    gimbal.x[0] = (float)ins_correct_angle[2] * DEG_TO_RAD;  // yaw position  [rad]
-    gimbal.x[1] = (float)ins_correct_angle[1] * DEG_TO_RAD;  // pitch position [rad]
-    gimbal.x[2] = (float)gz;                                  // yaw velocity   [rad/s]
-    gimbal.x[3] = (float)gy;                                  // pitch velocity [rad/s]
+    gimbal.x[0] = INS_Info.Yaw_Angle * DEG_TO_RAD;     // yaw position  [rad]
+    gimbal.x[1] = INS_Info.Pitch_Angle * DEG_TO_RAD;   // pitch position [rad]
+    gimbal.x[2] = INS_Info.Yaw_Gyro;                   // yaw velocity   [rad/s]
+    gimbal.x[3] = INS_Info.Pitch_Gyro;                   // pitch velocity [rad/s]
 
     // update reference history
     for (uint8_t i = 0; i < 2; i++) {
@@ -166,12 +148,8 @@ void control_loop_gimbal() {
     // one-time initialization
     if (is_first_iter) {
         gimbal.r_x[0] = gimbal.x[0];
-        cm_p_des_origin = -ins_correct_angle[0] * DEG_TO_RAD;
-
-        CAN_Tx_MIT_Enter_Control_Mode(ID_pitch);
-        CAN_Tx_MIT_Set_Zero_Position(ID_pitch);
-
-        is_first_iter = FALSE;
+        cm_p_des_origin =  INS_Info.Pitch_Angle * DEG_TO_RAD;
+        is_first_iter = false;
     }
 
     // setpoint generation: manual or auto-aim
@@ -181,8 +159,8 @@ void control_loop_gimbal() {
             switch (state_remote_commands) {
 
                 case COMMANDS_REMOTE_CONTROLLER:
-                    remote_commands_yaw   = -remote_controller_right_joystick_horizontal;
-                    remote_commands_pitch = +remote_controller_right_joystick_vertical;
+                    remote_commands_yaw   = -RC_RIGHT_H;
+                    remote_commands_pitch = +RC_RIGHT_V;
                     if (remote_commands_yaw != 0)
                         gimbal.r_x[0] = gimbal.x[0] + (remote_commands_yaw / MAX_RC_TILT) * 45 * DEG_TO_RAD;
                     if (remote_commands_pitch != 0)
@@ -190,8 +168,8 @@ void control_loop_gimbal() {
                     break;
 
                 case COMMANDS_KEYBOARD_MOUSE:
-                    remote_commands_yaw   = yaw_command_mouse_to_remote_controller(dt_gimbal);
-                    remote_commands_pitch = pitch_command_mouse_to_remote_controller(dt_gimbal);
+                    remote_commands_yaw   = MOUSE_X_MOVE_SPEED*0.001;
+                    remote_commands_pitch = MOUSE_Y_MOVE_SPEED*0.001;
                     gimbal.r_x[0] += (remote_commands_yaw   / MAX_RC_TILT) * 15 * DEG_TO_RAD;
                     cm_p_des       = cm_p_des_origin + (remote_commands_pitch / MAX_RC_TILT) * 30 * DEG_TO_RAD;
                     break;
@@ -201,26 +179,26 @@ void control_loop_gimbal() {
             }
             break;
 
-        case GIMBAL_AUTO_AIM:
-            yaw_command_from_cv_prev   = yaw_command_from_cv;
-            pitch_command_from_cv_prev = pitch_command_from_cv;
-            yaw_command_from_cv        = yaw_cv;
-            pitch_command_from_cv      = pitch_cv;
+//        case GIMBAL_AUTO_AIM:
+//            yaw_command_from_cv_prev   = yaw_command_from_cv;
+//            pitch_command_from_cv_prev = pitch_command_from_cv;
+//            yaw_command_from_cv        = yaw_cv;
+//            pitch_command_from_cv      = pitch_cv;
 
-            if (pitch_command_from_cv != pitch_command_from_cv_prev) {
-                m_linear_interpolation_yaw   = yaw_command_from_cv   * OVER_ESTIMATED_CV_FREQUENCY;
-                m_linear_interpolation_pitch = pitch_command_from_cv * OVER_ESTIMATED_CV_FREQUENCY;
-                gimbal.r_x[0] = gimbal.x[0];
-                gimbal.r_x[1] = gimbal.x[1];
-                yaw_sat   = gimbal.x[0] + yaw_command_from_cv;
-                pitch_sat = gimbal.x[1] + pitch_command_from_cv;
-            }
+//            if (pitch_command_from_cv != pitch_command_from_cv_prev) {
+//                m_linear_interpolation_yaw   = yaw_command_from_cv   * OVER_ESTIMATED_CV_FREQUENCY;
+//                m_linear_interpolation_pitch = pitch_command_from_cv * OVER_ESTIMATED_CV_FREQUENCY;
+//                gimbal.r_x[0] = gimbal.x[0];
+//                gimbal.r_x[1] = gimbal.x[1];
+//                yaw_sat   = gimbal.x[0] + yaw_command_from_cv;
+//                pitch_sat = gimbal.x[1] + pitch_command_from_cv;
+//            }
 
-            gimbal.r_x[0] += m_linear_interpolation_yaw   * dt_gimbal;
-            gimbal.r_x[1] += m_linear_interpolation_pitch * dt_gimbal;
-            saturate(&gimbal.r_x[0], yaw_sat);
-            saturate(&gimbal.r_x[1], pitch_sat);
-            break;
+//            gimbal.r_x[0] += m_linear_interpolation_yaw   * dt_gimbal;
+//            gimbal.r_x[1] += m_linear_interpolation_pitch * dt_gimbal;
+//            saturate(&gimbal.r_x[0], yaw_sat);
+//            saturate(&gimbal.r_x[1], pitch_sat);
+//            break;
 
         default:
             break;
@@ -252,21 +230,12 @@ void control_loop_gimbal() {
 
 // transmit commands over CAN (alternating to respect bandwidth limits)
 #if IS_GIMBAL_ENABLED
-    switch (iteration_number) {
-        case 0:
-            // pitch - MIT Mode
-            CAN_Tx_MIT_Control(cm_p_des, cm_v_des, cm_kp, cm_kd, cm_t_ff, ID_pitch);
-            iteration_number = 1;
-            break;
-        case 1:
-            // yaw - voltage mode
-            CAN_Tx_gimbal((int16_t)gimbal.ud[0], 0);
-            iteration_number = 0;
-            break;
-        default:
-            return;
-    }
+		// pitch - MIT Mode
+		CAN_Tx_MIT_Control(cm_p_des, cm_v_des, cm_kp, cm_kd, cm_t_ff, ID_pitch);
+
+		// yaw - voltage mode
+		CAN_Tx_gimbal((int16_t)gimbal.ud[0], 0);
 #endif
 
-    is_first_iter = FALSE;
+    is_first_iter = false;
 }

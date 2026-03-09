@@ -19,12 +19,10 @@ controlled_system_t shoot_wheels_and_rev = {
     .x_prev     = {0},
     .u          = {0},
     .u_prev     = {0},
+		.ud         = {0},
+    .ud_prev    = {0},
     .r_x        = {0},
     .r_x_prev   = {0},
-    .e_x        = {0},
-    .e_x_prev   = {0},
-    .ei_x       = {0},
-    .ed_x       = {0}
 };
 
   /*******************/
@@ -57,12 +55,12 @@ static float pid_rev_vel_params[PID_PARAMETER_NUM] = {7.0f,  0.0f, 0.0f, 0.0f, 0
 
 float r_shoot_wheels_ang_vel = 680;  // [rad/s]
 
-static uint8_t need_to_set_rev_ang_pos_reference = TRUE;
+static uint8_t need_to_set_rev_ang_pos_reference = true;
 static float rev_shooting_frequency = 20;  // Bullets per second [Hz]
 
 static float gain_overall_shoot_wheels = 1.0f;
 static float gain_overall_rev          = 1.0f;
-static uint8_t is_first_iter          = TRUE;
+static uint8_t is_first_iter          = true;
 bool unstuck_rev_enabled              = 0;
 
 // Runtime-adjustable Kp values for REV position loop per shooting mode
@@ -99,7 +97,7 @@ void control_loop_shooting(void)
     _control_loop_shoot_wheels();
     _control_loop_rev();
 
-    is_first_iter = FALSE;
+    is_first_iter = false;
 
     CAN_Tx_shoot_wheels_rev(
         (int16_t) shoot_wheels_and_rev.u[0],
@@ -118,8 +116,8 @@ void _control_loop_shoot_wheels(void)
     for (uint8_t i = 0; i < 2; i++) {
         shoot_wheels_and_rev.x_prev[i] = shoot_wheels_and_rev.x[i];
     }
-    shoot_wheels_and_rev.x[0] = (float) M3508_shoot_wheel[0].ang_vel_rads;  // Left wheel angular velocity  [rad/s]
-    shoot_wheels_and_rev.x[1] = (float) M3508_shoot_wheel[1].ang_vel_rads;  // Right wheel angular velocity [rad/s]
+    shoot_wheels_and_rev.x[0] = (float) shooting_motor[0].Data.Velocity*2*pi/60;  // Left wheel angular velocity  [rad/s]
+    shoot_wheels_and_rev.x[1] = (float) shooting_motor[1].Data.Velocity;  // Right wheel angular velocity [rad/s]
 
     // Update reference history
     for (uint8_t i = 0; i < 2; i++) {
@@ -188,8 +186,8 @@ void _control_loop_rev(void)
     for (uint8_t i = 2; i < shoot_wheels_and_rev.p; i++) {
         shoot_wheels_and_rev.x_prev[i] = shoot_wheels_and_rev.x[i];
     }
-    shoot_wheels_and_rev.x[2] = (float) M2006_rev.cumulative_ang_pos_rad;  // REV angular position [rad]
-    shoot_wheels_and_rev.x[3] = (float) M2006_rev.ang_vel_rads;            // REV angular velocity [rad/s]
+    shoot_wheels_and_rev.x[2] = (float) 0; //M2006_rev.cumulative_ang_pos_rad;      // REV angular position [rad]
+    shoot_wheels_and_rev.x[3] = (float) shooting_motor[2].Data.Velocity;       // REV angular velocity [rad/s]
 
     // Update reference history
     for (uint8_t i = 2; i < shoot_wheels_and_rev.n; i++) {
@@ -202,7 +200,7 @@ void _control_loop_rev(void)
     }
 
     // Clear unstuck flag once error is small enough
-    if (unstuck_rev_enabled && fabs(shoot_wheels_and_rev.e_x[2]) < 1 * pi / 180) {
+    if (unstuck_rev_enabled && fabs(shoot_wheels_and_rev.r_x[2] - shoot_wheels_and_rev.x[2]) < 1 * pi / 180) {
         unstuck_rev_enabled = 0;
     }
 
@@ -218,20 +216,20 @@ void _control_loop_rev(void)
 
         case REV_STOP:
             shoot_wheels_and_rev.r_x[2] = 0;
-            need_to_set_rev_ang_pos_reference = TRUE;
+            need_to_set_rev_ang_pos_reference = true;
             break;
 
         case REV_SINGLE_SHOOTING:
             if (need_to_set_rev_ang_pos_reference && !unstuck_rev_enabled) {
                 shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.x[2] + pi / 4;
-                need_to_set_rev_ang_pos_reference = FALSE;
+                need_to_set_rev_ang_pos_reference = false;
             }
             break;
 
         case REV_TRIPLE_SHOOTING:
             if (need_to_set_rev_ang_pos_reference && !unstuck_rev_enabled) {
                 shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.x[2] + 3 * pi / 4;
-                need_to_set_rev_ang_pos_reference = FALSE;
+                need_to_set_rev_ang_pos_reference = false;
             }
             break;
 
@@ -239,7 +237,7 @@ void _control_loop_rev(void)
             if (!unstuck_rev_enabled) {
                 shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.x[2];
                 shoot_wheels_and_rev.r_x[3] = rev_shooting_frequency * pi / 4;
-                need_to_set_rev_ang_pos_reference = FALSE;
+                need_to_set_rev_ang_pos_reference = false;
             }
             break;
 

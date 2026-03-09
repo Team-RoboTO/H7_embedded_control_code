@@ -18,21 +18,41 @@
 /**
  * @brief The structure that contains the Information of yaw motor.Use DJI GM6020 motor.
  */
-DJI_Motor_Info_Typedef DJI_Yaw_Motor =
+MIT_motor_Info_Typedef gimbal_motor[2] = 
 {
-	  .Type = DJI_GM6020,
-		.FDCANFrame = {
-					  .TxIdentifier = 0x1ff,
-					  .RxIdentifier = 0x206,
-		}
-
+	  [0] = {
+			.Control_Mode = MIT,
+			.Param_Range ={
+			   .P_MAX = 3.141593f,
+			   .V_MAX = 45.f,
+			   .T_MAX = 54.f		
+			},
+		  .FDCANFrame = {
+				 .TxIdentifier = 0x05,
+				 .RxIdentifier = 0x15,
+			}
+		},
+		
+    [1] = {
+			.Control_Mode = MIT,	
+			.Param_Range ={
+			   .P_MAX = 3.141593f,
+			   .V_MAX = 45.f,
+			   .T_MAX = 54.f		
+				
+			},	
+		  .FDCANFrame = {
+				 .TxIdentifier = 0x05,
+				 .RxIdentifier = 0x15,
+			}
+		},
 };
 //------------------------------------------------------------------------------
 
 /**
  * @brief The structure that contains the Information of chassis motor.Use DJI M3508 motor.
  */ 
-DJI_Motor_Info_Typedef Chassis_Motor[4] = {
+DJI_Motor_Info_Typedef shooting_motor[3] = {
 
     [0] = {	
         .Type = DJI_M3508,
@@ -49,19 +69,12 @@ DJI_Motor_Info_Typedef Chassis_Motor[4] = {
 				}
     },
 	  [2] = {	
-        .Type = DJI_M3508,
+        .Type = DJI_M2006,
 		    .FDCANFrame = {
 					  .TxIdentifier = 0x200,
 					  .RxIdentifier = 0x203,
 				}
 		},
-		[3] = {	
-        .Type = DJI_M3508,
-		    .FDCANFrame = {
-					  .TxIdentifier = 0x200,
-					  .RxIdentifier = 0x204,
-				}
-    },
 
 };
 //------------------------------------------------------------------------------
@@ -69,7 +82,7 @@ DJI_Motor_Info_Typedef Chassis_Motor[4] = {
 /**
  * @brief The structure that contains the Information of joint motor.Use DM 8009 motor.
  */
-DM_Motor_Info_Typedef MIT_Chassis_motors[4]= {
+MIT_motor_Info_Typedef chassis_motors[4]= {
     
 	  [0] = {
 			.Control_Mode = MIT,
@@ -167,22 +180,23 @@ void DJI_Motor_Info_Update(uint32_t *Identifier, uint8_t *Rx_Buf,DJI_Motor_Info_
 	DJI_Motor->Data.Current  = ((int16_t)Rx_Buf[4] << 8 | (int16_t)Rx_Buf[5]);
 
 	/* transform the Encoder to angle */
-	switch(DJI_Motor->Type)
-	{
-		case DJI_GM6020:
+	switch(DJI_Motor->Type){
+    case DJI_GM6020:
+        DJI_Motor->Data.Angle     = DJI_Motor_Encoder_To_Angle(&DJI_Motor->Data, 1.f, 8192);
+        DJI_Motor->Data.Angle_sum = DJI_Motor_Encoder_To_Anglesum(&DJI_Motor->Data, 1.f, 8192); // ? aggiungi
+        break;
 
-		DJI_Motor->Data.Angle = DJI_Motor_Encoder_To_Angle(&DJI_Motor->Data,1.f,8192); //6020电机减速比为1:1 拥有绝对位置
-		break;
-	
-		case DJI_M3508:
-			DJI_Motor->Data.Angle = DJI_Motor_Encoder_To_Angle(&DJI_Motor->Data,3591.f/187.f,8192);
-		break;
-		
-		case DJI_M2006:
-			DJI_Motor->Data.Angle = DJI_Motor_Encoder_To_Angle(&DJI_Motor->Data,36.f,8192);
-		break;
-		
-		default:break;
+    case DJI_M3508:
+        DJI_Motor->Data.Angle     = DJI_Motor_Encoder_To_Angle(&DJI_Motor->Data, 3591.f/187.f, 8192);
+        DJI_Motor->Data.Angle_sum = DJI_Motor_Encoder_To_Anglesum(&DJI_Motor->Data, 3591.f/187.f, 8192); // ? aggiungi
+        break;
+
+    case DJI_M2006:
+        DJI_Motor->Data.Angle     = DJI_Motor_Encoder_To_Angle(&DJI_Motor->Data, 36.f, 8192);
+        DJI_Motor->Data.Angle_sum = DJI_Motor_Encoder_To_Anglesum(&DJI_Motor->Data, 36.f, 8192); // ? aggiungi
+        break;
+
+    default: break;
 	}
 }
 //------------------------------------------------------------------------------
@@ -240,7 +254,7 @@ static float DJI_Motor_Encoder_To_Anglesum(DJI_Motor_Data_Typedef *Data,float To
     Data->Last_Encoder = Data->Encoder;
 
     /* reset the angle */
-    Data->Angle = 0;
+    Data->Angle_sum = 0;
 
     /* Set the init flag */
     Data->Initlized = true;
@@ -263,14 +277,14 @@ static float DJI_Motor_Encoder_To_Anglesum(DJI_Motor_Data_Typedef *Data,float To
   /* transforms the Encoder data to tolangle */
 	if(fabsf(res1) > fabsf(res2))
 	{
-		Data->Angle += (float)res2/(MAXEncoder*Torque_Ratio)*360.f;
+		Data->Angle_sum += (float)res2/(MAXEncoder*Torque_Ratio)*360.f;
 	}
 	else
 	{
-		Data->Angle += (float)res1/(MAXEncoder*Torque_Ratio)*360.f;
+		Data->Angle_sum += (float)res1/(MAXEncoder*Torque_Ratio)*360.f;
 	}
   
-  return Data->Angle;
+  return Data->Angle_sum;
 }
 //------------------------------------------------------------------------------
 
@@ -325,16 +339,34 @@ float DJI_Motor_Encoder_To_Angle(DJI_Motor_Data_Typedef *Data,float torque_ratio
   return Data->Angle;
 }
 
+static void MIT_motor_Position_To_Anglesum(MIT_motor_Data_Typedef *Data, float P_MAX)
+{
+    if(Data == NULL) return;
+
+    if(Data->Initlized != true) return;
+
+    float delta = Data->Position - Data->Last_Position;
+
+    // gestione wrap-around 盤_MAX
+    if(delta > P_MAX)
+        delta -= 2.0f * P_MAX;
+    else if(delta < -P_MAX)
+        delta += 2.0f * P_MAX;
+
+    Data->Angle_sum += delta;
+    Data->Last_Position = Data->Position;
+}
+
 /**
   * @brief  Transmit enable disable save zero position Command to DM motor 
   * @param  *FDCAN_TxFrame：pointer to the FDCAN_TxFrame_TypeDef.
-  * @param  *DM_Motor：pointer to the DM_Motor
+  * @param  *MIT_motor：pointer to the MIT_motor
   * @param  CMD：Transmit Command  (DJI_Motor_Type_e)
   * @retval None
   */
-void DM_Motor_Command(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,DM_Motor_Info_Typedef *DM_Motor,uint8_t CMD){
+void MIT_motor_Command(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,MIT_motor_Info_Typedef *MIT_motor,uint8_t CMD){
 
-	 FDCAN_TxFrame->Header.Identifier = DM_Motor->FDCANFrame.TxIdentifier;
+	 FDCAN_TxFrame->Header.Identifier = MIT_motor->FDCANFrame.TxIdentifier;
   	
 	 FDCAN_TxFrame->Data[0] = 0xFF;
    FDCAN_TxFrame->Data[1] = 0xFF;
@@ -369,23 +401,23 @@ void DM_Motor_Command(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,DM_Motor_Info_Typedef
 /**
   * @brief  CAN Transmit DM motor Information
   * @param  *FDCAN_TxFrame  pointer to the FDCAN_TxFrame_TypeDef.
-  * @param  *DM_Motor  pointer to the DM_Motor
+  * @param  *MIT_motor  pointer to the MIT_motor
   * @param  Postion Velocity KP KD Torgue: Target
   * @retval None
   */
-void DM_Motor_CAN_TxMessage(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,DM_Motor_Info_Typedef *DM_Motor,float Postion, float Velocity, float KP, float KD, float Torque){
+void MIT_motor_CAN_TxMessage(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,MIT_motor_Info_Typedef *MIT_motor,float Postion, float Velocity, float KP, float KD, float Torque){
 	
-   if(DM_Motor->Control_Mode == MIT){
+   if(MIT_motor->Control_Mode == MIT){
 		 
 		 uint16_t Postion_Tmp,Velocity_Tmp,Torque_Tmp,KP_Tmp,KD_Tmp;
 		 
-		 Postion_Tmp  =  float_to_uint(Postion, -DM_Motor->Param_Range.P_MAX,DM_Motor->Param_Range.P_MAX,16) ;
-		 Velocity_Tmp =  float_to_uint(Velocity,-DM_Motor->Param_Range.V_MAX,DM_Motor->Param_Range.V_MAX,12);
-		 Torque_Tmp   =  float_to_uint(Torque,  -DM_Motor->Param_Range.T_MAX,DM_Motor->Param_Range.T_MAX,12);
+		 Postion_Tmp  =  float_to_uint(Postion, -MIT_motor->Param_Range.P_MAX,MIT_motor->Param_Range.P_MAX,16) ;
+		 Velocity_Tmp =  float_to_uint(Velocity,-MIT_motor->Param_Range.V_MAX,MIT_motor->Param_Range.V_MAX,12);
+		 Torque_Tmp   =  float_to_uint(Torque,  -MIT_motor->Param_Range.T_MAX,MIT_motor->Param_Range.T_MAX,12);
 		 KP_Tmp = float_to_uint(KP,0,500,12);
 		 KD_Tmp = float_to_uint(KD,0,5,12);
 		
-		 FDCAN_TxFrame->Header.Identifier = DM_Motor->FDCANFrame.TxIdentifier;
+		 FDCAN_TxFrame->Header.Identifier = MIT_motor->FDCANFrame.TxIdentifier;
 		 
 		 FDCAN_TxFrame->Data[0] = (uint8_t)(Postion_Tmp>>8);
 		 FDCAN_TxFrame->Data[1] = (uint8_t)(Postion_Tmp);
@@ -396,14 +428,14 @@ void DM_Motor_CAN_TxMessage(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,DM_Motor_Info_T
 		 FDCAN_TxFrame->Data[6] = (uint8_t)((KD_Tmp&0x0F)<<4) | (uint8_t)(Torque_Tmp>>8);
 		 FDCAN_TxFrame->Data[7] = (uint8_t)(Torque_Tmp);
 
-	}else if(DM_Motor->Control_Mode == POSITION_VELOCITY){
+	}else if(MIT_motor->Control_Mode == POSITION_VELOCITY){
 	
 		 uint8_t *Postion_Tmp,*Velocity_Tmp;
 		
 		 Postion_Tmp  = (uint8_t*) & Postion;
 		 Velocity_Tmp = (uint8_t*) & Velocity;
 		
-	   FDCAN_TxFrame->Header.Identifier = DM_Motor->FDCANFrame.TxIdentifier + 0x100;
+	   FDCAN_TxFrame->Header.Identifier = MIT_motor->FDCANFrame.TxIdentifier + 0x100;
 		
 		 FDCAN_TxFrame->Data[0] = *(Postion_Tmp);
 		 FDCAN_TxFrame->Data[1] = *(Postion_Tmp + 1);
@@ -414,12 +446,12 @@ void DM_Motor_CAN_TxMessage(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,DM_Motor_Info_T
 		 FDCAN_TxFrame->Data[6] = *(Velocity_Tmp + 2);
 		 FDCAN_TxFrame->Data[7] = *(Velocity_Tmp + 3);
 		
-	}else if(DM_Motor->Control_Mode == VELOCITY){
+	}else if(MIT_motor->Control_Mode == VELOCITY){
 	
 	  uint8_t *Velocity_Tmp;
 		Velocity_Tmp = (uint8_t*) & Velocity;
 		
-    FDCAN_TxFrame->Header.Identifier = DM_Motor->FDCANFrame.TxIdentifier + 0x200;
+    FDCAN_TxFrame->Header.Identifier = MIT_motor->FDCANFrame.TxIdentifier + 0x200;
 		
 		FDCAN_TxFrame->Data[0] = *(Velocity_Tmp);
 		FDCAN_TxFrame->Data[1] = *(Velocity_Tmp + 1);
@@ -438,28 +470,29 @@ void DM_Motor_CAN_TxMessage(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,DM_Motor_Info_T
 //------------------------------------------------------------------------------
 
 /**
-  * @brief  Update the DM_Motor Information
+  * @brief  Update the MIT_motor Information
   * @param  Identifier:  pointer to the specifies the standard identifier.
   * @param  Rx_Buf:  pointer to the can receive data
-  * @param  DM_Motor: pointer to a DM_Motor_Info_Typedef structure that contains the information of DM_Motor
+  * @param  MIT_motor: pointer to a MIT_motor_Info_Typedef structure that contains the information of MIT_motor
   * @retval None
   */
-void DM_Motor_Info_Update(uint32_t *Identifier,uint8_t *Rx_Buf,DM_Motor_Info_Typedef *DM_Motor)
+void MIT_Motor_Info_Update(uint32_t *Identifier, uint8_t *Rx_Buf, MIT_motor_Info_Typedef *MIT_motor)
 {
-	 
-	if(*Identifier != DM_Motor->FDCANFrame.RxIdentifier) return;
-	
-	  DM_Motor->Data.State = Rx_Buf[0]>>4;
-		DM_Motor->Data.P_int = ((uint16_t)(Rx_Buf[1]) <<8) | ((uint16_t)(Rx_Buf[2]));
-		DM_Motor->Data.V_int = ((uint16_t)(Rx_Buf[3]) <<4) | ((uint16_t)(Rx_Buf[4])>>4);
-		DM_Motor->Data.T_int = ((uint16_t)(Rx_Buf[4]&0xF) <<8) | ((uint16_t)(Rx_Buf[5]));
-		DM_Motor->Data.Torque=  uint_to_float(DM_Motor->Data.T_int,-DM_Motor->Param_Range.T_MAX,DM_Motor->Param_Range.T_MAX,12);
-		DM_Motor->Data.Position=uint_to_float(DM_Motor->Data.P_int,-DM_Motor->Param_Range.P_MAX,DM_Motor->Param_Range.P_MAX,16);
-    DM_Motor->Data.Velocity=uint_to_float(DM_Motor->Data.V_int,-DM_Motor->Param_Range.V_MAX,DM_Motor->Param_Range.V_MAX,12);
+    if(*Identifier != MIT_motor->FDCANFrame.RxIdentifier) return;
 
-    DM_Motor->Data.Temperature_MOS   = (float)(Rx_Buf[6]);
-		DM_Motor->Data.Temperature_Rotor = (float)(Rx_Buf[7]);
+    MIT_motor->Data.State    = Rx_Buf[0]>>4;
+    MIT_motor->Data.P_int    = ((uint16_t)(Rx_Buf[1])<<8) | ((uint16_t)(Rx_Buf[2]));
+    MIT_motor->Data.V_int    = ((uint16_t)(Rx_Buf[3])<<4) | ((uint16_t)(Rx_Buf[4])>>4);
+    MIT_motor->Data.T_int    = ((uint16_t)(Rx_Buf[4]&0xF)<<8) | ((uint16_t)(Rx_Buf[5]));
 
+    MIT_motor->Data.Torque   = uint_to_float(MIT_motor->Data.T_int, -MIT_motor->Param_Range.T_MAX, MIT_motor->Param_Range.T_MAX, 12);
+    MIT_motor->Data.Position = uint_to_float(MIT_motor->Data.P_int, -MIT_motor->Param_Range.P_MAX, MIT_motor->Param_Range.P_MAX, 16);
+    MIT_motor->Data.Velocity = uint_to_float(MIT_motor->Data.V_int, -MIT_motor->Param_Range.V_MAX, MIT_motor->Param_Range.V_MAX, 12);
+
+    MIT_motor->Data.Temperature_MOS   = (float)(Rx_Buf[6]);
+    MIT_motor->Data.Temperature_Rotor = (float)(Rx_Buf[7]);
+
+    MIT_motor_Position_To_Anglesum(&MIT_motor->Data, MIT_motor->Param_Range.P_MAX);
 }
 //------------------------------------------------------------------------------	
 	

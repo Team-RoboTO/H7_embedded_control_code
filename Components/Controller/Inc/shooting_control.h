@@ -16,8 +16,8 @@ extern controlled_system_t std_circ_rev;
  /*   CONTROL LOOP   */
 /********************/
 
-void control_loop_std_circ_shooting(void);
-void _control_loop_std_circ_shoot_wheels(void);
-void _control_loop_std_circ_rev(void);
+void control_loop_shooting(void);
+void _control_loop_shoot_wheels(void);
+void _control_loop_rev(void);
 
 #endif

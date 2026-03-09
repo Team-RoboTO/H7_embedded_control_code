@@ -12,23 +12,15 @@
  /*   CONTROLLED SYSTEM   */
 /*************************/
 
-controlled_system_t chassis = {
+controlled_system_MIT_t chassis = {
     
     .n          = 4,  // Number of system states
     .m          = 4,  // Number of system inputs
     .p          = 5,  // Number of system outputs
     .x          = {0},
     .x_prev     = {0},
-    .u          = {0},
-    .u_prev     = {0},
-    .ud         = {0},
-    .ud_prev    = {0},
     .r_x        = {0},
     .r_x_prev   = {0},
-    .e_x        = {0},
-    .e_x_prev   = {0},
-    .ei_x       = {0},
-    .ed_x       = {0}
 };
 
   /*************************/
@@ -77,20 +69,20 @@ void control_loop_chassis() {
     // If stop command arrived, send zeros as control signals
     if (state_remote_commands == COMMANDS_STOP) {
 			// alternating logic to safely exit control mode for exit MIT control
-			CAN_Tx_MIT_Exit_Control_Mode(ID_w0);
-			CAN_Tx_MIT_Exit_Control_Mode(ID_w1);
-			CAN_Tx_MIT_Exit_Control_Mode(ID_w2);
-			CAN_Tx_MIT_Exit_Control_Mode(ID_w3);
-			is_first_iter = 0;  // reset init flag
+			MIT_motor_Command(&FDCAN2_TxFrame,&chassis_motor[0],Motor_Disable);
+			MIT_motor_Command(&FDCAN2_TxFrame,&chassis_motor[1],Motor_Disable);
+			MIT_motor_Command(&FDCAN2_TxFrame,&chassis_motor[2],Motor_Disable);
+			MIT_motor_Command(&FDCAN2_TxFrame,&chassis_motor[3],Motor_Disable);
+			is_first_iter = 1;  // reset init flag
       return;
     }
 		
-    if (is_first_iter ==0) {
-	    CAN_Tx_MIT_Enter_Control_Mode(ID_w0);
-			CAN_Tx_MIT_Enter_Control_Mode(ID_w1);
-      CAN_Tx_MIT_Enter_Control_Mode(ID_w2);
-			CAN_Tx_MIT_Enter_Control_Mode(ID_w3);
-      is_first_iter = 1;
+    if (is_first_iter == 1) {
+	    MIT_motor_Command(&FDCAN2_TxFrame,&chassis_motor[0],Motor_Enable);
+			MIT_motor_Command(&FDCAN2_TxFrame,&chassis_motor[1],Motor_Enable);
+			MIT_motor_Command(&FDCAN2_TxFrame,&chassis_motor[2],Motor_Enable);
+			MIT_motor_Command(&FDCAN2_TxFrame,&chassis_motor[3],Motor_Enable);
+      is_first_iter = 0;
     }
 		
     // Update outputs from sensor data
@@ -109,11 +101,11 @@ void control_loop_chassis() {
                 break;
             case COMMANDS_KEYBOARD_MOUSE:
                 // Update commands from keyboard
-                compute_weights_WASD_keys(dt_chassis);
-                remote_commands_bwd_fwd_float     = MAX_RC_TILT * weight_fwd_key;
-                remote_commands_bwd_fwd_float    -= MAX_RC_TILT * weight_bwd_key;
-                remote_commands_left_right_float  = MAX_RC_TILT * weight_right_key;
-                remote_commands_left_right_float -= MAX_RC_TILT * weight_left_key;
+//                compute_weights_WASD_keys(dt_chassis);
+//                remote_commands_bwd_fwd_float     = MAX_RC_TILT * weight_fwd_key;
+//                remote_commands_bwd_fwd_float    -= MAX_RC_TILT * weight_bwd_key;
+//                remote_commands_left_right_float  = MAX_RC_TILT * weight_right_key;
+//                remote_commands_left_right_float -= MAX_RC_TILT * weight_left_key;
                 saturate(&remote_commands_bwd_fwd_float,    MAX_RC_TILT);  // Value should never reach saturation, but keep it for safety
                 saturate(&remote_commands_left_right_float, MAX_RC_TILT);  // Value should never reach saturation, but keep it for safety
                 // Convert from float to int16
@@ -151,10 +143,8 @@ void control_loop_chassis() {
 						break;
 					}
 					
-					else if (is_rotating == 1 && ((GM6020_gimbal_yaw.ang_pos_digital > (GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD + 1000)) || (GM6020_gimbal_yaw.ang_pos_digital < (GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD)))) {
+					else if (is_rotating == 1 && ((gimbal_motor[0].Data.Angle_sum > (GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD + 1000)) || (gimbal_motor[0].Data.Angle_sum < (GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD)))) {
 					 // Forward/Backward
-						r_ang_vel_wheels_chassis_rotation += (float) 44/30000;
-				
             r_ang_vel_wheel_1_bwd_fwd       = ((float) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels * cos(- chassis.x[4] + pi/4);
             r_ang_vel_wheel_2_bwd_fwd       = ((float) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels * sin(- chassis.x[4] + pi/4);
             r_ang_vel_wheel_3_bwd_fwd       = ((float) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels * cos(- chassis.x[4] + pi/4);
@@ -257,4 +247,4 @@ void control_loop_chassis() {
       ID_w3);
 }
 #endif
-
+}
