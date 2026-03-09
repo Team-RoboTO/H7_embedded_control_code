@@ -82,7 +82,7 @@ DJI_Motor_Info_Typedef shooting_motor[3] = {
 /**
  * @brief The structure that contains the Information of joint motor.Use DM 8009 motor.
  */
-MIT_motor_Info_Typedef chassis_motors[4]= {
+MIT_motor_Info_Typedef chassis_motor[4]= {
     
 	  [0] = {
 			.Control_Mode = MIT,
@@ -168,7 +168,7 @@ static int float_to_uint(float x, float x_min, float x_max, int bits);
   *         that contains the information of DJI motor
   * @retval None
   */
-void DJI_Motor_Info_Update(uint32_t *Identifier, uint8_t *Rx_Buf,DJI_Motor_Info_Typedef *DJI_Motor)
+void DJI_motor_Info_Update(uint32_t *Identifier, uint8_t *Rx_Buf,DJI_Motor_Info_Typedef *DJI_Motor)
 {
 	/* check the Identifier */
 	if(*Identifier != DJI_Motor->FDCANFrame.RxIdentifier) return;
@@ -476,7 +476,7 @@ void MIT_motor_CAN_TxMessage(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,MIT_motor_Info
   * @param  MIT_motor: pointer to a MIT_motor_Info_Typedef structure that contains the information of MIT_motor
   * @retval None
   */
-void MIT_Motor_Info_Update(uint32_t *Identifier, uint8_t *Rx_Buf, MIT_motor_Info_Typedef *MIT_motor)
+void MIT_motor_Info_Update(uint32_t *Identifier, uint8_t *Rx_Buf, MIT_motor_Info_Typedef *MIT_motor)
 {
     if(*Identifier != MIT_motor->FDCANFrame.RxIdentifier) return;
 

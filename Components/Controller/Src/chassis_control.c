@@ -89,7 +89,7 @@ void control_loop_chassis() {
     for (uint8_t i = 0; i < chassis.p; i++) {
         chassis.x_prev[i] = chassis.x[i];
     }
-  	chassis.x[4] = (float) nearest_target_angle_from_start_angle(GM6020_gimbal_yaw.cumulative_ang_pos_rad - GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD, 0);
+  	chassis.x[4] = nearest_target_angle_from_start_angle(gimbal_motor[0].Data.Angle_sum - GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD, 0);
     
     // Remote commands
 		switch (state_remote_commands) {

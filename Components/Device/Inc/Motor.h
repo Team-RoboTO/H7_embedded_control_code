@@ -160,7 +160,7 @@ extern MIT_motor_Contorl_Info_Typedef chassis_motor_Contorl_Info[4];
 
 extern MIT_motor_Contorl_Info_Typedef gimbal_motor_Contorl_Info[2];
 
-extern void DJI_Motor_Info_Update(uint32_t *Identifier, uint8_t *Rx_Buf,DJI_Motor_Info_Typedef *DJI_Motor);
+extern void DJI_motor_Info_Update(uint32_t *Identifier, uint8_t *Rx_Buf,DJI_Motor_Info_Typedef *DJI_Motor);
 
 extern void MIT_motor_Info_Update(uint32_t *Identifier,uint8_t *Rx_Buf,MIT_motor_Info_Typedef *MIT_motor);
 

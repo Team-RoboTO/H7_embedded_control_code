@@ -13,6 +13,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "Control_Task.h"
+#include "shooting_control.h"
 #include "cmsis_os.h"
 #include "Control_Task.h"
 #include "bsp_uart.h"
@@ -42,7 +43,7 @@ void Control_Task(void const * argument)
 	for(;;)
   {
 		Control_Task_SysTick = osKernelSysTick();
-
+		control_loop_shooting();
 		
 	  Control_Measure_Update(&Control_Info);
 		Control_Target_Update(&Control_Info);
@@ -62,7 +63,7 @@ static void Control_Init(Control_Info_Typedef *Control_Info){
 
 static void Control_Measure_Update(Control_Info_Typedef *Control_Info){
 
-  Control_Info->Measure.Chassis_Velocity = Chassis_Motor[0].Data.Velocity;
+  Control_Info->Measure.Chassis_Velocity = chassis_motor[0].Data.Velocity;
 
 }
 

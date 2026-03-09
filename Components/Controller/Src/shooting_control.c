@@ -53,8 +53,8 @@ static float pid_rev_vel_params[PID_PARAMETER_NUM] = {7.0f,  0.0f, 0.0f, 0.0f, 0
  /*   CONTROL VARIABLES   */
 /*************************/
 
-float r_shoot_wheels_ang_vel = 680;  // [rad/s]
-
+float r_shoot_wheels_ang_vel = 200;  // [rad/s]
+uint16_t ciao = 0;
 static uint8_t need_to_set_rev_ang_pos_reference = true;
 static float rev_shooting_frequency = 20;  // Bullets per second [Hz]
 
@@ -67,27 +67,6 @@ bool unstuck_rev_enabled              = 0;
 static float Kp_pid_rev_pos_single_shooting = 27.0f;
 static float Kp_pid_rev_pos_triple_shooting = 9.0f;
 
-  /****************************/
- /*   CONTROLLER INIT        */
-/****************************/
-
-/**
- * @brief Initialize all shooting PID controllers.
- *        Call once before starting the control loop (e.g. in RTOS task init).
- */
-void shooting_controllers_init(void)
-{
-    // Shoot wheels: velocity control only (single loop)
-    // PID_POSITION mode - outputs an absolute current command based on velocity error
-    PID_Init(&pid_shoot_wheel_left,  PID_POSITION, pid_shoot_wheel_left_params);
-    PID_Init(&pid_shoot_wheel_right, PID_POSITION, pid_shoot_wheel_right_params);
-
-    // REV: cascaded position -> velocity loops
-    // Both use PID_POSITION because each outputs an absolute setpoint, not an increment
-    PID_Init(&pid_rev_pos, PID_POSITION, pid_rev_pos_params);
-    PID_Init(&pid_rev_vel, PID_POSITION, pid_rev_vel_params);
-}
-
   /********************/
  /*   CONTROL LOOP   */
 /********************/
@@ -95,15 +74,28 @@ void shooting_controllers_init(void)
 void control_loop_shooting(void)
 {
     _control_loop_shoot_wheels();
-    _control_loop_rev();
+    //_control_loop_rev();
 
     is_first_iter = false;
 
-    CAN_Tx_shoot_wheels_rev(
-        (int16_t) shoot_wheels_and_rev.u[0],
-        (int16_t) shoot_wheels_and_rev.u[1],
-        (int16_t) shoot_wheels_and_rev.u[2]
-    );
+//    CAN_Tx_shoot_wheels_rev(
+//        (int16_t) shoot_wheels_and_rev.u[0],
+//        (int16_t) shoot_wheels_and_rev.u[1],
+//        (int16_t) shoot_wheels_and_rev.u[2]
+//    );
+	
+	  FDCAN2_TxFrame.Header.Identifier = 0x200;
+		//Control_Info.SendValue[0] = 2000;
+    FDCAN2_TxFrame.Data[0] = (uint8_t)((int16_t) shoot_wheels_and_rev.u[0] >> 8);
+		FDCAN2_TxFrame.Data[1] = (uint8_t)((int16_t) shoot_wheels_and_rev.u[0]);
+		FDCAN2_TxFrame.Data[2] = (uint8_t)((int16_t) shoot_wheels_and_rev.u[1] >> 8);
+		FDCAN2_TxFrame.Data[3] = (uint8_t)((int16_t) shoot_wheels_and_rev.u[1]);
+		FDCAN2_TxFrame.Data[4] = (uint8_t)((int16_t) shoot_wheels_and_rev.u[2] >> 8); // motor 3
+		FDCAN2_TxFrame.Data[5] = (uint8_t)((int16_t) shoot_wheels_and_rev.u[2]);
+		FDCAN2_TxFrame.Data[6] = (uint8_t)(0x00); // motor 4
+		FDCAN2_TxFrame.Data[7] = (uint8_t)(0x00);
+
+   USER_FDCAN_AddMessageToTxFifoQ(&FDCAN2_TxFrame);
 }
 
   /*********************************/
@@ -112,12 +104,17 @@ void control_loop_shooting(void)
 
 void _control_loop_shoot_wheels(void)
 {
+		if (is_first_iter == 1) {
+			PID_Init(&pid_shoot_wheel_left,  PID_POSITION, pid_shoot_wheel_left_params);
+			PID_Init(&pid_shoot_wheel_right, PID_POSITION, pid_shoot_wheel_right_params);
+		}
+	
     // Update state from sensors
     for (uint8_t i = 0; i < 2; i++) {
         shoot_wheels_and_rev.x_prev[i] = shoot_wheels_and_rev.x[i];
     }
     shoot_wheels_and_rev.x[0] = (float) shooting_motor[0].Data.Velocity*2*pi/60;  // Left wheel angular velocity  [rad/s]
-    shoot_wheels_and_rev.x[1] = (float) shooting_motor[1].Data.Velocity;  // Right wheel angular velocity [rad/s]
+    shoot_wheels_and_rev.x[1] = (float) shooting_motor[1].Data.Velocity*2*pi/60;  // Right wheel angular velocity [rad/s]
 
     // Update reference history
     for (uint8_t i = 0; i < 2; i++) {
@@ -125,8 +122,8 @@ void _control_loop_shoot_wheels(void)
     }
 
     // Set velocity setpoints based on state machine
-    switch (state_shoot_wheels) {
-        case SHOOT_WHEELS_SPIN:
+    switch (ciao) {
+        case 1:
             shoot_wheels_and_rev.r_x[0] = +r_shoot_wheels_ang_vel;
             shoot_wheels_and_rev.r_x[1] = -r_shoot_wheels_ang_vel;
             break;
@@ -137,15 +134,15 @@ void _control_loop_shoot_wheels(void)
             break;
     }
 
-    // Hard override on STOP command
-    if (state_remote_commands == COMMANDS_STOP) {
-        shoot_wheels_and_rev.r_x[0] = 0;
-        shoot_wheels_and_rev.r_x[1] = 0;
+//    // Hard override on STOP command
+//    if (state_remote_commands == COMMANDS_STOP) {
+//        shoot_wheels_and_rev.r_x[0] = 0;
+//        shoot_wheels_and_rev.r_x[1] = 0;
 
-        // Reset PIDs to avoid windup after stop
-        pid_shoot_wheel_left.PID_Calc_Clear(&pid_shoot_wheel_left);
-        pid_shoot_wheel_right.PID_Calc_Clear(&pid_shoot_wheel_right);
-    }
+//        // Reset PIDs to avoid windup after stop
+//        pid_shoot_wheel_left.PID_Calc_Clear(&pid_shoot_wheel_left);
+//        pid_shoot_wheel_right.PID_Calc_Clear(&pid_shoot_wheel_right);
+//    }
 
     // PID_Calculate(pid, Target, Measure) handles error/integral/derivative internally
     shoot_wheels_and_rev.u[0] = PID_Calculate(&pid_shoot_wheel_left,
@@ -195,7 +192,9 @@ void _control_loop_rev(void)
     }
 
     // One-time init: latch current position as initial setpoint
-    if (is_first_iter) {
+    if (is_first_iter == 1) {
+				PID_Init(&pid_rev_pos, PID_POSITION, pid_rev_pos_params);
+				PID_Init(&pid_rev_vel, PID_POSITION, pid_rev_vel_params);
         shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.x[2];
     }
 

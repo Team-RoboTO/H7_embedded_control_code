@@ -122,13 +122,13 @@ void control_loop_gimbal() {
 
     // STOP command: zero all outputs and reset
     if (state_remote_commands == COMMANDS_STOP) {
-				CAN_Tx_MIT_Exit_Control_Mode(ID_pitch);
-				// reset both PIDs on stop
-				pid_yaw_pos.PID_Calc_Clear(&pid_yaw_pos);
-				pid_yaw_vel.PID_Calc_Clear(&pid_yaw_vel);
-				CAN_Tx_gimbal((int16_t)0, 0);
-				is_first_iter = 1;
-        return;
+//				CAN_Tx_MIT_Exit_Control_Mode(ID_pitch);
+//				// reset both PIDs on stop
+//				pid_yaw_pos.PID_Calc_Clear(&pid_yaw_pos);
+//				pid_yaw_vel.PID_Calc_Clear(&pid_yaw_vel);
+//				CAN_Tx_gimbal((int16_t)0, 0);
+//				is_first_iter = 1;
+//        return;
     }
 
     // update system state from IMU/INS sensors
@@ -164,14 +164,14 @@ void control_loop_gimbal() {
                     if (remote_commands_yaw != 0)
                         gimbal.r_x[0] = gimbal.x[0] + (remote_commands_yaw / MAX_RC_TILT) * 45 * DEG_TO_RAD;
                     if (remote_commands_pitch != 0)
-                        cm_p_des = cm_p_des_origin + (remote_commands_pitch / MAX_RC_TILT) * 30 * DEG_TO_RAD;
+                        //cm_p_des = cm_p_des_origin + (remote_commands_pitch / MAX_RC_TILT) * 30 * DEG_TO_RAD;
                     break;
 
                 case COMMANDS_KEYBOARD_MOUSE:
                     remote_commands_yaw   = MOUSE_X_MOVE_SPEED*0.001;
                     remote_commands_pitch = MOUSE_Y_MOVE_SPEED*0.001;
                     gimbal.r_x[0] += (remote_commands_yaw   / MAX_RC_TILT) * 15 * DEG_TO_RAD;
-                    cm_p_des       = cm_p_des_origin + (remote_commands_pitch / MAX_RC_TILT) * 30 * DEG_TO_RAD;
+                    //cm_p_des       = cm_p_des_origin + (remote_commands_pitch / MAX_RC_TILT) * 30 * DEG_TO_RAD;
                     break;
 
                 default:
@@ -231,10 +231,10 @@ void control_loop_gimbal() {
 // transmit commands over CAN (alternating to respect bandwidth limits)
 #if IS_GIMBAL_ENABLED
 		// pitch - MIT Mode
-		CAN_Tx_MIT_Control(cm_p_des, cm_v_des, cm_kp, cm_kd, cm_t_ff, ID_pitch);
+//		CAN_Tx_MIT_Control(cm_p_des, cm_v_des, cm_kp, cm_kd, cm_t_ff, ID_pitch);
 
-		// yaw - voltage mode
-		CAN_Tx_gimbal((int16_t)gimbal.ud[0], 0);
+//		// yaw - voltage mode
+//		CAN_Tx_gimbal((int16_t)gimbal.ud[0], 0);
 #endif
 
     is_first_iter = false;

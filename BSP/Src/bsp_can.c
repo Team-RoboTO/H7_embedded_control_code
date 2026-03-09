@@ -212,11 +212,9 @@ static void FDCAN3_RxFifo0RxHandler(uint32_t *Identifier,uint8_t Data[8])
 static void FDCAN2_RxFifo1RxHandler(uint32_t *Identifier,uint8_t Data[8])
 {
 	
-	MIT_motor_Info_Update(Identifier,Data,&chassis_motor[0]);
-  MIT_motor_Info_Update(Identifier,Data,&chassis_motor[1]);
-	MIT_motor_Info_Update(Identifier,Data,&chassis_motor[2]);
-	MIT_motor_Info_Update(Identifier,Data,&chassis_motor[3]);
-	
+	DJI_motor_Info_Update(Identifier,Data,&shooting_motor[0]);
+	DJI_motor_Info_Update(Identifier,Data,&shooting_motor[1]);
+	DJI_motor_Info_Update(Identifier,Data,&shooting_motor[2]);
 
 }
 
