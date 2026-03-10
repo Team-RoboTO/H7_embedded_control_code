@@ -73,13 +73,13 @@ typedef struct
 typedef struct 
 { 
   bool Initlized;
-  int16_t  Current;
-  int16_t  Velocity;
-  int16_t  Encoder;
-  int16_t  Last_Encoder;
-  float    Angle;          /*!< Motor angle in degree (-180 to 180) */
-  float    Angle_sum;      /*!< Motor cumulative angle in degree (unbounded) */ // ? aggiungi
-  uint8_t  Temperature;
+  int16_t  Current;			  	// Current [A]
+  int16_t  Velocity;       // Measured at the encoder shaft !!!pay attention for reduction ratio [RPM]
+  int16_t  Encoder;        // Angular position [in range 0-8191]
+  int16_t  Last_Encoder;   // Last angular position [in range 0-8191]
+  float    Angle;          // Motor angle in degree (-180 to 180) 
+  float    Angle_sum;      // Motor cumulative angle in degree (unbounded) 
+  uint8_t  Temperature;    // Temperature [°C] 
 	
 }DJI_Motor_Data_Typedef;
 

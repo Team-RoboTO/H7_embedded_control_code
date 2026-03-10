@@ -52,7 +52,7 @@ void Control_Task(void const * argument)
 		Control_Target_Update(&Control_Info);
     Control_Info_Update(&Control_Info);
     USART_Vofa_Justfloat_Transmit(Control_Info.Measure.Chassis_Velocity,0.f,0.f);
-		
+//		
 		osDelay(1);
   }
 }

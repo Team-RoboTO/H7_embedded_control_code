@@ -44,7 +44,7 @@ static float pid_shoot_wheel_left_params[PID_PARAMETER_NUM]  = {0.1f, 0.0f, 0.0f
 static float pid_shoot_wheel_right_params[PID_PARAMETER_NUM] = {0.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10000.0f};
 
 // REV position PID (outer loop): KP is overwritten at runtime per shooting mode
-static float pid_rev_pos_params[PID_PARAMETER_NUM] = {27.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 200.0f};
+static float pid_rev_pos_params[PID_PARAMETER_NUM] = {27.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10000.0f};
 
 // REV velocity PID (inner loop)
 static float pid_rev_vel_params[PID_PARAMETER_NUM] = {7.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10000.0f};
@@ -184,7 +184,7 @@ void _control_loop_rev(void)
         shoot_wheels_and_rev.x_prev[i] = shoot_wheels_and_rev.x[i];
     }
     shoot_wheels_and_rev.x[2] = (float) shooting_motor[2].Data.Angle_sum;      // REV angular position [rad]
-    shoot_wheels_and_rev.x[3] = (float) shooting_motor[2].Data.Velocity*2*pi/60;       // REV angular velocity [rad/s]
+    shoot_wheels_and_rev.x[3] = (float) shooting_motor[2].Data.Velocity*2*pi/(60*36);       // REV angular velocity [rad/s]
 
     // Update reference history
     for (uint8_t i = 2; i < shoot_wheels_and_rev.n; i++) {
@@ -208,13 +208,13 @@ void _control_loop_rev(void)
 
         case REV_UNSTUCK:
             if (!unstuck_rev_enabled) {
-                shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.x[2] - 45 * pi / 180;
+                shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.x[2] - 23 * pi / 180;
                 unstuck_rev_enabled = 1;
             }
             break;
 
         case REV_STOP:
-            shoot_wheels_and_rev.r_x[2] = 0;
+            shoot_wheels_and_rev.r_x[3] = 0;
             need_to_set_rev_ang_pos_reference = true;
             break;
 
@@ -275,7 +275,8 @@ void _control_loop_rev(void)
     shoot_wheels_and_rev.u[2] = PID_Calculate(&pid_rev_vel,
                                                shoot_wheels_and_rev.r_x[3],
                                                shoot_wheels_and_rev.x[3]);
-
+	shoot_wheels_and_rev.u[2] *= M2006_ADC_CONVERTION;
+	saturate(&shoot_wheels_and_rev.u[2], 10000);
 #if !IS_REV_ENABLED
     shoot_wheels_and_rev.u[2] = 0;
 #endif
