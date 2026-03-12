@@ -49,7 +49,8 @@ void USB_MiniPC_Task(void const *pvParameters)
 #elif IS_HERO
     dt_usb_minipc_ms = dt_usb_minipc_hero_ms;
 #endif
-
+		dt_usb_minipc_ms = 10; //to remove after test
+	
     dt_usb_minipc = SEC(dt_usb_minipc_ms);
 
     /* NOTE: No init needed here — USB is initialized in MX_USB_DEVICE_Init()

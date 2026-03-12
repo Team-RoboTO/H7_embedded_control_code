@@ -20,6 +20,7 @@
 #include "referee.h"*/
 #include <string.h>
 
+fp32 random_value = 0;
 /* ============================================================
    PROTOCOL SUMMARY
    TX (STM32 -> MiniPC): 6 x fp32 = 24 bytes
@@ -56,7 +57,9 @@ static uint8_t Tx_miniPC_binary_data[NUM_BYTES_TX_MINIPC];
 /* Received float values, accessible via macros defined in MiniPC.h */
 fp32 Rx_miniPC_fp32_data[NUM_FP32_RX_MINIPC] = {0}; //
 uint32_t rx_count = 0;
+uint32_t tx_count = 0;
 
+fp32 Tx_data[NUM_FP32_TX_MINIPC] = {0};
 
 /* ============================================================
    TRANSMIT
@@ -68,7 +71,7 @@ uint32_t rx_count = 0;
   * @brief  Pack referee data into float array
   * @param  Tx_data: pointer to array of NUM_FP32_TX_MINIPC floats
   */
-static void MiniPC_Prepare_Tx_Data(fp32 *Tx_data)
+ void MiniPC_Prepare_Tx_Data(fp32 *Tx_data, fp32 random_value)
 {
     /*Tx_data[0] = (fp32) get_Robot_Color();
     Tx_data[1] = (fp32) is_battle_mode();
@@ -78,12 +81,12 @@ static void MiniPC_Prepare_Tx_Data(fp32 *Tx_data)
     Tx_data[5] = (fp32) is_in_resupply_zone();*/
 	
 	//Dummy data
-		Tx_data[0] = 1.0f;
-		Tx_data[1] = 2.0f;
-		Tx_data[2] = 3.0f;
-		Tx_data[3] = 4.0f;
-		Tx_data[4] = 5.0f;
-		Tx_data[5] = 6.0f;
+		Tx_data[0] = random_value;
+		Tx_data[1] = random_value-1;
+		Tx_data[2] = -random_value;
+		Tx_data[3] = random_value;
+		Tx_data[4] = random_value;
+		Tx_data[5] = random_value;
    
 }
 
@@ -94,10 +97,12 @@ static void MiniPC_Prepare_Tx_Data(fp32 *Tx_data)
   */
 void MiniPC_Transmit_Info(void)
 {
-    fp32 Tx_data[NUM_FP32_TX_MINIPC] = {0};
+	random_value++;
+	if(rx_count>0)
+    tx_count++;
 
     /* Fill float array from referee system */
-    MiniPC_Prepare_Tx_Data(Tx_data);
+    MiniPC_Prepare_Tx_Data(Tx_data, random_value);
 
     /* Serialize: fp32 array -> raw bytes, little-endian */
     for (uint8_t i = 0; i < NUM_FP32_TX_MINIPC; i++)
