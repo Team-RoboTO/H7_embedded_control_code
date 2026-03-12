@@ -3,7 +3,7 @@
 
 /**
  * @file    can_rx.h
- * @brief   Unified CAN RX feedback parser — DJI, CubeMars, and Damiao motors
+ * @brief   Unified CAN RX feedback parser ï¿½ DJI, CubeMars, and Damiao motors
  *          STM32H7 FDCAN
  *
  * Usage:
@@ -12,9 +12,9 @@
  *   type from the arbitration ID and populates the appropriate feedback struct.
  *
  * ID ranges:
- *   DJI     RX: 0x201–0x208  (M3508 and M2006)
+ *   DJI     RX: 0x201ï¿½0x208  (M3508 and M2006)
  *   Damiao  RX: motor_id + 0x100  (e.g. 0x101 for motor 0x01)
- *   CubeMars RX: motor_id + 0x00  (same as TX ID — check by configured ID range)
+ *   CubeMars RX: motor_id + 0x00  (same as TX ID ï¿½ check by configured ID range)
  *
  * ? Configure your FDCAN filters in CubeMX to pass all relevant ID ranges
  *   to the same Rx FIFO before using this module.
@@ -34,7 +34,7 @@
 #define DJI_RX_ID_MIN           0x201U
 #define DJI_RX_ID_MAX           0x208U
 
-/* CubeMars RX ID range — adjust to match IDs set in CubeMars software */
+/* CubeMars RX ID range ï¿½ adjust to match IDs set in CubeMars software */
 #define CUBEMARS_RX_ID_MIN      0x001U
 #define CUBEMARS_RX_ID_MAX      0x00BU
 
@@ -49,7 +49,7 @@
 /**********************/
 
 /**
- * @brief   Motor type identifier — used to route RX frames to the correct decoder.
+ * @brief   Motor type identifier ï¿½ used to route RX frames to the correct decoder.
  */
 typedef enum {
     MOTOR_TYPE_DJI      = 0,
@@ -59,7 +59,7 @@ typedef enum {
 } CAN_motor_type_t;
 
 /**
- * @brief   Generic feedback container — holds decoded data from any motor type.
+ * @brief   Generic feedback container ï¿½ holds decoded data from any motor type.
  *          Only the fields relevant to the detected motor type are populated.
  */
 typedef struct {
@@ -67,7 +67,7 @@ typedef struct {
     uint32_t            can_id;
 
     /* DJI fields */
-    uint16_t            dji_angle;          /* 0–8191 (mechanical angle)   */
+    uint16_t            dji_angle;          /* 0ï¿½8191 (mechanical angle)   */
     int16_t             dji_rpm;            /* RPM                         */
     int16_t             dji_current;        /* Raw current feedback        */
     uint8_t             dji_temperature;    /* degrees C                   */
@@ -109,7 +109,7 @@ CAN_motor_type_t CAN_RX_parse_frame(FDCAN_RxHeaderTypeDef *rx_header,
                                     CAN_Rx_feedback_t     *feedback);
 
 /**
- * @brief   Decode a DJI motor RX frame (0x201–0x208).
+ * @brief   Decode a DJI motor RX frame (0x201ï¿½0x208).
  *          Populates dji_angle, dji_rpm, dji_current, dji_temperature.
  */
 void CAN_RX_decode_dji(uint32_t can_id, uint8_t *data, CAN_Rx_feedback_t *feedback);

@@ -18,6 +18,9 @@
 #include "Motor.h"
 #include "Remote_Control.h"
 
+#include "Damiao_Motor.h"
+#include "Cubemars_Motor.h"
+#include "DJI_Motor.h"
 /**
  * @brief The structure that contains the Information of FDCAN1 and FDCAN2 Receive.
  */

@@ -1,217 +1,162 @@
 #include "damiao_motor.h"
 #include <string.h>
+#include "Motor.h"
 
 /**
- * @file    damiao.c
- * @brief   Damiao DM-J6006-2EC and DM-J4310-2EC — CAN protocol + motor control
- *
- * MIT TX frame byte layout:
- *   [0]      = position[15:8]
- *   [1]      = position[7:0]
- *   [2]      = velocity[11:4]
- *   [3]      = velocity[3:0] << 4 | kp[11:8]
- *   [4]      = kp[7:0]
- *   [5]      = kd[11:4]
- *   [6]      = kd[3:0] << 4 | torque[11:8]
- *   [7]      = torque[7:0]
- *
- * Special command frame layout:
- *   Bytes [0:6] = 0xFF
- *   Byte  [7]   = command byte (DM_CMD_*)
+ * @file    damiao_motor.c
+ * @brief   DM-J6006-2EC and DM_JM4310-2EC CAN protocol + motor control
  */
 
-  /****************************/
- /*   INTERNAL HELPERS       */
-/****************************/
 
-static inline float clamp_f(float val, float min, float max)
-{
-    if (val < min) return min;
-    if (val > max) return max;
-    return val;
+// Helper Functions
+static float uint_to_float(int X_int, float X_min, float X_max, int Bits){
+	
+    float span = X_max - X_min;
+    float offset = X_min;
+    return ((float)X_int)*span/((float)((1<<Bits)-1)) + offset;
 }
 
-static uint32_t float_to_uint(float val, float val_min, float val_max, uint8_t bit_width)
-{
-    float span    = val_max - val_min;
-    float max_raw = (float)((1 << bit_width) - 1);
-    return (uint32_t)((val - val_min) * max_raw / span);
+static int float_to_uint(float x, float x_min, float x_max, int bits){
+	
+    float span = x_max - x_min;
+    float offset = x_min;
+    return (int) ((x-offset)*((float)((1<<bits)-1))/span);
 }
 
-static void get_motor_limits(DM_motor_type_t  motor_type,
-                             float *pos_min, float *pos_max,
-                             float *vel_min, float *vel_max,
-                             float *tor_min, float *tor_max)
-{
-    if (motor_type == DM_MOTOR_J6006) {
-        *pos_min = DM_J6006_POS_MIN;    *pos_max = DM_J6006_POS_MAX;
-        *vel_min = DM_J6006_VEL_MIN;    *vel_max = DM_J6006_VEL_MAX;
-        *tor_min = DM_J6006_TORQUE_MIN; *tor_max = DM_J6006_TORQUE_MAX;
-    } else {
-        *pos_min = DM_J4310_POS_MIN;    *pos_max = DM_J4310_POS_MAX;
-        *vel_min = DM_J4310_VEL_MIN;    *vel_max = DM_J4310_VEL_MAX;
-        *tor_min = DM_J4310_TORQUE_MIN; *tor_max = DM_J4310_TORQUE_MAX;
-    }
+/**
+  * @brief  Transmit enable disable save zero position Command to DM motor 
+  * @param  *FDCAN_TxFrame??pointer to the FDCAN_TxFrame_TypeDef.
+  * @param  *DM_Motor??pointer to the DM_Motor
+  * @param  CMD??Transmit Command  (DJI_Motor_Type_e)
+  * @retval None
+  */
+void DM_Motor_Command(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,DM_Motor_Info_Typedef *DM_Motor,uint8_t CMD){
+
+	 FDCAN_TxFrame->Header.Identifier = DM_Motor->FDCANFrame.TxIdentifier;
+  	
+	 FDCAN_TxFrame->Data[0] = 0xFF;
+     FDCAN_TxFrame->Data[1] = 0xFF;
+ 	 FDCAN_TxFrame->Data[2] = 0xFF;
+	 FDCAN_TxFrame->Data[3] = 0xFF;
+	 FDCAN_TxFrame->Data[4] = 0xFF;
+	 FDCAN_TxFrame->Data[5] = 0xFF;
+	 FDCAN_TxFrame->Data[6] = 0xFF;
+	
+	 switch(CMD){
+		 
+		  case Motor_Enable :
+	        FDCAN_TxFrame->Data[7] = 0xFC; 
+	    break;
+      
+			case Motor_Disable :
+	        FDCAN_TxFrame->Data[7] = 0xFD; 
+      break;
+      
+			case Motor_Save_Zero_Position :
+	        FDCAN_TxFrame->Data[7] = 0xFE; 
+			break;
+			
+			default:
+	    break;   
+	}
+	
+   USER_FDCAN_AddMessageToTxFifoQ(FDCAN_TxFrame);
+
 }
 
-static HAL_StatusTypeDef send_special_command(FDCAN_HandleTypeDef *hfdcan,
-                                              uint32_t             motor_id,
-                                              uint8_t              cmd_byte)
-{
-    FDCAN_TxHeaderTypeDef header = {
-        .Identifier          = motor_id,
-        .IdType              = FDCAN_STANDARD_ID,
-        .TxFrameType         = FDCAN_DATA_FRAME,
-        .DataLength          = FDCAN_DLC_BYTES_8,
-        .ErrorStateIndicator = FDCAN_ESI_ACTIVE,
-        .BitRateSwitch       = FDCAN_BRS_OFF,
-        .FDFormat            = FDCAN_CLASSIC_CAN,
-        .TxEventFifoControl  = FDCAN_NO_TX_EVENTS,
-        .MessageMarker       = 0,
-    };
-    uint8_t data[8] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, cmd_byte };
-    return HAL_FDCAN_AddMessageToTxFifoQ(hfdcan, &header, data);
+/**
+  * @brief  CAN Transmit DM motor Information
+  * @param  *FDCAN_TxFrame  pointer to the FDCAN_TxFrame_TypeDef.
+  * @param  *DM_Motor  pointer to the DM_Motor
+  * @param  Postion Velocity KP KD Torgue: Target
+  * @retval None
+  */
+void DM_Motor_CAN_TxMessage(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,DM_Motor_Info_Typedef *DM_Motor,float Postion, float Velocity, float KP, float KD, float Torque){
+	
+   if(DM_Motor->Control_Mode == MIT){
+		 
+		 uint16_t Postion_Tmp,Velocity_Tmp,Torque_Tmp,KP_Tmp,KD_Tmp;
+		 
+		 Postion_Tmp  =  float_to_uint(Postion, -DM_Motor->Param_Range.P_MAX,DM_Motor->Param_Range.P_MAX,16) ;
+		 Velocity_Tmp =  float_to_uint(Velocity,-DM_Motor->Param_Range.V_MAX,DM_Motor->Param_Range.V_MAX,12);
+		 Torque_Tmp   =  float_to_uint(Torque,  -DM_Motor->Param_Range.T_MAX,DM_Motor->Param_Range.T_MAX,12);
+		 KP_Tmp = float_to_uint(KP,0,500,12);
+		 KD_Tmp = float_to_uint(KD,0,5,12);
+		
+		 FDCAN_TxFrame->Header.Identifier = DM_Motor->FDCANFrame.TxIdentifier;
+		 
+		 FDCAN_TxFrame->Data[0] = (uint8_t)(Postion_Tmp>>8);
+		 FDCAN_TxFrame->Data[1] = (uint8_t)(Postion_Tmp);
+		 FDCAN_TxFrame->Data[2] = (uint8_t)(Velocity_Tmp>>4);
+		 FDCAN_TxFrame->Data[3] = (uint8_t)((Velocity_Tmp&0x0F)<<4) | (uint8_t)(KP_Tmp>>8);
+		 FDCAN_TxFrame->Data[4] = (uint8_t)(KP_Tmp);
+		 FDCAN_TxFrame->Data[5] = (uint8_t)(KD_Tmp>>4);
+		 FDCAN_TxFrame->Data[6] = (uint8_t)((KD_Tmp&0x0F)<<4) | (uint8_t)(Torque_Tmp>>8);
+		 FDCAN_TxFrame->Data[7] = (uint8_t)(Torque_Tmp);
+
+	}else if(DM_Motor->Control_Mode == POSITION_VELOCITY){
+	
+		 uint8_t *Postion_Tmp,*Velocity_Tmp;
+		
+		 Postion_Tmp  = (uint8_t*) & Postion;
+		 Velocity_Tmp = (uint8_t*) & Velocity;
+		
+	   FDCAN_TxFrame->Header.Identifier = DM_Motor->FDCANFrame.TxIdentifier + 0x100;
+		
+		 FDCAN_TxFrame->Data[0] = *(Postion_Tmp);
+		 FDCAN_TxFrame->Data[1] = *(Postion_Tmp + 1);
+		 FDCAN_TxFrame->Data[2] = *(Postion_Tmp + 2);
+		 FDCAN_TxFrame->Data[3] = *(Postion_Tmp + 3);
+	   FDCAN_TxFrame->Data[4] = *(Velocity_Tmp);
+		 FDCAN_TxFrame->Data[5] = *(Velocity_Tmp + 1);
+		 FDCAN_TxFrame->Data[6] = *(Velocity_Tmp + 2);
+		 FDCAN_TxFrame->Data[7] = *(Velocity_Tmp + 3);
+		
+	}else if(DM_Motor->Control_Mode == VELOCITY){
+	
+	  uint8_t *Velocity_Tmp;
+		Velocity_Tmp = (uint8_t*) & Velocity;
+		
+    FDCAN_TxFrame->Header.Identifier = DM_Motor->FDCANFrame.TxIdentifier + 0x200;
+		
+		FDCAN_TxFrame->Data[0] = *(Velocity_Tmp);
+		FDCAN_TxFrame->Data[1] = *(Velocity_Tmp + 1);
+		FDCAN_TxFrame->Data[2] = *(Velocity_Tmp + 2);
+		FDCAN_TxFrame->Data[3] = *(Velocity_Tmp + 3);
+		FDCAN_TxFrame->Data[4] = 0;
+ 		FDCAN_TxFrame->Data[5] = 0;
+		FDCAN_TxFrame->Data[6] = 0;
+		FDCAN_TxFrame->Data[7] = 0;
+
+	}
+	 
+	  USER_FDCAN_AddMessageToTxFifoQ(FDCAN_TxFrame);
+
 }
+//------------------------------------------------------------------------------
 
-  /****************************/
- /*  COMM FUNCTIONS          */
-/****************************/
-
-void DM_init_tx_message(DM_Tx_message_t *msg, uint32_t motor_id)
+/**
+  * @brief  Update the DM_Motor Information
+  * @param  Identifier:  pointer to the specifies the standard identifier.
+  * @param  Rx_Buf:  pointer to the can receive data
+  * @param  DM_Motor: pointer to a DM_Motor_Info_Typedef structure that contains the information of DM_Motor
+  * @retval None
+  */
+void DM_Motor_Info_Update(uint32_t *Identifier,uint8_t *Rx_Buf,DM_Motor_Info_Typedef *DM_Motor)
 {
-    msg->Tx_header.Identifier          = motor_id;
-    msg->Tx_header.IdType              = FDCAN_STANDARD_ID;
-    msg->Tx_header.TxFrameType         = FDCAN_DATA_FRAME;
-    msg->Tx_header.DataLength          = FDCAN_DLC_BYTES_8;
-    msg->Tx_header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
-    msg->Tx_header.BitRateSwitch       = FDCAN_BRS_OFF;
-    msg->Tx_header.FDFormat            = FDCAN_CLASSIC_CAN;
-    msg->Tx_header.TxEventFifoControl  = FDCAN_NO_TX_EVENTS;
-    msg->Tx_header.MessageMarker       = 0;
-    memset(msg->Tx_data, 0, DM_CAN_FRAME_BYTES);
+	 
+	if(*Identifier != DM_Motor->FDCANFrame.RxIdentifier) return;
+	
+	  DM_Motor->Data.State = Rx_Buf[0]>>4;
+		DM_Motor->Data.P_int = ((uint16_t)(Rx_Buf[1]) <<8) | ((uint16_t)(Rx_Buf[2]));
+		DM_Motor->Data.V_int = ((uint16_t)(Rx_Buf[3]) <<4) | ((uint16_t)(Rx_Buf[4])>>4);
+		DM_Motor->Data.T_int = ((uint16_t)(Rx_Buf[4]&0xF) <<8) | ((uint16_t)(Rx_Buf[5]));
+		DM_Motor->Data.Torque=  uint_to_float(DM_Motor->Data.T_int,-DM_Motor->Param_Range.T_MAX,DM_Motor->Param_Range.T_MAX,12);
+		DM_Motor->Data.Position=uint_to_float(DM_Motor->Data.P_int,-DM_Motor->Param_Range.P_MAX,DM_Motor->Param_Range.P_MAX,16);
+    DM_Motor->Data.Velocity=uint_to_float(DM_Motor->Data.V_int,-DM_Motor->Param_Range.V_MAX,DM_Motor->Param_Range.V_MAX,12);
+
+    DM_Motor->Data.Temperature_MOS   = (float)(Rx_Buf[6]);
+		DM_Motor->Data.Temperature_Rotor = (float)(Rx_Buf[7]);
+
 }
-
-void DM_pack_mit_frame(DM_Tx_message_t *msg,
-                       DM_motor_type_t  motor_type,
-                       float            position,
-                       float            velocity,
-                       float            kp,
-                       float            kd,
-                       float            torque)
-{
-    float pos_min, pos_max, vel_min, vel_max, tor_min, tor_max;
-    get_motor_limits(motor_type, &pos_min, &pos_max, &vel_min, &vel_max, &tor_min, &tor_max);
-
-    position = clamp_f(position, pos_min, pos_max);
-    velocity = clamp_f(velocity, vel_min, vel_max);
-    kp       = clamp_f(kp,       DM_KP_MIN,  DM_KP_MAX);
-    kd       = clamp_f(kd,       DM_KD_MIN,  DM_KD_MAX);
-    torque   = clamp_f(torque,   tor_min,    tor_max);
-
-    uint32_t p_raw  = float_to_uint(position, pos_min, pos_max, DM_POS_BITS);
-    uint32_t v_raw  = float_to_uint(velocity, vel_min, vel_max, DM_VEL_BITS);
-    uint32_t kp_raw = float_to_uint(kp,       DM_KP_MIN, DM_KP_MAX, DM_KP_BITS);
-    uint32_t kd_raw = float_to_uint(kd,       DM_KD_MIN, DM_KD_MAX, DM_KD_BITS);
-    uint32_t t_raw  = float_to_uint(torque,   tor_min,   tor_max,   DM_TORQUE_BITS);
-
-    msg->Tx_data[0] = (uint8_t)(p_raw >> 8);
-    msg->Tx_data[1] = (uint8_t)(p_raw);
-    msg->Tx_data[2] = (uint8_t)(v_raw >> 4);
-    msg->Tx_data[3] = (uint8_t)((v_raw  & 0xF) << 4) | (uint8_t)(kp_raw >> 8);
-    msg->Tx_data[4] = (uint8_t)(kp_raw);
-    msg->Tx_data[5] = (uint8_t)(kd_raw >> 4);
-    msg->Tx_data[6] = (uint8_t)((kd_raw & 0xF) << 4) | (uint8_t)(t_raw >> 8);
-    msg->Tx_data[7] = (uint8_t)(t_raw);
-}
-
-HAL_StatusTypeDef DM_enter_control(FDCAN_HandleTypeDef *hfdcan, uint32_t motor_id)
-{
-    return send_special_command(hfdcan, motor_id, DM_CMD_ENTER_CONTROL);
-}
-
-HAL_StatusTypeDef DM_exit_control(FDCAN_HandleTypeDef *hfdcan, uint32_t motor_id)
-{
-    return send_special_command(hfdcan, motor_id, DM_CMD_EXIT_CONTROL);
-}
-
-HAL_StatusTypeDef DM_set_zero(FDCAN_HandleTypeDef *hfdcan, uint32_t motor_id)
-{
-    return send_special_command(hfdcan, motor_id, DM_CMD_SET_ZERO);
-}
-
-HAL_StatusTypeDef DM_clear_error(FDCAN_HandleTypeDef *hfdcan, uint32_t motor_id)
-{
-    return send_special_command(hfdcan, motor_id, DM_CMD_CLEAR_ERROR);
-}
-
-HAL_StatusTypeDef DM_transmit(FDCAN_HandleTypeDef *hfdcan, DM_Tx_message_t *msg)
-{
-    return HAL_FDCAN_AddMessageToTxFifoQ(hfdcan, &msg->Tx_header, msg->Tx_data);
-}
-
-  /****************************/
- /*      CONTROL FUNCTIONS   */
-/****************************/
-
-void DM_motor_init(DM_Motor_t      *motor,
-                   DM_motor_type_t  motor_type,
-                   uint32_t         can_id,
-                   float            vel_params[PID_PARAMETER_NUM],
-                   float            pos_params[PID_PARAMETER_NUM])
-{
-    memset(motor, 0, sizeof(DM_Motor_t));
-    motor->can_id     = can_id;
-    motor->motor_type = motor_type;
-    DM_init_tx_message(&motor->tx_msg, can_id);
-
-    if (vel_params != NULL) PID_Init(&motor->vel_pid, PID_VELOCITY, vel_params);
-    if (pos_params != NULL) PID_Init(&motor->pos_pid, PID_POSITION, pos_params);
-}
-
-HAL_StatusTypeDef DM_motor_set_velocity(DM_Motor_t          *motor,
-                                        FDCAN_HandleTypeDef *hfdcan,
-                                        float                setpoint,
-                                        float                measured)
-{
-    float vel_cmd = PID_Calculate(&motor->vel_pid, setpoint, measured);
-
-    float vel_min = (motor->motor_type == DM_MOTOR_J6006) ? DM_J6006_VEL_MIN : DM_J4310_VEL_MIN;
-    float vel_max = (motor->motor_type == DM_MOTOR_J6006) ? DM_J6006_VEL_MAX : DM_J4310_VEL_MAX;
-    vel_cmd = clamp_f(vel_cmd, vel_min, vel_max);
-
-    DM_pack_mit_frame(&motor->tx_msg, motor->motor_type,
-                      0.0f, vel_cmd, 0.0f, 0.0f, 0.0f);
-
-    return DM_transmit(hfdcan, &motor->tx_msg);
-}
-
-HAL_StatusTypeDef DM_motor_set_position(DM_Motor_t          *motor,
-                                        FDCAN_HandleTypeDef *hfdcan,
-                                        float                setpoint,
-                                        float                measured)
-{
-    float pos_cmd = PID_Calculate(&motor->pos_pid, setpoint, measured);
-
-    float pos_min = (motor->motor_type == DM_MOTOR_J6006) ? DM_J6006_POS_MIN : DM_J4310_POS_MIN;
-    float pos_max = (motor->motor_type == DM_MOTOR_J6006) ? DM_J6006_POS_MAX : DM_J4310_POS_MAX;
-    pos_cmd = clamp_f(pos_cmd, pos_min, pos_max);
-
-    DM_pack_mit_frame(&motor->tx_msg, motor->motor_type,
-                      pos_cmd, 0.0f, DM_DEFAULT_KP, DM_DEFAULT_KD, 0.0f);
-
-    return DM_transmit(hfdcan, &motor->tx_msg);
-}
-
-HAL_StatusTypeDef DM_motor_set_torque(DM_Motor_t          *motor,
-                                      FDCAN_HandleTypeDef *hfdcan,
-                                      float                torque_nm)
-{
-    float tor_min = (motor->motor_type == DM_MOTOR_J6006) ? DM_J6006_TORQUE_MIN : DM_J4310_TORQUE_MIN;
-    float tor_max = (motor->motor_type == DM_MOTOR_J6006) ? DM_J6006_TORQUE_MAX : DM_J4310_TORQUE_MAX;
-    torque_nm = clamp_f(torque_nm, tor_min, tor_max);
-
-    DM_pack_mit_frame(&motor->tx_msg, motor->motor_type,
-                      0.0f, 0.0f, 0.0f, 0.0f, torque_nm);
-
-    return DM_transmit(hfdcan, &motor->tx_msg);
-}
+//------------------------------------------------------------------------------	

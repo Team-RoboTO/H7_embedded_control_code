@@ -16,11 +16,14 @@
 #include "CAN_Task.h"
 #include "Control_Task.h"
 #include "INS_Task.h"
-#include "Motor.h"
+#include "motor.h"
 #include "bsp_can.h"
 #include "Remote_Control.h"
 #include "Control_Task.h"
 
+#include "Damiao_Motor.h"
+#include "Cubemars_Motor.h"
+#include "DJI_Motor.h"
 /* USER CODE BEGIN Header_CAN_Task */
 /**
 * @brief Function implementing the StartCANTask thread.

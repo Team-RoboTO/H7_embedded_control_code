@@ -2,10 +2,10 @@
 
 /**
  * @file    can_rx.c
- * @brief   Unified CAN RX feedback parser — DJI, CubeMars, and Damiao motors
+ * @brief   Unified CAN RX feedback parser ï¿½ DJI, CubeMars, and Damiao motors
  *
- * DJI RX frame layout (8 bytes, per motor, ID 0x201–0x208):
- *   [0:1]  Mechanical angle   (uint16, 0–8191)
+ * DJI RX frame layout (8 bytes, per motor, ID 0x201ï¿½0x208):
+ *   [0:1]  Mechanical angle   (uint16, 0ï¿½8191)
  *   [2:3]  RPM                (int16)
  *   [4:5]  Actual current     (int16)
  *   [6]    Temperature        (uint8, degrees C)
@@ -67,7 +67,7 @@ void CAN_RX_decode_cubemars(uint32_t can_id, uint8_t *data, CAN_Rx_feedback_t *f
      *   Byte 1         : position[15:8]
      *   Byte 2         : position[7:0]
      *   Byte 3 [7:4]   : velocity[11:8] ... actually velocity[11:4]
-     *   Wait — CubeMars RX uses a slightly different packing than TX:
+     *   Wait ï¿½ CubeMars RX uses a slightly different packing than TX:
      *
      *   pos  = data[1]<<8 | data[2]                     (16-bit)
      *   vel  = data[3]<<4 | data[4]>>4                  (12-bit)
@@ -143,7 +143,7 @@ CAN_motor_type_t CAN_RX_parse_frame(FDCAN_RxHeaderTypeDef *rx_header,
     }
     else if (id >= DM_RX_ID_MIN && id <= DM_RX_ID_MAX) {
         /*
-         * Damiao — motor type must be inferred from ID or a lookup table.
+         * Damiao ï¿½ motor type must be inferred from ID or a lookup table.
          * Here we default to J6006; replace with your actual ID-to-type map.
          * Example: if (id == 0x101 || id == 0x102) type = DM_MOTOR_J6006; else ...
          */

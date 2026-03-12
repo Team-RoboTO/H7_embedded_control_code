@@ -21,6 +21,10 @@
 #include "Motor.h"
 #include "arm_math.h"
 
+#include "Damiao_Motor.h"
+#include "Cubemars_Motor.h"
+#include "DJI_Motor.h"
+
 static void Control_Init(Control_Info_Typedef *Control_Info);
 static void Control_Measure_Update(Control_Info_Typedef *Control_Info);
 static void Control_Target_Update(Control_Info_Typedef *Control_Info);
