@@ -10,8 +10,8 @@
       <TargetName>COD_H7_Template</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
-      <pArmCC>6220000::V6.22::.\ARM_Compiler_6.22</pArmCC>
-      <pCCUsed>6220000::V6.22::.\ARM_Compiler_6.22</pCCUsed>
+      <pArmCC>6190000::V6.19::ARMCLANG</pArmCC>
+      <pCCUsed>6190000::V6.19::ARMCLANG</pCCUsed>
       <uAC6>1</uAC6>
       <TargetOption>
         <TargetCommonOption>
@@ -409,6 +409,16 @@
               <FileName>Config.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\Application\Task\Inc\Config.h</FilePath>
+            </File>
+            <File>
+              <FileName>USB_MiniPC_Task.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Application\Task\Src\USB_MiniPC_Task.c</FilePath>
+            </File>
+            <File>
+              <FileName>USB_MiniPC_Task.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Application\Task\Inc\USB_MiniPC_Task.h</FilePath>
             </File>
           </Files>
         </Group>
