@@ -15,7 +15,9 @@
 /* Includes ------------------------------------------------------------------*/
 #include "MiniPC.h"
 #include "usbd_cdc_if.h"
-#include "referee.h"
+
+/*To be added from old code
+#include "referee.h"*/
 #include <string.h>
 
 /* ============================================================
@@ -53,6 +55,8 @@ static uint8_t Tx_miniPC_binary_data[NUM_BYTES_TX_MINIPC];
 
 /* Received float values, accessible via macros defined in MiniPC.h */
 fp32 Rx_miniPC_fp32_data[NUM_FP32_RX_MINIPC] = {0}; //
+uint32_t rx_count = 0;
+
 
 /* ============================================================
    TRANSMIT
@@ -66,12 +70,21 @@ fp32 Rx_miniPC_fp32_data[NUM_FP32_RX_MINIPC] = {0}; //
   */
 static void MiniPC_Prepare_Tx_Data(fp32 *Tx_data)
 {
-    Tx_data[0] = (fp32) get_Robot_Color();
+    /*Tx_data[0] = (fp32) get_Robot_Color();
     Tx_data[1] = (fp32) is_battle_mode();
     Tx_data[2] = (fp32) get_robot_current_HP();
     Tx_data[3] = (fp32) get_projectile_allowance();
     Tx_data[4] = (fp32) get_event_data();
-    Tx_data[5] = (fp32) is_in_resupply_zone();
+    Tx_data[5] = (fp32) is_in_resupply_zone();*/
+	
+	//Dummy data
+		Tx_data[0] = 1.0f;
+		Tx_data[1] = 2.0f;
+		Tx_data[2] = 3.0f;
+		Tx_data[3] = 4.0f;
+		Tx_data[4] = 5.0f;
+		Tx_data[5] = 6.0f;
+   
 }
 
 /**
@@ -110,7 +123,7 @@ void MiniPC_Transmit_Info(void)
   */
 void MiniPC_Receive_Info(uint8_t *Buff, uint32_t Len)
 {
-    //rx_count++;
+    rx_count++;
 
     /* Ignore packets with unexpected length 
     if (Len != NUM_BYTES_RX_MINIPC)
@@ -123,4 +136,5 @@ void MiniPC_Receive_Info(uint8_t *Buff, uint32_t Len)
     {
         memcpy(&Rx_miniPC_fp32_data[i], &Buff[i * sizeof(fp32)], sizeof(fp32));
     }
+
 }

@@ -40,7 +40,6 @@ extern fp32 Rx_miniPC_fp32_data[NUM_FP32_RX_MINIPC];
 #define fwd_bwd_cv          Rx_miniPC_fp32_data[3]
 #define left_right_cv       Rx_miniPC_fp32_data[4]
 #define angle_cv            Rx_miniPC_fp32_data[5]
-
 /* ============================================================
    FUNCTIONS
    ============================================================ */
