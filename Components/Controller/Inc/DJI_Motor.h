@@ -62,7 +62,9 @@ typedef struct
 }DJI_Motor_Info_Typedef;
 
 // Functions
-extern void DJI_Motor_Info_Update(uint32_t *Identifier, uint8_t *Rx_Buf,DJI_Motor_Info_Typedef *DJI_Motor);
-extern DJI_Motor_Info_Typedef DJI_Yaw_Motor,Chassis_Motor[4];
+extern void DJI_Motor_Info_Update(uint32_t *Identifier, uint8_t *Rx_Buf, DJI_Motor_Info_Typedef *DJI_Motor);
+extern void DJI_M3508_M2006_TxMessage (FDCAN_TxFrame_TypeDef *FDCAN_TxFrame, int16_t cur1, int16_t cur2, int16_t cur3, int16_t cur4);
+extern void DJI_GM6020_TxMessage(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame, uint32_t tx_id, int16_t vol1, int16_t vol2, int16_t vol3, int16_t vol4);
+extern DJI_Motor_Info_Typedef DJI_Yaw_Motor, Chassis_Motor[4];
 
 #endif /* DJI_MOTOR_H */

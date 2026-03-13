@@ -22,6 +22,7 @@ static int float_to_uint(float x, float x_min, float x_max, int bits){
 }
 
 // Functions
+
 /**
   * @brief  float loop constrain
   * @param  Input    the specified variables
@@ -107,7 +108,6 @@ static float DJI_Motor_Encoder_To_Anglesum(DJI_Motor_Data_Typedef *Data,float To
   
   return Data->Angle;
 }
-//------------------------------------------------------------------------------
 
 /**
   * @brief  transform the Encoder(0-8192) to angle(-180-180)
@@ -163,6 +163,63 @@ float DJI_Motor_Encoder_To_Angle(DJI_Motor_Data_Typedef *Data,float torque_ratio
 //------------------------------------------------------------------------------
 
 /**
+  * @brief  Transmit current setpoints to M3508 / M2006 motors (IDs 1-4).
+  *         All four values are packed into a single 8-byte frame at ID 0x200.
+  *         Current range: -16384 to +16384 (maps to ~-20A / +20A on M3508).
+  * @param  FDCAN_TxFrame  pointer to the FDCAN TX frame to use (e.g. &FDCAN1_TxFrame)
+  * @param  cur1..cur4     current setpoints for motor IDs 1-4
+  * @retval None
+  */
+void DJI_M3508_M2006_TxMessage(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,
+                                int16_t cur1, int16_t cur2,
+                                int16_t cur3, int16_t cur4)
+{
+    FDCAN_TxFrame->Header.Identifier = 0x200;
+
+    FDCAN_TxFrame->Data[0] = (uint8_t)(cur1 >> 8);
+    FDCAN_TxFrame->Data[1] = (uint8_t)(cur1);
+    FDCAN_TxFrame->Data[2] = (uint8_t)(cur2 >> 8);
+    FDCAN_TxFrame->Data[3] = (uint8_t)(cur2);
+    FDCAN_TxFrame->Data[4] = (uint8_t)(cur3 >> 8);
+    FDCAN_TxFrame->Data[5] = (uint8_t)(cur3);
+    FDCAN_TxFrame->Data[6] = (uint8_t)(cur4 >> 8);
+    FDCAN_TxFrame->Data[7] = (uint8_t)(cur4);
+
+    USER_FDCAN_AddMessageToTxFifoQ(FDCAN_TxFrame);
+}
+
+/**
+  * @brief  Transmit voltage setpoints to GM6020 motors.
+  *         IDs 1-4  -> frame ID 0x1FF  (bytes 0-7)
+  *         IDs 5-7  -> frame ID 0x2FF  (bytes 0-5, bytes 6-7 unused)
+  *         Voltage range: -30000 to +30000.
+  * @param  FDCAN_TxFrame  pointer to the FDCAN TX frame to use
+  * @param  tx_id          CAN TX identifier: 0x1FF (motors 1-4) or 0x2FF (motors 5-7)
+  * @param  vol1..vol4     voltage setpoints for the four slots in the frame
+  *                        (slot 4 / vol4 unused when tx_id == 0x2FF)
+  * @retval None
+  */
+void DJI_GM6020_TxMessage(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame, uint32_t tx_id,
+                           int16_t vol1, int16_t vol2,
+                           int16_t vol3, int16_t vol4)
+{
+    FDCAN_TxFrame->Header.Identifier = tx_id;
+
+    FDCAN_TxFrame->Data[0] = (uint8_t)(vol1 >> 8);
+    FDCAN_TxFrame->Data[1] = (uint8_t)(vol1);
+    FDCAN_TxFrame->Data[2] = (uint8_t)(vol2 >> 8);
+    FDCAN_TxFrame->Data[3] = (uint8_t)(vol2);
+    FDCAN_TxFrame->Data[4] = (uint8_t)(vol3 >> 8);
+    FDCAN_TxFrame->Data[5] = (uint8_t)(vol3);
+    FDCAN_TxFrame->Data[6] = (uint8_t)(vol4 >> 8);
+    FDCAN_TxFrame->Data[7] = (uint8_t)(vol4);
+
+    USER_FDCAN_AddMessageToTxFifoQ(FDCAN_TxFrame);
+}
+
+//------------------------------------------------------------------------------
+
+/**
   * @brief  Update the DJI motor Information
   * @param  Identifier  pointer to the specifies the standard identifier.
   * @param  Rx_Buf  pointer to the can receive data
@@ -170,6 +227,7 @@ float DJI_Motor_Encoder_To_Angle(DJI_Motor_Data_Typedef *Data,float torque_ratio
   *         that contains the information of DJI motor
   * @retval None
   */
+
 void DJI_Motor_Info_Update(uint32_t *Identifier, uint8_t *Rx_Buf,DJI_Motor_Info_Typedef *DJI_Motor)
 {
 	/* check the Identifier */
