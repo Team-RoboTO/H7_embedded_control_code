@@ -23,6 +23,13 @@
 #include "stm32h723xx.h"
 #include "bsp_can.h"
 
+
+// Gimbal CubeMars motors (yaw and pitch)
+#define HEXA_GIMBAL_YAW_CUBEMARS_ID_CAN 0x0000296B 
+#define HEXA_GIMBAL_PITCH_CUBEMARS_ID_CAN 0x0000296A
+
+#define GIMBAL_YAW_CUBEMARS_ID_CAN 107 // CAN ID 107
+#define GIMBAL_PITCH_CUBEMARS_ID_CAN 106 // CAN ID 104
 ///**
 // * @brief typedef enum that contains the type of DJI Motor Device.
 // */
