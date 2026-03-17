@@ -20,13 +20,14 @@
 #include "struct_typedef.h"
 #include <string.h>
 #include "main.h"
+#include "INS_Task.h"
 
 /* ============================================================
    PROTOCOL DIMENSIONS
    ============================================================ */
-#define NUM_FP32_TX_MINIPC      6
+#define NUM_FP32_TX_MINIPC      10
 #define NUM_FP32_RX_MINIPC      6
-#define NUM_BYTES_TX_MINIPC     (NUM_FP32_TX_MINIPC * sizeof(fp32))   /* 24 bytes */
+#define NUM_BYTES_TX_MINIPC     (NUM_FP32_TX_MINIPC * sizeof(fp32))   /* 40 bytes */
 #define NUM_BYTES_RX_MINIPC     (NUM_FP32_RX_MINIPC * sizeof(fp32))   /* 24 bytes */
 
 /* ============================================================

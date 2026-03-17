@@ -15,39 +15,12 @@
 /* Includes ------------------------------------------------------------------*/
 #include "MiniPC.h"
 #include "usbd_cdc_if.h"
-
-/*To be added from old code
-#include "referee.h"*/
+#include "INS_Task.h"
+#include "Referee_System.h"
 #include <string.h>
 
 fp32 random_value = 0;
-/* ============================================================
-   PROTOCOL SUMMARY
-   TX (STM32 -> MiniPC): 6 x fp32 = 24 bytes
-   +---------+---------+------------------------------------+
-   | index   | bytes   | meaning                           |
-   +---------+---------+------------------------------------+
-   |   0     |  0-3    | Robot Color (RED=0, BLUE=1)       |
-   |   1     |  4-7    | Battle mode active (0/1)          |
-   |   2     |  8-11   | Current Robot HP                  |
-   |   3     | 12-15   | Remaining projectiles             |
-   |   4     | 16-19   | Capture point status              |
-   |   5     | 20-23   | Is in resupply zone (0/1)         |
-   +---------+---------+------------------------------------+
 
-   RX (MiniPC -> STM32): 6 x fp32 = 24 bytes
-   +---------+---------+------------------------------------+
-   | index   | bytes   | meaning                           |
-   +---------+---------+------------------------------------+
-   |   0     |  0-3    | yaw_cv                            |
-   |   1     |  4-7    | pitch_cv                          |
-   |   2     |  8-11   | shoot_frequency_cv                |
-   |   3     | 12-15   | fwd_bwd_cv                        |
-   |   4     | 16-19   | left_right_cv                     |
-   |   5     | 20-23   | angle_cv                          |
-   +---------+---------+------------------------------------+
-   All values are raw IEEE 754 float, little-endian.
-   ============================================================ */
 
 /* Private variables ---------------------------------------------------------*/
 
@@ -73,21 +46,32 @@ fp32 Tx_data[NUM_FP32_TX_MINIPC] = {0};
   */
  void MiniPC_Prepare_Tx_Data(fp32 *Tx_data, fp32 random_value)
 {
-    /*Tx_data[0] = (fp32) get_Robot_Color();
-    Tx_data[1] = (fp32) is_battle_mode();
-    Tx_data[2] = (fp32) get_robot_current_HP();
-    Tx_data[3] = (fp32) get_projectile_allowance();
-    Tx_data[4] = (fp32) get_event_data();
-    Tx_data[5] = (fp32) is_in_resupply_zone();*/
+   
+    /* --- Referee data (placeholder until referee system is ready) --- */
+    Tx_data[0] = 0.0f;   /* is_battle_mode()          [fp32]     */
+    Tx_data[1] = 0.0f;   /* get_Robot_Color()         [fp32]     */
+    Tx_data[2] = 0.0f;   /* get_robot_current_HP()    [uint16_t] */
+    Tx_data[3] = 0.0f;   /* is_in_resupply_zone()     [bool]     */
+    Tx_data[4] = 0.0f;   /* get_event_data()          [uint32_t] */
+ 
+    /* --- IMU data from INS_Task --- */
+    Tx_data[5] = INS_Info.Yaw_Angle;  //works  /* [fp32], degrees */
+    Tx_data[6] = INS_Info.Pitch_Angle; //works  /* [fp32], degrees */
+    Tx_data[7] = INS_Info.Roll_Angle;  //works /* [fp32], degrees */
+ 
+    /* --- Chassis velocities (placeholder until chassis task is ready) --- */
+    Tx_data[8] = 0.0f;   /* linear velocity  [fp32, m/s]   */
+    Tx_data[9] = 0.0f;   /* angular velocity [fp32, rad/s] */
 	
-	//Dummy data
+	//Dummy data 
+		/*
 		Tx_data[0] = random_value;
 		Tx_data[1] = random_value-1;
 		Tx_data[2] = -random_value;
 		Tx_data[3] = random_value;
-		Tx_data[4] = random_value;
-		Tx_data[5] = random_value;
-   
+		Tx_data[4] = rx_count;
+		Tx_data[5] = tx_count;
+		*/
 }
 
 /**
@@ -97,9 +81,10 @@ fp32 Tx_data[NUM_FP32_TX_MINIPC] = {0};
   */
 void MiniPC_Transmit_Info(void)
 {
-	random_value++;
-	if(rx_count>0)
+	//Begin transmitting only once it has received something (from python test script)
+	while(rx_count>0){
     tx_count++;
+		//random_value++;
 
     /* Fill float array from referee system */
     MiniPC_Prepare_Tx_Data(Tx_data, random_value);
@@ -111,7 +96,8 @@ void MiniPC_Transmit_Info(void)
     }
 
     /* Transmit over USB CDC — correct size is NUM_BYTES_TX_MINIPC, not sizeof(ptr) */
-    CDC_Transmit_HS(Tx_miniPC_binary_data, NUM_BYTES_TX_MINIPC);
+    CDC_Transmit_HS(Tx_miniPC_binary_data, NUM_BYTES_TX_MINIPC); 
+	}
 }
 
 /* ============================================================
@@ -128,8 +114,8 @@ void MiniPC_Transmit_Info(void)
   */
 void MiniPC_Receive_Info(uint8_t *Buff, uint32_t Len)
 {
-    rx_count++;
-
+    
+		rx_count++;
     /* Ignore packets with unexpected length 
     if (Len != NUM_BYTES_RX_MINIPC)
     {
@@ -140,6 +126,8 @@ void MiniPC_Receive_Info(uint8_t *Buff, uint32_t Len)
     for (uint8_t i = 0; i < NUM_FP32_RX_MINIPC; i++)
     {
         memcpy(&Rx_miniPC_fp32_data[i], &Buff[i * sizeof(fp32)], sizeof(fp32));
+				
     }
+		
 
 }
