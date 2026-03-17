@@ -66,7 +66,7 @@ static void Control_Init(Control_Info_Typedef *Control_Info){
 
 static void Control_Measure_Update(Control_Info_Typedef *Control_Info){
 
-  Control_Info->Measure.Chassis_Velocity = Chassis_Motor[0].Data.Velocity;
+  Control_Info->Measure.Chassis_Velocity = DJI_Chassis_Motor[0].Data.Velocity;
 
 }
 

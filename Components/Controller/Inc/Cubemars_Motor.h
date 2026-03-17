@@ -1,32 +1,32 @@
 #ifndef CUBEMARS_MOTOR_H
 #define CUBEMARS_MOTOR_H
-
 #include "main.h"
 #include "PID.h"
 #include "config.h"
 #include "stm32h723xx.h"
 #include "bsp_can.h"
 #include "motor.h"
-
 /**
- * @file    cubemars.h
- * @brief   CubeMars AK40-10 � CAN protocol + motor control
+ * @file    cubemars_motor.h
+ * @brief   CubeMars AK40-10 CAN protocol + motor control
  *          STM32H7 FDCAN, MIT mini-cheetah protocol, classic CAN, 1Mbps
  *
+ *          Architecture mirrors Damiao_Motor: all TX/RX functions take a
+ *          CM_Motor_Info_Typedef* so CAN IDs and param ranges come from the
+ *          struct, not from hardcoded #defines.
  */
 
 // **************************** Parameter Definitions - MIT MODE FOR CUBEMARS *******************
-// MIT Mode Parameters for all Cubemars motors
-#define CM_P_MIN -12.5f
-#define CM_P_MAX  12.5f
-#define CM_V_MIN -50.0f
-#define CM_V_MAX  50.0f
-#define CM_T_MIN -25.0f
-#define CM_T_MAX  25.0f
-#define CM_KP_MIN 0.0f
-#define CM_KP_MAX 500.0f
-#define CM_KD_MIN 0.0f
-#define CM_KD_MAX 5.0f
+#define CM_P_MIN   -12.5f
+#define CM_P_MAX    12.5f
+#define CM_V_MIN   -50.0f
+#define CM_V_MAX    50.0f
+#define CM_T_MIN   -25.0f
+#define CM_T_MAX    25.0f
+#define CM_KP_MIN    0.0f
+#define CM_KP_MAX  500.0f
+#define CM_KD_MIN    0.0f
+#define CM_KD_MAX    5.0f
 
 #define AK40_POS_MIN    CM_P_MIN
 #define AK40_POS_MAX    CM_P_MAX
@@ -34,87 +34,181 @@
 #define AK40_VEL_MAX    CM_V_MAX
 #define AK40_TORQUE_MIN CM_T_MIN
 #define AK40_TORQUE_MAX CM_T_MAX
-
 // **************************** End - MIT MODE FOR CUBEMARS *******************
 
-///* MIT bit field widths */
-//#define MIT_POS_BITS        16
-//#define MIT_VEL_BITS        12
-//#define MIT_KP_BITS         12
-//#define MIT_KD_BITS         12
-//#define MIT_TORQUE_BITS     12
-//#define CUBEMARS_CAN_FRAME_BYTES    8U
+// --------------------------------------------------------------------------
+//  Enums
+// --------------------------------------------------------------------------
 
-/* Special command words */
-#define CUBEMARS_CMD_ENTER_CONTROL  0xFFFFFFFFFFFFFFFFULL
-#define CUBEMARS_CMD_EXIT_CONTROL   0xFFFFFFFFFFFFFFFEULL
-#define CUBEMARS_CMD_SET_ZERO       0xFFFFFFFFFFFFFFF5ULL
-
-  /************************/
- /*   CAN TX FUNCTIONS   */
-/************************/
-
-void CAN_Tx_chassis_wheels(
-    int16_t current_ampere_motor_1,
-    int16_t current_ampere_motor_2,
-    int16_t current_ampere_motor_3,
-    int16_t current_ampere_motor_4);
-
-void CAN_Tx_gimbal(
-    int16_t current_ampere_yaw,
-    int16_t current_ampere_pitch);
-
-void CAN_Tx_shoot_wheels_rev(
-    int16_t current_ampere_shoot_wheel_left,
-    int16_t current_ampere_shoot_wheel_right,
-    int16_t current_ampere_rev);
-
-
-void CAN_Tx_gimbal_cubemars(
-    float current_ampere_pitch);
-
-void CAN_Tx_gimbal_cm_position(
-		float position);
-
-void CAN_Tx_gimbal_cm_pos_spd_acc(
-		float position, 
-		int16_t max_speed, 
-		int16_t acceleration);
-
-void CAN_Tx_yaw_cubemars_set_origin();
-
-void CAN_Tx_pitch_cubemars_set_origin();
-
-void CAN_Tx_shoot_wheels_rev_double_barrel(
-    int16_t current_ampere_shoot_wheel_left,
-    int16_t current_ampere_shoot_wheel_right,
-    int16_t current_ampere_rev);
-
-void CAN_Tx_shoot_wheels_rev(
-    int16_t current_ampere_shoot_wheel_left,
-    int16_t current_ampere_shoot_wheel_right,
-    int16_t current_ampere_rev);
-
-// CubeMars CAN commands modes
+/**
+ * @brief typedef enum that contains the type of CubeMars Motor Device.
+ */
 typedef enum {
-	CAN_PACKET_SET_DUTY = 0,  //????g?
-	CAN_PACKET_SET_CURRENT,   //??????g?
-	CAN_PACKET_SET_CURRENT_BRAKE,  //???g?
-	CAN_PACKET_SET_RPM,            //???g?
-	CAN_PACKET_SET_POS,            //???g?
-	CAN_PACKET_SET_ORIGIN_HERE,    //???????
-	CAN_PACKET_SET_POS_SPD         //???????g?
+    CM_AK40_10,
+    CM_MOTOR_TYPE_NUM,
+} CM_Motor_Type_e;
+
+/**
+ * @brief typedef enum for CubeMars control modes.
+ */
+typedef enum {
+    CM_MIT_MODE,
+    CM_POSITION_MODE,
+    CM_POSITION_SPEED_MODE,
+    CM_CURRENT_MODE,
+    CM_RPM_MODE,
+} CM_Motor_Control_Mode_e;
+
+/**
+ * @brief typedef enum for CubeMars motor commands (mirrors DM_Motor_CMD_Type_e).
+ */
+typedef enum {
+    CM_Motor_Enable,
+    CM_Motor_Disable,
+    CM_Motor_Save_Zero_Position,
+    CM_Motor_CMD_Type_Num,
+} CM_Motor_CMD_Type_e;
+
+/**
+ * @brief CubeMars extended-ID CAN packet commands.
+ */
+typedef enum {
+    CAN_PACKET_SET_DUTY = 0,
+    CAN_PACKET_SET_CURRENT,
+    CAN_PACKET_SET_CURRENT_BRAKE,
+    CAN_PACKET_SET_RPM,
+    CAN_PACKET_SET_POS,
+    CAN_PACKET_SET_ORIGIN_HERE,
+    CAN_PACKET_SET_POS_SPD,
 } CAN_PACKET_ID;
 
-// CubeMars Functions declaration
-void CM_motor_receive(float* motor_pos,float* motor_spd,float* cur,int8_t* temp,int8_t* error, uint8_t rx_message[]);
-void buffer_append_int32(uint8_t* buffer, int32_t number, int32_t *index);
-void buffer_append_int16(uint8_t* buffer, int16_t number, int16_t *index);
-void comm_can_transmit_eid_MODIFIED(uint32_t id, const uint8_t *data, uint8_t len);
-void CAN_Tx_MIT_Enter_Control_Mode(void);
-void CAN_Tx_MIT_Exit_Control_Mode(void);
-void CAN_Tx_MIT_Set_Zero_Position(void);
-void CAN_Tx_MIT_Control(float p_des, float v_des, float kp, float kd, float t_ff);
+// --------------------------------------------------------------------------
+//  Structs
+// --------------------------------------------------------------------------
 
+/**
+ * @brief typedef structure for the motor FDCAN transmit and received identifiers.
+ */
+typedef struct {
+    uint32_t TxIdentifier;   /*!< Specifies FDCAN transmit identifier (standard ID for MIT) */
+    uint32_t RxIdentifier;   /*!< Specifies FDCAN received identifier (extended ID for feedback) */
+} CM_Motor_CANFrameInfo_typedef;
+
+/**
+ * @brief typedef structure for CubeMars Motor parameter ranges.
+ */
+typedef struct {
+    float P_MAX;
+    float V_MAX;
+    float T_MAX;
+    float KP_MAX;
+    float KD_MAX;
+} CM_Motor_Param_Range_Typedef;
+
+/**
+ * @brief typedef structure for CubeMars Motor feedback data.
+ */
+typedef struct {
+    bool     Initlized;       /*!< init flag */
+    uint16_t P_int;           /*!< Motor position  uint16 (raw) */
+    uint16_t V_int;           /*!< Motor velocity  uint16 (raw) */
+    uint16_t T_int;           /*!< Motor torque    uint16 (raw) */
+    float    Position;        /*!< Motor position (rad) */
+    float    Velocity;        /*!< Motor velocity (rad/s) */
+    float    Torque;          /*!< Motor torque / current (Nm) */
+    int8_t   Temperature;     /*!< Motor temperature (C) */
+    int8_t   Error;           /*!< Motor error code */
+    float    Angle;           /*!< Motor angle (deg, unwrapped) */
+} CM_Motor_Data_Typedef;
+
+/**
+ * @brief typedef structure for the CubeMars Motor Device information.
+ */
+typedef struct {
+    CM_Motor_Type_e              Type;          /*!< Type of CubeMars Motor */
+    CM_Motor_Control_Mode_e      Control_Mode;  /*!< Control mode */
+    CM_Motor_CANFrameInfo_typedef FDCANFrame;   /*!< CAN frame identifiers */
+    CM_Motor_Param_Range_Typedef Param_Range;   /*!< Parameter limits */
+    CM_Motor_Data_Typedef        Data;          /*!< Feedback data */
+} CM_Motor_Info_Typedef;
+
+/**
+ * @brief typedef structure for CubeMars Motor control setpoints.
+ */
+typedef struct {
+    float Position;
+    float Velocity;
+    float KP;
+    float KD;
+    float Torque;
+} CM_Motor_Control_Info_Typedef;
+
+// --------------------------------------------------------------------------
+//  Extern Variables
+// --------------------------------------------------------------------------
+extern CM_Motor_Info_Typedef         CM_Chassis_Motor[4];
+extern CM_Motor_Info_Typedef         CM_Pitch_Motor;
+
+// --------------------------------------------------------------------------
+//  Core Functions (DaMiao-style: take motor struct pointer)
+// --------------------------------------------------------------------------
+
+/**
+ * @brief  Update CubeMars motor feedback from CAN RX data (MIT mode).
+ *         Mirrors DM_Motor_Info_Update().
+ */
+extern void CM_Motor_Info_Update(uint32_t *Identifier, uint8_t *Rx_Buf, CM_Motor_Info_Typedef *CM_Motor);
+
+/**
+ * @brief  Send enable / disable / set-zero command to a CubeMars motor.
+ *         Mirrors DM_Motor_Command().
+ */
+extern void CM_Motor_Command(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame, CM_Motor_Info_Typedef *CM_Motor, uint8_t CMD);
+
+/**
+ * @brief  Transmit MIT control frame to a CubeMars motor.
+ *         Mirrors DM_Motor_CAN_TxMessage().
+ */
+extern void CM_Motor_CAN_TxMessage(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame, CM_Motor_Info_Typedef *CM_Motor,
+                                   float Position, float Velocity, float KP, float KD, float Torque);
+
+// --------------------------------------------------------------------------
+//  Extended-ID Mode Functions (position, current, rpm — also take motor ptr)
+// --------------------------------------------------------------------------
+
+/**
+ * @brief  Send current (ampere) command via extended CAN ID.
+ */
+extern void CM_Motor_CAN_TxCurrent(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame, CM_Motor_Info_Typedef *CM_Motor,
+                                   float current_ampere);
+
+/**
+ * @brief  Send position command via extended CAN ID.
+ */
+extern void CM_Motor_CAN_TxPosition(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame, CM_Motor_Info_Typedef *CM_Motor,
+                                    float position);
+
+/**
+ * @brief  Send RPM command via extended CAN ID.
+ */
+extern void CM_Motor_CAN_TxRPM(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame, CM_Motor_Info_Typedef *CM_Motor,
+                                float rpm);
+
+/**
+ * @brief  Send position + speed + acceleration command via extended CAN ID.
+ */
+extern void CM_Motor_CAN_TxPosSpdAcc(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame, CM_Motor_Info_Typedef *CM_Motor,
+                                     float position, int16_t max_speed, int16_t acceleration);
+
+/**
+ * @brief  Send set-origin command via extended CAN ID.
+ */
+extern void CM_Motor_CAN_TxSetOrigin(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame, CM_Motor_Info_Typedef *CM_Motor);
+
+// --------------------------------------------------------------------------
+//  Utility
+// --------------------------------------------------------------------------
+extern void buffer_append_int32(uint8_t* buffer, int32_t number, int32_t *index);
+extern void buffer_append_int16(uint8_t* buffer, int16_t number, int16_t *index);
 
 #endif /* CUBEMARS_MOTOR_H */

@@ -4,13 +4,12 @@
   * @brief          : CAN task
   * @author         : GrassFam Wang
   * @date           : 2025/1/22
-  * @version        : v1.1
+  * @version        : v2.0
   ******************************************************************************
   * @attention      : None
   ******************************************************************************
   */
 /* USER CODE END Header */
-
 /* Includes ------------------------------------------------------------------*/
 #include "cmsis_os.h"
 #include "CAN_Task.h"
@@ -20,10 +19,10 @@
 #include "bsp_can.h"
 #include "Remote_Control.h"
 #include "Control_Task.h"
-
 #include "Damiao_Motor.h"
 #include "Cubemars_Motor.h"
 #include "DJI_Motor.h"
+
 /* USER CODE BEGIN Header_CAN_Task */
 /**
 * @brief Function implementing the StartCANTask thread.
@@ -32,53 +31,59 @@
 */
 /* USER CODE END Header_CAN_Task */
 
-
 float velocity_desired = 5;
- void CAN_Task(void const * argument)
+
+void CAN_Task(void const * argument)
 {
+    TickType_t CAN_Task_SysTick = 0;
 
- 
-  TickType_t CAN_Task_SysTick = 0;
-	DM_Motor_Command(&FDCAN2_TxFrame,&DM_8009_Motor[0],Motor_Enable);
-  osDelay(30);
-	DM_Motor_Command(&FDCAN2_TxFrame,&DM_8009_Motor[1],Motor_Enable);
-  osDelay(30);
-  DM_Motor_Command(&FDCAN2_TxFrame,&DM_8009_Motor[2],Motor_Enable);
-  osDelay(30);
-	DM_Motor_Command(&FDCAN2_TxFrame,&DM_8009_Motor[3],Motor_Enable);
-  osDelay(30);
-	for(;;)
-  {
-	
-  CAN_Task_SysTick = osKernelSysTick();
-		
-	
-	 // CAN-FD	 float Postion, float Velocity, float KP, float KD, float Torque
-	 DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame,&DM_8009_Motor[0],0,velocity_desired,0,1,0);
-	 DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame,&DM_8009_Motor[1],0,5,0,1,0);
-   DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame,&DM_8009_Motor[2],0,0,0,0,0);	
-   DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame,&DM_8009_Motor[3],0,0,0,0,0);	
-		FDCAN1_TxFrame.Header.Identifier = 0x200;
-		//Control_Info.SendValue[0] = 2000;
-    FDCAN1_TxFrame.Data[0] = 0x07;
-		FDCAN1_TxFrame.Data[1] = 0xD0;
-		FDCAN1_TxFrame.Data[2] = (uint8_t)(Control_Info.SendValue[1] >> 8);
-		FDCAN1_TxFrame.Data[3] = (uint8_t)(Control_Info.SendValue[1]);
-		FDCAN1_TxFrame.Data[4] = (uint8_t)(Control_Info.SendValue[2] >> 8); // motor 3
-		FDCAN1_TxFrame.Data[5] = (uint8_t)(Control_Info.SendValue[2]);
-		FDCAN1_TxFrame.Data[6] = (uint8_t)(Control_Info.SendValue[3] >> 8); // motor 4
-		FDCAN1_TxFrame.Data[7] = (uint8_t)(Control_Info.SendValue[3]);
+    /* ---- Enable DM 8009 motors (original) ---- */
+    DM_Motor_Command(&FDCAN2_TxFrame, &DM_8009_Motor[0], Motor_Enable);
+    osDelay(30);
+    DM_Motor_Command(&FDCAN2_TxFrame, &DM_8009_Motor[1], Motor_Enable);
+    osDelay(30);
+    DM_Motor_Command(&FDCAN2_TxFrame, &DM_8009_Motor[2], Motor_Enable);
+    osDelay(30);
+    DM_Motor_Command(&FDCAN2_TxFrame, &DM_8009_Motor[3], Motor_Enable);
+    osDelay(30);
 
-   USER_FDCAN_AddMessageToTxFifoQ(&FDCAN1_TxFrame);
-		
-	 if(CAN_Task_SysTick % 2 == 0){
-	 
-	 //500Hz·¢ËÍ Çë±£Ö¤ËùÓÐÈÎÎñosDelay(1)
-	 
-	 }	
-		osDelay(1);
-  }
- 
+    /* ---- Enable CM Pitch (AK40-10) — MIT enter control mode ---- */
+    CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Enable);
+    osDelay(30);
+
+    for(;;)
+    {
+        CAN_Task_SysTick = osKernelSysTick();
+
+        /* ---- DM 8009 motors (original) ---- */
+        // CAN-FD   float Postion, float Velocity, float KP, float KD, float Torque
+        DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &DM_8009_Motor[0], 0, velocity_desired, 0, 1, 0);
+        DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &DM_8009_Motor[1], 0, 5, 0, 1, 0);
+        DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &DM_8009_Motor[2], 0, 0, 0, 0, 0);
+        DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &DM_8009_Motor[3], 0, 0, 0, 0, 0);
+
+        /* ---- CM Pitch: MIT velocity test (5 rad/s, KD=1) ---- */
+        CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &CM_Pitch_Motor,
+                               0, velocity_desired, 0, 1, 0);
+
+        /* ---- DJI motors on FDCAN1 (original raw byte packing) ---- */
+        FDCAN1_TxFrame.Header.Identifier = 0x1ff;
+        //Control_Info.SendValue[0] = 2000;
+        FDCAN1_TxFrame.Data[0] = 0x07;
+        FDCAN1_TxFrame.Data[1] = 0xD0;
+        FDCAN1_TxFrame.Data[2] = (uint8_t)(Control_Info.SendValue[1] >> 8);
+        FDCAN1_TxFrame.Data[3] = (uint8_t)(Control_Info.SendValue[1]);
+        FDCAN1_TxFrame.Data[4] = (uint8_t)(Control_Info.SendValue[2] >> 8);
+        FDCAN1_TxFrame.Data[5] = (uint8_t)(Control_Info.SendValue[2]);
+        FDCAN1_TxFrame.Data[6] = (uint8_t)(Control_Info.SendValue[3] >> 8);
+        FDCAN1_TxFrame.Data[7] = (uint8_t)(Control_Info.SendValue[3]);
+        USER_FDCAN_AddMessageToTxFifoQ(&FDCAN1_TxFrame);
+
+        if(CAN_Task_SysTick % 2 == 0){
+
+            //500Hz
+
+        }
+        osDelay(1);
+    }
 }
-
-

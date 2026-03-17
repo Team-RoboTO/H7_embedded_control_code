@@ -1,215 +1,331 @@
 #include "cubemars_motor.h"
 #include <string.h>
+#include <math.h>
 #include "stdint.h"
 
 /**
- * @file    cubemars.c
- * @brief   CubeMars AK40-10 � CAN protocol + motor control
+ * @file    cubemars_motor.c
+ * @brief   CubeMars AK40-10 CAN protocol + motor control
+ *
+ *          Refactored to follow DaMiao architecture: all TX/RX functions
+ *          take a CM_Motor_Info_Typedef* pointer. CAN identifiers and
+ *          parameter ranges are read from the struct, never hardcoded.
+ *
+ *          CubeMars data packing is preserved exactly as-is.
  */
 
-  /****************************/
- /*   INTERNAL HELPERS       */
-/****************************/
+// ============================================================================
+//  Internal Helpers
+// ============================================================================
 
-static float uint_to_float(int X_int, float X_min, float X_max, int Bits){
-	
-    float span = X_max - X_min;
+static float uint_to_float(int X_int, float X_min, float X_max, int Bits)
+{
+    float span   = X_max - X_min;
     float offset = X_min;
-    return ((float)X_int)*span/((float)((1<<Bits)-1)) + offset;
+    return ((float)X_int) * span / ((float)((1 << Bits) - 1)) + offset;
 }
 
-static int float_to_uint(float x, float x_min, float x_max, int bits){
-	
-    float span = x_max - x_min;
+static int float_to_uint(float x, float x_min, float x_max, int bits)
+{
+    float span   = x_max - x_min;
     float offset = x_min;
-    return (int) ((x-offset)*((float)((1<<bits)-1))/span);
+    return (int)((x - offset) * ((float)((1 << bits) - 1)) / span);
 }
 
-
-// CubeMars motor control - buffer formation
-void buffer_append_int32(uint8_t* buffer, int32_t number, int32_t *index) {
-	buffer[(*index)++] = number >> 24;
-	buffer[(*index)++] = number >> 16;
-	buffer[(*index)++] = number >> 8;
-	buffer[(*index)++] = number;
+// Buffer helpers for extended-ID protocols
+void buffer_append_int32(uint8_t* buffer, int32_t number, int32_t *index)
+{
+    buffer[(*index)++] = number >> 24;
+    buffer[(*index)++] = number >> 16;
+    buffer[(*index)++] = number >> 8;
+    buffer[(*index)++] = number;
 }
 
-void buffer_append_int16(uint8_t* buffer, int16_t number, int16_t *index) {
- buffer[(*index)++] = number >> 8;
- buffer[(*index)++] = number;
- }
+void buffer_append_int16(uint8_t* buffer, int16_t number, int16_t *index)
+{
+    buffer[(*index)++] = number >> 8;
+    buffer[(*index)++] = number;
+}
 
-// CubeMars motor control - CAN transmit MODIFIED (different from the one proposed from CubeMars)
-void comm_can_transmit_eid_MODIFIED(uint32_t id, const uint8_t *data, uint8_t len)
+// ============================================================================
+//  Internal CAN transmit wrappers
+// ============================================================================
+
+/**
+ * @brief  Transmit a standard-ID CAN frame (used for MIT mode).
+ *         Uses the motor's TxIdentifier as the standard CAN ID.
+ */
+static void CM_CAN_Transmit_SID(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,
+                                CM_Motor_Info_Typedef *CM_Motor,
+                                const uint8_t *data, uint8_t len)
 {
     uint8_t i;
-    FDCAN1_TxFrame.Header.Identifier    = id;
-    FDCAN1_TxFrame.Header.IdType        = FDCAN_EXTENDED_ID;
-    FDCAN1_TxFrame.Header.TxFrameType   = FDCAN_DATA_FRAME;
-    FDCAN1_TxFrame.Header.DataLength    = (len <= 4) ? FDCAN_DLC_BYTES_4 : FDCAN_DLC_BYTES_8;
-    FDCAN1_TxFrame.Header.FDFormat      = FDCAN_CLASSIC_CAN;
-    FDCAN1_TxFrame.Header.BitRateSwitch = FDCAN_BRS_OFF;
-    for (i = 0; i < len; i++) FDCAN1_TxFrame.Data[i] = data[i];
-    USER_FDCAN_AddMessageToTxFifoQ(&FDCAN1_TxFrame);
+    FDCAN_TxFrame->Header.Identifier    = CM_Motor->FDCANFrame.TxIdentifier;
+    FDCAN_TxFrame->Header.IdType        = FDCAN_STANDARD_ID;
+    FDCAN_TxFrame->Header.TxFrameType   = FDCAN_DATA_FRAME;
+    FDCAN_TxFrame->Header.DataLength    = FDCAN_DLC_BYTES_8;
+    FDCAN_TxFrame->Header.FDFormat      = FDCAN_CLASSIC_CAN;
+    FDCAN_TxFrame->Header.BitRateSwitch = FDCAN_BRS_OFF;
+    for (i = 0; i < len; i++) FDCAN_TxFrame->Data[i] = data[i];
+    USER_FDCAN_AddMessageToTxFifoQ(FDCAN_TxFrame);
 }
 
-// CubeMars current control
-void CAN_Tx_gimbal_cubemars( 
-    float current_ampere_pitch) {
-	  
-  	int32_t yaw_send_index = 0;
-		uint8_t yaw_buffer[4];
-			
-		int32_t pitch_send_index = 0;
-		uint8_t pitch_buffer[4];
-		buffer_append_int32(pitch_buffer, (int32_t)(current_ampere_pitch), &pitch_send_index);
-		comm_can_transmit_eid_MODIFIED(GIMBAL_PITCH_CUBEMARS_ID_CAN |
-			((uint32_t)CAN_PACKET_SET_CURRENT << 8), pitch_buffer, pitch_send_index);
-			
-}	
-		
-
-// CubeMars motor control - Set pos command MODIFIED
-// The position value is of type int32, and the range is -360000000-360000000, representing -36000?-36000?
-// [FOR AK60 AND AK70]Input position range [0, inf] (but max position displayed from data receive is 3200). If pos = 3.6 --> 1 motor rotation, If pos = 36 --> 10 motor rotation
-void CAN_Tx_gimbal_cm_position(float position) {
-	
-	int32_t send_index = 0;
-	uint8_t buffer[4];
-	buffer_append_int32(buffer, (int32_t)(position * 10000.0), &send_index);
-	comm_can_transmit_eid_MODIFIED(GIMBAL_PITCH_CUBEMARS_ID_CAN |
-			((uint32_t)CAN_PACKET_SET_POS << 8), buffer, send_index);
-	
-}
-
-// CubeMars motor control - Velocity (rpm) command MODIFIED
-// rpm range -100000, +100000
-void CAN_Tx_gimbal_cm_rpm(float rpm){ 
-	int32_t send_index = 0;
-	uint8_t buffer[4];
-	buffer_append_int32(buffer, (int32_t)rpm, &send_index);
-	comm_can_transmit_eid_MODIFIED(GIMBAL_PITCH_CUBEMARS_ID_CAN |
-			((uint32_t)CAN_PACKET_SET_RPM << 8), buffer, send_index);
-}
-
-
-// CubeMars motor control - Position with maximum speed and maximum acceleration command MODIFIED
-// position: int32, range-360000000~360000000 representing-36000?~36000?
-// max speed: int16, range-32768~32767 representing-327680~-327680 electrical RPM
-// max acceleration: int16, range 0~32767, representing 0~327670, 1 unit equals 10 electrical RPM/s
-void CAN_Tx_gimbal_cm_pos_spd_acc(float position, int16_t max_speed, int16_t acceleration) {
-	int32_t send_index = 0;
-	uint8_t buffer[8];
-
-	// Append position (4 bytes)
-	buffer_append_int32(buffer, (int32_t)(position * 10000.0), &send_index);
-
-	// Append speed (2 bytes)
-	buffer_append_int16(buffer, (int16_t)(max_speed / 10.0), (int16_t*)&send_index);
-
-	// Append acceleration (2 bytes)
-	buffer_append_int16(buffer, (int16_t)(acceleration / 10.0), (int16_t*)&send_index);
-
-	comm_can_transmit_eid_MODIFIED(GIMBAL_PITCH_CUBEMARS_ID_CAN | 
-			((uint32_t)CAN_PACKET_SET_POS_SPD << 8), buffer, send_index);
-}
-
-// CubeMars set zero position of motor (yaw)
-void CAN_Tx_yaw_cubemars_set_origin() {
-	
-		int32_t send_index = 0;
-		uint8_t buffer[4];
-		buffer_append_int32(buffer, (int32_t)(1), &send_index);
-		comm_can_transmit_eid_MODIFIED(GIMBAL_YAW_CUBEMARS_ID_CAN |
-			((uint32_t)CAN_PACKET_SET_ORIGIN_HERE << 8), buffer, send_index);
-}	
-
-// CubeMars set zero position of motor (pitch)
-void CAN_Tx_pitch_cubemars_set_origin() {
-	
-		int32_t send_index = 0;
-		uint8_t buffer[4];
-		buffer_append_int32(buffer, (int32_t)(1), &send_index);
-		comm_can_transmit_eid_MODIFIED(GIMBAL_PITCH_CUBEMARS_ID_CAN |
-			((uint32_t)CAN_PACKET_SET_ORIGIN_HERE << 8), buffer, send_index);
-}
-
-// **************************************** function definitions - MIT MODE FOR CUBEMARS ***************************************
-
-// MIT Mode transmit function
-void comm_can_transmit_sid(uint32_t id, const uint8_t *data, uint8_t len)
+/**
+ * @brief  Transmit an extended-ID CAN frame (used for position/current/rpm modes).
+ *         Builds the extended ID from TxIdentifier | (packet_cmd << 8).
+ */
+static void CM_CAN_Transmit_EID(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,
+                                CM_Motor_Info_Typedef *CM_Motor,
+                                CAN_PACKET_ID packet_cmd,
+                                const uint8_t *data, uint8_t len)
 {
     uint8_t i;
-    FDCAN1_TxFrame.Header.Identifier    = id;
-    FDCAN1_TxFrame.Header.IdType        = FDCAN_STANDARD_ID;
-    FDCAN1_TxFrame.Header.TxFrameType   = FDCAN_DATA_FRAME;
-    FDCAN1_TxFrame.Header.DataLength    = FDCAN_DLC_BYTES_8;
-    FDCAN1_TxFrame.Header.FDFormat      = FDCAN_CLASSIC_CAN;
-    FDCAN1_TxFrame.Header.BitRateSwitch = FDCAN_BRS_OFF;
-    for (i = 0; i < len; i++) FDCAN1_TxFrame.Data[i] = data[i];
-    USER_FDCAN_AddMessageToTxFifoQ(&FDCAN1_TxFrame);
+    FDCAN_TxFrame->Header.Identifier    = CM_Motor->FDCANFrame.TxIdentifier |
+                                          ((uint32_t)packet_cmd << 8);
+    FDCAN_TxFrame->Header.IdType        = FDCAN_EXTENDED_ID;
+    FDCAN_TxFrame->Header.TxFrameType   = FDCAN_DATA_FRAME;
+    FDCAN_TxFrame->Header.DataLength    = (len <= 4) ? FDCAN_DLC_BYTES_4 : FDCAN_DLC_BYTES_8;
+    FDCAN_TxFrame->Header.FDFormat      = FDCAN_CLASSIC_CAN;
+    FDCAN_TxFrame->Header.BitRateSwitch = FDCAN_BRS_OFF;
+    for (i = 0; i < len; i++) FDCAN_TxFrame->Data[i] = data[i];
+    USER_FDCAN_AddMessageToTxFifoQ(FDCAN_TxFrame);
 }
 
-// Enter MIT Motor Control Mode
-void CAN_Tx_MIT_Enter_Control_Mode(void) {
-    uint8_t buffer[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFC};
-    comm_can_transmit_sid(GIMBAL_PITCH_CUBEMARS_ID_CAN, buffer, 8);
+// ============================================================================
+//  CM_Motor_Command  (mirrors DM_Motor_Command)
+// ============================================================================
+
+/**
+ * @brief  Transmit enable / disable / save-zero-position command.
+ * @param  *FDCAN_TxFrame  pointer to the FDCAN TX frame
+ * @param  *CM_Motor       pointer to the CubeMars motor struct
+ * @param  CMD             command (CM_Motor_CMD_Type_e)
+ */
+void CM_Motor_Command(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,
+                      CM_Motor_Info_Typedef *CM_Motor,
+                      uint8_t CMD)
+{
+    uint8_t data[8];
+    data[0] = 0xFF;
+    data[1] = 0xFF;
+    data[2] = 0xFF;
+    data[3] = 0xFF;
+    data[4] = 0xFF;
+    data[5] = 0xFF;
+    data[6] = 0xFF;
+
+    switch (CMD) {
+        case CM_Motor_Enable:
+            data[7] = 0xFC;
+            break;
+        case CM_Motor_Disable:
+            data[7] = 0xFD;
+            break;
+        case CM_Motor_Save_Zero_Position:
+            data[7] = 0xFE;
+            break;
+        default:
+            return;
+    }
+
+    CM_CAN_Transmit_SID(FDCAN_TxFrame, CM_Motor, data, 8);
 }
 
-// Exit MIT Motor Control Mode
-void CAN_Tx_MIT_Exit_Control_Mode(void) {
-    uint8_t buffer[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFD};
-    comm_can_transmit_sid(GIMBAL_PITCH_CUBEMARS_ID_CAN, buffer, 8);
+// ============================================================================
+//  CM_Motor_CAN_TxMessage  (mirrors DM_Motor_CAN_TxMessage)
+// ============================================================================
+
+/**
+ * @brief  Transmit MIT / Position / Current / RPM control frame.
+ *         Dispatches based on CM_Motor->Control_Mode, exactly like
+ *         DM_Motor_CAN_TxMessage dispatches on DM_Motor->Control_Mode.
+ *
+ * @param  *FDCAN_TxFrame  pointer to the FDCAN TX frame
+ * @param  *CM_Motor       pointer to the CubeMars motor struct
+ * @param  Position        target position  (rad)           — MIT mode
+ * @param  Velocity        target velocity  (rad/s)         — MIT mode
+ * @param  KP              position gain                    — MIT mode
+ * @param  KD              velocity gain                    — MIT mode
+ * @param  Torque          feed-forward torque (Nm)         — MIT mode
+ */
+void CM_Motor_CAN_TxMessage(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,
+                            CM_Motor_Info_Typedef *CM_Motor,
+                            float Position, float Velocity,
+                            float KP, float KD, float Torque)
+{
+    if (CM_Motor->Control_Mode == CM_MIT_MODE)
+    {
+        /* --- Clamp to param ranges --- */
+        Position = fminf(fmaxf(-CM_Motor->Param_Range.P_MAX, Position), CM_Motor->Param_Range.P_MAX);
+        Velocity = fminf(fmaxf(-CM_Motor->Param_Range.V_MAX, Velocity), CM_Motor->Param_Range.V_MAX);
+        KP       = fminf(fmaxf(0.0f, KP), CM_Motor->Param_Range.KP_MAX);
+        KD       = fminf(fmaxf(0.0f, KD), CM_Motor->Param_Range.KD_MAX);
+        Torque   = fminf(fmaxf(-CM_Motor->Param_Range.T_MAX, Torque), CM_Motor->Param_Range.T_MAX);
+
+        /* --- Convert floats to unsigned ints --- */
+        uint16_t Position_Tmp = float_to_uint(Position, -CM_Motor->Param_Range.P_MAX, CM_Motor->Param_Range.P_MAX, 16);
+        uint16_t Velocity_Tmp = float_to_uint(Velocity, -CM_Motor->Param_Range.V_MAX, CM_Motor->Param_Range.V_MAX, 12);
+        uint16_t KP_Tmp       = float_to_uint(KP, 0.0f, CM_Motor->Param_Range.KP_MAX, 12);
+        uint16_t KD_Tmp       = float_to_uint(KD, 0.0f, CM_Motor->Param_Range.KD_MAX, 12);
+        uint16_t Torque_Tmp   = float_to_uint(Torque, -CM_Motor->Param_Range.T_MAX, CM_Motor->Param_Range.T_MAX, 12);
+
+        /* --- Pack into CAN buffer (CubeMars MIT format) --- */
+        uint8_t data[8];
+        data[0] = (uint8_t)(Position_Tmp >> 8);                                         // Position High 8
+        data[1] = (uint8_t)(Position_Tmp & 0xFF);                                       // Position Low 8
+        data[2] = (uint8_t)(Velocity_Tmp >> 4);                                         // Velocity High 8
+        data[3] = (uint8_t)(((Velocity_Tmp & 0xF) << 4) | (KP_Tmp >> 8));               // Velocity Low 4 | KP High 4
+        data[4] = (uint8_t)(KP_Tmp & 0xFF);                                             // KP Low 8
+        data[5] = (uint8_t)(KD_Tmp >> 4);                                               // KD High 8
+        data[6] = (uint8_t)(((KD_Tmp & 0xF) << 4) | (Torque_Tmp >> 8));                 // KD Low 4 | Torque High 4
+        data[7] = (uint8_t)(Torque_Tmp & 0xFF);                                         // Torque Low 8
+
+        CM_CAN_Transmit_SID(FDCAN_TxFrame, CM_Motor, data, 8);
+    }
+    else if (CM_Motor->Control_Mode == CM_POSITION_MODE)
+    {
+        /* Position via extended CAN ID */
+        int32_t send_index = 0;
+        uint8_t buffer[4];
+        buffer_append_int32(buffer, (int32_t)(Position * 10000.0f), &send_index);
+        CM_CAN_Transmit_EID(FDCAN_TxFrame, CM_Motor, CAN_PACKET_SET_POS, buffer, (uint8_t)send_index);
+    }
+    else if (CM_Motor->Control_Mode == CM_POSITION_SPEED_MODE)
+    {
+        /* Position + speed + acceleration via extended CAN ID */
+        int32_t send_index = 0;
+        uint8_t buffer[8];
+        buffer_append_int32(buffer, (int32_t)(Position * 10000.0f), &send_index);
+        buffer_append_int16(buffer, (int16_t)(Velocity / 10.0f), (int16_t*)&send_index);
+        buffer_append_int16(buffer, (int16_t)(Torque / 10.0f), (int16_t*)&send_index);  /* Torque arg repurposed as acceleration */
+        CM_CAN_Transmit_EID(FDCAN_TxFrame, CM_Motor, CAN_PACKET_SET_POS_SPD, buffer, (uint8_t)send_index);
+    }
+    else if (CM_Motor->Control_Mode == CM_CURRENT_MODE)
+    {
+        /* Current (mA) via extended CAN ID */
+        int32_t send_index = 0;
+        uint8_t buffer[4];
+        buffer_append_int32(buffer, (int32_t)(Torque), &send_index);  /* Torque arg repurposed as current */
+        CM_CAN_Transmit_EID(FDCAN_TxFrame, CM_Motor, CAN_PACKET_SET_CURRENT, buffer, (uint8_t)send_index);
+    }
+    else if (CM_Motor->Control_Mode == CM_RPM_MODE)
+    {
+        /* RPM via extended CAN ID */
+        int32_t send_index = 0;
+        uint8_t buffer[4];
+        buffer_append_int32(buffer, (int32_t)(Velocity), &send_index);  /* Velocity arg as RPM */
+        CM_CAN_Transmit_EID(FDCAN_TxFrame, CM_Motor, CAN_PACKET_SET_RPM, buffer, (uint8_t)send_index);
+    }
 }
 
-// Set current position as zero in MIT mode
-void CAN_Tx_MIT_Set_Zero_Position(void) {
-    uint8_t buffer[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFE};
-    comm_can_transmit_sid(GIMBAL_PITCH_CUBEMARS_ID_CAN, buffer, 8);
+// ============================================================================
+//  CM_Motor_Info_Update  (mirrors DM_Motor_Info_Update)
+// ============================================================================
+
+/**
+ * @brief  Update CubeMars motor feedback from CAN RX data.
+ * @param  Identifier  pointer to the received CAN identifier
+ * @param  Rx_Buf      pointer to the 8-byte CAN receive buffer
+ * @param  CM_Motor    pointer to the CubeMars motor struct
+ *
+ * CubeMars MIT feedback format (8 bytes):
+ *   [0]       Motor ID
+ *   [1..2]    Position   (16-bit)
+ *   [3..4]    Velocity   (12-bit) | Torque high (4-bit)
+ *   [4..5]    Torque     (12-bit)
+ *   [6]       Temperature
+ */
+void CM_Motor_Info_Update(uint32_t *Identifier, uint8_t *Rx_Buf, CM_Motor_Info_Typedef *CM_Motor)
+{
+    if (*Identifier != CM_Motor->FDCANFrame.RxIdentifier) return;
+
+    /* Unpack raw ints (CubeMars MIT feedback layout) */
+    CM_Motor->Data.P_int = ((uint16_t)Rx_Buf[1] << 8) | (uint16_t)Rx_Buf[2];
+    CM_Motor->Data.V_int = ((uint16_t)Rx_Buf[3] << 4) | ((uint16_t)Rx_Buf[4] >> 4);
+    CM_Motor->Data.T_int = (((uint16_t)Rx_Buf[4] & 0x0F) << 8) | (uint16_t)Rx_Buf[5];
+
+    /* Convert to floats using struct param ranges */
+    CM_Motor->Data.Position = uint_to_float(CM_Motor->Data.P_int,
+                                            -CM_Motor->Param_Range.P_MAX,
+                                             CM_Motor->Param_Range.P_MAX, 16);
+    CM_Motor->Data.Velocity = uint_to_float(CM_Motor->Data.V_int,
+                                            -CM_Motor->Param_Range.V_MAX,
+                                             CM_Motor->Param_Range.V_MAX, 12);
+    CM_Motor->Data.Torque   = uint_to_float(CM_Motor->Data.T_int,
+                                            -CM_Motor->Param_Range.T_MAX,
+                                             CM_Motor->Param_Range.T_MAX, 12);
+
+    CM_Motor->Data.Temperature = (int8_t)Rx_Buf[6];
+
+    CM_Motor->Data.Initlized = true;
 }
 
-// MIT Mode Control Command
-void CAN_Tx_MIT_Control(float p_des, float v_des, float kp, float kd, float t_ff) {
+// ============================================================================
+//  Convenience wrappers (extended-ID modes, also take motor ptr)
+// ============================================================================
+
+/**
+ * @brief  Send current command via extended CAN ID.
+ */
+void CM_Motor_CAN_TxCurrent(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,
+                            CM_Motor_Info_Typedef *CM_Motor,
+                            float current_ampere)
+{
+    int32_t send_index = 0;
+    uint8_t buffer[4];
+    buffer_append_int32(buffer, (int32_t)(current_ampere), &send_index);
+    CM_CAN_Transmit_EID(FDCAN_TxFrame, CM_Motor, CAN_PACKET_SET_CURRENT, buffer, (uint8_t)send_index);
+}
+
+/**
+ * @brief  Send position command via extended CAN ID.
+ */
+void CM_Motor_CAN_TxPosition(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,
+                             CM_Motor_Info_Typedef *CM_Motor,
+                             float position)
+{
+    int32_t send_index = 0;
+    uint8_t buffer[4];
+    buffer_append_int32(buffer, (int32_t)(position * 10000.0f), &send_index);
+    CM_CAN_Transmit_EID(FDCAN_TxFrame, CM_Motor, CAN_PACKET_SET_POS, buffer, (uint8_t)send_index);
+}
+
+/**
+ * @brief  Send RPM command via extended CAN ID.
+ */
+void CM_Motor_CAN_TxRPM(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,
+                         CM_Motor_Info_Typedef *CM_Motor,
+                         float rpm)
+{
+    int32_t send_index = 0;
+    uint8_t buffer[4];
+    buffer_append_int32(buffer, (int32_t)rpm, &send_index);
+    CM_CAN_Transmit_EID(FDCAN_TxFrame, CM_Motor, CAN_PACKET_SET_RPM, buffer, (uint8_t)send_index);
+}
+
+/**
+ * @brief  Send position + speed + acceleration command via extended CAN ID.
+ */
+void CM_Motor_CAN_TxPosSpdAcc(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,
+                              CM_Motor_Info_Typedef *CM_Motor,
+                              float position, int16_t max_speed, int16_t acceleration)
+{
+    int32_t send_index = 0;
     uint8_t buffer[8];
-    
-    // Limit data to be within bounds
-    p_des = fminf(fmaxf(CM_P_MIN, p_des), CM_P_MAX);
-    v_des = fminf(fmaxf(CM_V_MIN, v_des), CM_V_MAX);
-    kp = fminf(fmaxf(CM_KP_MIN, kp), CM_KP_MAX);
-    kd = fminf(fmaxf(CM_KD_MIN, kd), CM_KD_MAX);
-    t_ff = fminf(fmaxf(CM_T_MIN, t_ff), CM_T_MAX);
-    
-    // Convert floats to unsigned ints
-    uint16_t p_int = float_to_uint(p_des, CM_P_MIN, CM_P_MAX, 16);
-    uint16_t v_int = float_to_uint(v_des, CM_V_MIN, CM_V_MAX, 12);
-    uint16_t kp_int = float_to_uint(kp, CM_KP_MIN, CM_KP_MAX, 12);
-    uint16_t kd_int = float_to_uint(kd, CM_KD_MIN, CM_KD_MAX, 12);
-    uint16_t t_int = float_to_uint(t_ff, CM_T_MIN, CM_T_MAX, 12);
-    
-    // Pack ints into the buffer
-    buffer[0] = (uint8_t)(p_int >> 8);                          // Position High 8
-    buffer[1] = (uint8_t)(p_int & 0xFF);                        // Position Low 8
-    buffer[2] = (uint8_t)(v_int >> 4);                          // Speed High 8 bits
-    buffer[3] = (uint8_t)(((v_int & 0xF) << 4) | (kp_int >> 8)); // Speed Low 4 | KP High 4
-    buffer[4] = (uint8_t)(kp_int & 0xFF);                       // KP Low 8 bits
-    buffer[5] = (uint8_t)(kd_int >> 4);                         // Kd High 8 bits
-    buffer[6] = (uint8_t)(((kd_int & 0xF) << 4) | (t_int >> 8)); // KD Low 4 | Torque High 4
-    buffer[7] = (uint8_t)(t_int & 0xFF);                        // Torque Low 8 bits
-    
-    comm_can_transmit_sid(GIMBAL_PITCH_CUBEMARS_ID_CAN, buffer, 8);
+    buffer_append_int32(buffer, (int32_t)(position * 10000.0f), &send_index);
+    buffer_append_int16(buffer, (int16_t)(max_speed / 10.0f), (int16_t*)&send_index);
+    buffer_append_int16(buffer, (int16_t)(acceleration / 10.0f), (int16_t*)&send_index);
+    CM_CAN_Transmit_EID(FDCAN_TxFrame, CM_Motor, CAN_PACKET_SET_POS_SPD, buffer, (uint8_t)send_index);
 }
 
-// Parse MIT mode motor feedback
-void CAN_Rx_MIT_Parse(uint8_t *data, float *position, float *velocity, float *torque, uint8_t *temperature) {
-    // Unpack ints from CAN buffer
-    uint16_t p_int = ((uint16_t)data[1] << 8) | data[2];
-    uint16_t v_int = ((uint16_t)data[3] << 4) | (data[4] >> 4);
-    uint16_t i_int = (((uint16_t)data[4] & 0xF) << 8) | data[5];
-    uint8_t T_int = data[6];
-    
-    // Convert ints to floats
-    *position = uint_to_float(p_int, CM_P_MIN, CM_P_MAX, 16);
-    *velocity = uint_to_float(v_int, CM_V_MIN, CM_V_MAX, 12);
-    *torque = uint_to_float(i_int, CM_T_MIN, CM_T_MAX, 12);
-    *temperature = T_int;  // Temperature stored directly as uint8_t (after -40 offset applied in insert function)
+/**
+ * @brief  Send set-origin command via extended CAN ID.
+ */
+void CM_Motor_CAN_TxSetOrigin(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,
+                              CM_Motor_Info_Typedef *CM_Motor)
+{
+    int32_t send_index = 0;
+    uint8_t buffer[4];
+    buffer_append_int32(buffer, (int32_t)(1), &send_index);
+    CM_CAN_Transmit_EID(FDCAN_TxFrame, CM_Motor, CAN_PACKET_SET_ORIGIN_HERE, buffer, (uint8_t)send_index);
 }
