@@ -13,8 +13,6 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "Control_Task.h"
-#include "state_machine.h"
-#include "shooting_control.h"
 #include "cmsis_os.h"
 #include "Control_Task.h"
 #include "bsp_uart.h"
@@ -22,6 +20,10 @@
 #include "PID.h"
 #include "Motor.h"
 #include "arm_math.h"
+
+#include "Damiao_Motor.h"
+#include "Cubemars_Motor.h"
+#include "DJI_Motor.h"
 
 static void Control_Init(Control_Info_Typedef *Control_Info);
 static void Control_Measure_Update(Control_Info_Typedef *Control_Info);
@@ -44,15 +46,13 @@ void Control_Task(void const * argument)
 	for(;;)
   {
 		Control_Task_SysTick = osKernelSysTick();
-		robot_states_update_state_machine();
-		control_loop_shooting();
-		
+
 		
 	  Control_Measure_Update(&Control_Info);
 		Control_Target_Update(&Control_Info);
     Control_Info_Update(&Control_Info);
     USART_Vofa_Justfloat_Transmit(Control_Info.Measure.Chassis_Velocity,0.f,0.f);
-//		
+		
 		osDelay(1);
   }
 }
@@ -66,13 +66,14 @@ static void Control_Init(Control_Info_Typedef *Control_Info){
 
 static void Control_Measure_Update(Control_Info_Typedef *Control_Info){
 
-  Control_Info->Measure.Chassis_Velocity = chassis_motor[0].Data.Velocity;
+  Control_Info->Measure.Chassis_Velocity = DJI_Chassis_Motor[0].Data.Velocity;
 
 }
 
 static void Control_Target_Update(Control_Info_Typedef *Control_Info){
 
-  Control_Info->Target.Chassis_Velocity = remote_ctrl.rc.ch[0] * 5.f;
+  Control_Info->Target.Chassis_Velocity = remote_ctrl.rc.ch[3] * 5.f;
+
 
 }
 
