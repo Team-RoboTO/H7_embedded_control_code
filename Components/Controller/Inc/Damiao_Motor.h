@@ -81,17 +81,19 @@ typedef struct
  */
 typedef struct 
 {
-  bool Initlized;    /*!< init flag */
-  uint8_t  State; 	 /*!< Motor Message */
-  uint16_t  P_int;   /*!< Motor Positon  uint16 */
-	uint16_t  V_int;   /*!< Motor Velocity uint16 */
-	uint16_t  T_int;   /*!< Motor Torque   uint16 */
-	float  Position;   /*!< Motor Positon  */
-  float  Velocity;   /*!< Motor Velocity */
-  float  Torque;     /*!< Motor Torque   */
+  bool Initlized;    				/*!< init flag */
+  uint8_t  State; 				 	/*!< Motor Message */
+  uint16_t  P_int;   				/*!< Motor Positon  uint16 */
+	uint16_t  V_int;   				/*!< Motor Velocity uint16 */
+	uint16_t  T_int;   				/*!< Motor Torque   uint16 */
+	float  Position;   				/*!< Motor Positon  */
+	float  Last_Position;   	/*!< Motor previous Positon  */
+  float  Velocity;   				/*!< Motor Velocity */
+  float  Torque;     				/*!< Motor Torque   */
   float  Temperature_MOS;   /*!< Motor Temperature_MOS   */
 	float  Temperature_Rotor; /*!< Motor Temperature_Rotor */
   float  Angle;	
+	float  Angle_sum;
 }DM_Motor_Data_Typedef;
 
 /**

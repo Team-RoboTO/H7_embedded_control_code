@@ -4,7 +4,7 @@
 #include "stm32h7xx_hal.h"
 #include "math_utils.h"
 #include <stdlib.h>
-#include "Motor.h"
+#include "DJI_Motor.h"
 
   /**************/
  /*   STATES   */
@@ -244,7 +244,7 @@ uint8_t _state_machine_rev() {
 uint8_t _state_machine_rev_remote_controller() {
     
     // Manage REV_UNSTUCK state
-    if (abs(shooting_motor[2].Data.Current) < 6000)
+    if (abs(DJI_Rev_Motor.Data.Current) < 6000)
         time_rev_locked = HAL_GetTick();
 
     if (HAL_GetTick() - time_rev_locked > 0.3*1e3)

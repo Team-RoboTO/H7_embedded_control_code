@@ -1,27 +1,15 @@
 #include "dji_motor.h"
 #include <string.h>
+#include "math_utils.h"
 
 /**
  * @file    dji_motor.c
- * @brief   DJI M3508 and M2006 CAN protocol + motor control
+ * @brief   DJI M3508, GM6020 and M2006 CAN protocol + motor control
  */
 
-// Helper Functions
-static float uint_to_float(int X_int, float X_min, float X_max, int Bits){
-	
-    float span = X_max - X_min;
-    float offset = X_min;
-    return ((float)X_int)*span/((float)((1<<Bits)-1)) + offset;
-}
-
-static int float_to_uint(float x, float x_min, float x_max, int bits){
-	
-    float span = x_max - x_min;
-    float offset = x_min;
-    return (int) ((x-offset)*((float)((1<<bits)-1))/span);
-}
-
-// Functions
+  /***************************/
+ /*   PARAMETERS FUNCTIONS  */
+/***************************/
 
 /**
   * @brief  float loop constrain
@@ -56,68 +44,55 @@ float F_Loop_Constrain(float Input, float Min_Value, float Max_Value)
 
 
 /**
-  * @brief  transform the Encoder(0-8192) to anglesum(3.4E38)
+  * @brief  transform the Encoder(0-8192) to anglesum
   * @param  *Info        pointer to a Motor_Data_Typedef structure that 
 	*					             contains the infomation for the specified motor
-  * @param  torque_ratio the specified motor torque ratio
+  * @param  torque_ratio the specified motor reduction ratio
   * @param  MAXEncoder   the specified motor max Encoder number
   * @retval anglesum
   */
-static float DJI_Motor_Encoder_To_Anglesum(DJI_Motor_Data_Typedef *Data,float Torque_Ratio,uint16_t MAXEncoder)
-{
-  float res1 = 0,res2 =0;
-  
-  if(Data == NULL) return 0;
-  
-  /* Judge the motor Initlized */
-  if(Data->Initlized != true)
-  {
-    /* update the last Encoder */
-    Data->Last_Encoder = Data->Encoder;
+float DJI_Motor_Encoder_To_Anglesum(DJI_Motor_Data_Typedef *Data,float Reduction_Ratio,uint16_t MAXEncoder){
+		/* 
+		 * Update the cumulative angular position.
+		 * Assumption of the algorithm: between two consecutive samples, the motor's encoder cannot
+		 * travel more than 75% of a full rotation revolution (2*pi).
+		 */
+		float delta_ang_pos_digital = (float)(Data->Encoder - Data->Last_Encoder);
+		
+		if (delta_ang_pos_digital < -0.75f * MAXEncoder) {
+				delta_ang_pos_digital += MAXEncoder;
+		}
+		else if (delta_ang_pos_digital > 0.75f * MAXEncoder) {
+				delta_ang_pos_digital -= MAXEncoder;
+		}
+		delta_ang_pos_digital *= 2*pi/(MAXEncoder*Reduction_Ratio);
+		Data->Angle_sum += delta_ang_pos_digital;
+		
+	 return Data->Angle_sum;
+}
 
-    /* reset the angle */
-    Data->Angle = 0;
 
-    /* Set the init flag */
-    Data->Initlized = true;
-  }
-  
-  /* get the possiable min Encoder err */
-  if(Data->Encoder < Data->Last_Encoder)
-  {
-      res1 = Data->Encoder - Data->Last_Encoder + MAXEncoder;
-  }
-  else if(Data->Encoder > Data->Last_Encoder)
-  {
-      res1 = Data->Encoder - Data->Last_Encoder - MAXEncoder;
-  }
-  res2 = Data->Encoder - Data->Last_Encoder;
-  
-  /* update the last Encoder */
-  Data->Last_Encoder = Data->Encoder;
-  
-  /* transforms the Encoder data to tolangle */
-	if(fabsf(res1) > fabsf(res2))
-	{
-		Data->Angle += (float)res2/(MAXEncoder*Torque_Ratio)*360.f;
-	}
-	else
-	{
-		Data->Angle += (float)res1/(MAXEncoder*Torque_Ratio)*360.f;
-	}
-  
-  return Data->Angle;
+/**
+  * @brief  transform the angular velocity [RPM] on the encoder shaft to the angular velocity [rad/s] of the output shaft
+  * @param  *Info        pointer to a Motor_Data_Typedef structure that 
+	*					             contains the infomation for the specified motor
+  * @param  Reduction_Ratio the specified motor reduction ratio
+  * @retval velocity_rads
+  */
+float DJI_Motor_rpm_to_rads(DJI_Motor_Data_Typedef *Data, float Reduction_Ratio) {
+    Data->Velocity_rads = Data->Velocity_rpm *2*pi/(60*Reduction_Ratio);
+    return Data->Velocity_rads;
 }
 
 /**
   * @brief  transform the Encoder(0-8192) to angle(-180-180)
   * @param  *Data        pointer to a Motor_Data_Typedef structure that 
 	*					             contains the Data for the specified motor
-  * @param  torque_ratio the specified motor torque ratio
+  * @param  torque_ratio the specified motor reduction ratio
   * @param  MAXEncoder   the specified motor max Encoder number
   * @retval angle
   */
-float DJI_Motor_Encoder_To_Angle(DJI_Motor_Data_Typedef *Data,float torque_ratio,uint16_t MAXEncoder)
+float DJI_Motor_Encoder_To_Angle(DJI_Motor_Data_Typedef *Data,float reduction_ratio,uint16_t MAXEncoder)
 {	
   float Encoder_Err = 0.f;
   
@@ -128,7 +103,7 @@ float DJI_Motor_Encoder_To_Angle(DJI_Motor_Data_Typedef *Data,float torque_ratio
     Data->Last_Encoder = Data->Encoder;
 
     /* reset the angle */
-    Data->Angle = Data->Encoder/(MAXEncoder*torque_ratio)*360.f;
+    Data->Angle = Data->Encoder/(MAXEncoder*reduction_ratio)*360.f;
 
     /* config the init flag */
     Data->Initlized = true;
@@ -139,26 +114,27 @@ float DJI_Motor_Encoder_To_Angle(DJI_Motor_Data_Typedef *Data,float torque_ratio
   /* 0 -> MAXEncoder */		
   if(Encoder_Err > MAXEncoder*0.5f)
   {
-    Data->Angle += (float)(Encoder_Err - MAXEncoder)/(MAXEncoder*torque_ratio)*360.f;
+    Data->Angle += (float)(Encoder_Err - MAXEncoder)/(MAXEncoder*reduction_ratio)*360.f;
   }
   /* MAXEncoder-> 0 */		
   else if(Encoder_Err < -MAXEncoder*0.5f)
   {
-    Data->Angle += (float)(Encoder_Err + MAXEncoder)/(MAXEncoder*torque_ratio)*360.f;
+    Data->Angle += (float)(Encoder_Err + MAXEncoder)/(MAXEncoder*reduction_ratio)*360.f;
   }
   else
   {
-    Data->Angle += (float)(Encoder_Err)/(MAXEncoder*torque_ratio)*360.f;
+    Data->Angle += (float)(Encoder_Err)/(MAXEncoder*reduction_ratio)*360.f;
   }
-  
-  /* update the last Encoder */
-  Data->Last_Encoder = Data->Encoder;
   
   /* loop constrain */
   Data->Angle = F_Loop_Constrain(Data->Angle,-180.f,180.f);
 
   return Data->Angle;
 }
+
+  /*****************************/
+ /*   COMUNICATION FUNCTIONS  */
+/*****************************/
 
 //------------------------------------------------------------------------------
 
@@ -233,26 +209,40 @@ void DJI_Motor_Info_Update(uint32_t *Identifier, uint8_t *Rx_Buf,DJI_Motor_Info_
 	/* check the Identifier */
 	if(*Identifier != DJI_Motor->FDCANFrame.RxIdentifier) return;
 	
+	/* update the last Encoder */
+  DJI_Motor->Data.Last_Encoder =DJI_Motor->Data.Encoder;
+	
 	/* transforms the  general motor data */
 	DJI_Motor->Data.Temperature = Rx_Buf[6];
 	DJI_Motor->Data.Encoder  = ((int16_t)Rx_Buf[0] << 8 | (int16_t)Rx_Buf[1]);
-	DJI_Motor->Data.Velocity = ((int16_t)Rx_Buf[2] << 8 | (int16_t)Rx_Buf[3]);
+	DJI_Motor->Data.Velocity_rpm = ((int16_t)Rx_Buf[2] << 8 | (int16_t)Rx_Buf[3]);
 	DJI_Motor->Data.Current  = ((int16_t)Rx_Buf[4] << 8 | (int16_t)Rx_Buf[5]);
 
 	/* transform the Encoder to angle */
 	switch(DJI_Motor->Type)
 	{
 		case DJI_GM6020:
-
-		DJI_Motor->Data.Angle = DJI_Motor_Encoder_To_Angle(&DJI_Motor->Data,1.f,8192); //6020?????????1:1 ?????????
+			DJI_Motor->Data.Angle = DJI_Motor_Encoder_To_Angle(&DJI_Motor->Data,1.f,8192);
+			DJI_Motor->Data.Angle_sum = DJI_Motor_Encoder_To_Anglesum(&DJI_Motor->Data,1.f,8192); 
+			DJI_Motor->Data.Velocity_rads = DJI_Motor_rpm_to_rads(&DJI_Motor->Data,1.f); 
 		break;
 	
 		case DJI_M3508:
 			DJI_Motor->Data.Angle = DJI_Motor_Encoder_To_Angle(&DJI_Motor->Data,3591.f/187.f,8192);
+			DJI_Motor->Data.Angle_sum = DJI_Motor_Encoder_To_Anglesum(&DJI_Motor->Data,3591.f/187.f,8192); 
+			DJI_Motor->Data.Velocity_rads = DJI_Motor_rpm_to_rads(&DJI_Motor->Data,3591.f/187.f); 
+		break;
+		
+		case DJI_M3508_SHOOTING_WHEELS:
+			DJI_Motor->Data.Angle = DJI_Motor_Encoder_To_Angle(&DJI_Motor->Data,1.f,8192);
+			DJI_Motor->Data.Angle_sum = DJI_Motor_Encoder_To_Anglesum(&DJI_Motor->Data,1.f,8192); 
+			DJI_Motor->Data.Velocity_rads = DJI_Motor_rpm_to_rads(&DJI_Motor->Data,1.f); 
 		break;
 		
 		case DJI_M2006:
 			DJI_Motor->Data.Angle = DJI_Motor_Encoder_To_Angle(&DJI_Motor->Data,36.f,8192);
+			DJI_Motor->Data.Angle_sum = DJI_Motor_Encoder_To_Anglesum(&DJI_Motor->Data,36.f,8192); 
+			DJI_Motor->Data.Velocity_rads = DJI_Motor_rpm_to_rads(&DJI_Motor->Data,36.f); 
 		break;
 		
 		default:break;

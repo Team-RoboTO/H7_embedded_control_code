@@ -1,6 +1,6 @@
 #include "shooting_control.h"
 #include "PID.h"
-#include "motor.h"
+#include "DJI_motor.h"
 #include "state_machine.h"
 #include "control_utils.h"
 #include "string.h"
@@ -40,21 +40,20 @@ static PID_Info_TypeDef pid_rev_pos;
 static PID_Info_TypeDef pid_rev_vel;
 
 // Shoot wheel velocity PIDs: KP, KI, KD, Alpha, Deadband, LimitIntegral, LimitOutput
-static float pid_shoot_wheel_left_params[PID_PARAMETER_NUM]  = {0.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10000.0f};
-static float pid_shoot_wheel_right_params[PID_PARAMETER_NUM] = {0.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10000.0f};
+static float pid_shoot_wheel_left_params[PID_PARAMETER_NUM]  = {0.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10.0f};
+static float pid_shoot_wheel_right_params[PID_PARAMETER_NUM] = {0.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10.0f};
 
 // REV position PID (outer loop): KP is overwritten at runtime per shooting mode
 static float pid_rev_pos_params[PID_PARAMETER_NUM] = {27.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10000.0f};
 
 // REV velocity PID (inner loop)
-static float pid_rev_vel_params[PID_PARAMETER_NUM] = {7.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10000.0f};
+static float pid_rev_vel_params[PID_PARAMETER_NUM] = {7.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 8.0f};
 
   /*************************/
  /*   CONTROL VARIABLES   */
 /*************************/
 
 float r_shoot_wheels_ang_vel = 400;  // [rad/s]
-uint16_t ciao = 0;
 static uint8_t need_to_set_rev_ang_pos_reference = true;
 static float rev_shooting_frequency = 20;  // Bullets per second [Hz]
 
@@ -77,33 +76,26 @@ void control_loop_shooting(void)
     _control_loop_rev();
 
     is_first_iter = false;
-
-//    CAN_Tx_shoot_wheels_rev(
-//        (int16_t) shoot_wheels_and_rev.u[0],
-//        (int16_t) shoot_wheels_and_rev.u[1],
-//        (int16_t) shoot_wheels_and_rev.u[2]
-//    );
-	
-	  FDCAN2_TxFrame.Header.Identifier = 0x200;
-		//Control_Info.SendValue[0] = 2000;
-    FDCAN2_TxFrame.Data[0] = (uint8_t)((int16_t) shoot_wheels_and_rev.u[0] >> 8);
-		FDCAN2_TxFrame.Data[1] = (uint8_t)((int16_t) shoot_wheels_and_rev.u[0]);
-		FDCAN2_TxFrame.Data[2] = (uint8_t)((int16_t) shoot_wheels_and_rev.u[1] >> 8);
-		FDCAN2_TxFrame.Data[3] = (uint8_t)((int16_t) shoot_wheels_and_rev.u[1]);
-		FDCAN2_TxFrame.Data[4] = (uint8_t)((int16_t) shoot_wheels_and_rev.u[2] >> 8); // motor 3
-		FDCAN2_TxFrame.Data[5] = (uint8_t)((int16_t) shoot_wheels_and_rev.u[2]);
-		FDCAN2_TxFrame.Data[6] = (uint8_t)(0x00); // motor 4
-		FDCAN2_TxFrame.Data[7] = (uint8_t)(0x00);
-
-   USER_FDCAN_AddMessageToTxFifoQ(&FDCAN2_TxFrame);
+		DJI_M3508_M2006_TxMessage(&FDCAN1_TxFrame, shoot_wheels_and_rev.ud[0], shoot_wheels_and_rev.ud[1], shoot_wheels_and_rev.ud[2],0);
 }
 
   /*********************************/
  /*   SHOOT WHEELS CONTROL LOOP   */
 /*********************************/
 
-void _control_loop_shoot_wheels(void)
-{
+void _control_loop_shoot_wheels(void){
+		// STOP command
+    if (state_remote_commands == COMMANDS_STOP) {
+        shoot_wheels_and_rev.ud[0] = 0;
+        shoot_wheels_and_rev.ud[1] = 0;
+
+        // Reset PIDs to clean integral and avoid windup after stop
+        pid_shoot_wheel_left.PID_Calc_Clear(&pid_shoot_wheel_left);
+        pid_shoot_wheel_right.PID_Calc_Clear(&pid_shoot_wheel_right);
+				
+				return;
+    }
+		
 		if (is_first_iter == 1) {
 			PID_Init(&pid_shoot_wheel_left,  PID_POSITION, pid_shoot_wheel_left_params);
 			PID_Init(&pid_shoot_wheel_right, PID_POSITION, pid_shoot_wheel_right_params);
@@ -113,8 +105,8 @@ void _control_loop_shoot_wheels(void)
     for (uint8_t i = 0; i < 2; i++) {
         shoot_wheels_and_rev.x_prev[i] = shoot_wheels_and_rev.x[i];
     }
-    shoot_wheels_and_rev.x[0] = (float) shooting_motor[0].Data.Velocity*2*pi/60;  // Left wheel angular velocity  [rad/s]
-    shoot_wheels_and_rev.x[1] = (float) shooting_motor[1].Data.Velocity*2*pi/60;  // Right wheel angular velocity [rad/s]
+    shoot_wheels_and_rev.x[0] = (float) DJI_Shooting_Motor[0].Data.Velocity_rads;  // Left wheel angular velocity  [rad/s]
+    shoot_wheels_and_rev.x[1] = (float) DJI_Shooting_Motor[1].Data.Velocity_rads;  // Right wheel angular velocity [rad/s]
 
     // Update reference history
     for (uint8_t i = 0; i < 2; i++) {
@@ -127,41 +119,28 @@ void _control_loop_shoot_wheels(void)
             shoot_wheels_and_rev.r_x[0] = +r_shoot_wheels_ang_vel;
             shoot_wheels_and_rev.r_x[1] = -r_shoot_wheels_ang_vel;
             break;
+				
         case SHOOT_WHEELS_STOP:
+					
         default:
             shoot_wheels_and_rev.r_x[0] = 0;
             shoot_wheels_and_rev.r_x[1] = 0;
             break;
     }
 
-    // Hard override on STOP command
-    if (state_remote_commands == COMMANDS_STOP) {
-        shoot_wheels_and_rev.r_x[0] = 0;
-        shoot_wheels_and_rev.r_x[1] = 0;
-
-        // Reset PIDs to avoid windup after stop
-        pid_shoot_wheel_left.PID_Calc_Clear(&pid_shoot_wheel_left);
-        pid_shoot_wheel_right.PID_Calc_Clear(&pid_shoot_wheel_right);
-    }
-
     // PID_Calculate(pid, Target, Measure) handles error/integral/derivative internally
-    shoot_wheels_and_rev.u[0] = PID_Calculate(&pid_shoot_wheel_left,
-                                               shoot_wheels_and_rev.r_x[0],
-                                               shoot_wheels_and_rev.x[0]);
+    shoot_wheels_and_rev.u[0] = PID_Calculate(&pid_shoot_wheel_left, shoot_wheels_and_rev.r_x[0], shoot_wheels_and_rev.x[0]);
 
-    shoot_wheels_and_rev.u[1] = PID_Calculate(&pid_shoot_wheel_right,
-                                               shoot_wheels_and_rev.r_x[1],
-                                               shoot_wheels_and_rev.x[1]);
+    shoot_wheels_and_rev.u[1] = PID_Calculate(&pid_shoot_wheel_right, shoot_wheels_and_rev.r_x[1], shoot_wheels_and_rev.x[1]);
 
     // ADC conversion and output saturation
     for (uint8_t i = 0; i < 2; i++) {
-        shoot_wheels_and_rev.u[i] *= M3508_ADC_CONVERTION;
-        saturate(&shoot_wheels_and_rev.u[i], 10000);
+        shoot_wheels_and_rev.ud[i] = shoot_wheels_and_rev.u[i]*DJI_Motor_ADC[DJI_M3508];
     }
 
 #if !IS_SHOOT_WHEELS_ENABLED
-    shoot_wheels_and_rev.u[0] = 0;
-    shoot_wheels_and_rev.u[1] = 0;
+    shoot_wheels_and_rev.ud[0] = 0;
+    shoot_wheels_and_rev.ud[1] = 0;
 #endif
 }
 
@@ -173,7 +152,7 @@ void _control_loop_rev(void)
 {
     // On STOP: zero output and reset PIDs
     if (state_remote_commands == COMMANDS_STOP) {
-        shoot_wheels_and_rev.u[2] = 0;
+        shoot_wheels_and_rev.ud[2] = 0;
         pid_rev_pos.PID_Calc_Clear(&pid_rev_pos);
         pid_rev_vel.PID_Calc_Clear(&pid_rev_vel);
         return;
@@ -183,8 +162,8 @@ void _control_loop_rev(void)
     for (uint8_t i = 2; i < shoot_wheels_and_rev.p; i++) {
         shoot_wheels_and_rev.x_prev[i] = shoot_wheels_and_rev.x[i];
     }
-    shoot_wheels_and_rev.x[2] = (float) shooting_motor[2].Data.Angle_sum;      // REV angular position [rad]
-    shoot_wheels_and_rev.x[3] = (float) shooting_motor[2].Data.Velocity*2*pi/(60*36);       // REV angular velocity [rad/s]
+    shoot_wheels_and_rev.x[2] = (float) DJI_Rev_Motor.Data.Angle_sum;      // REV angular position [rad]
+    shoot_wheels_and_rev.x[3] = (float) DJI_Rev_Motor.Data.Velocity_rads;       // REV angular velocity [rad/s]
 
     // Update reference history
     for (uint8_t i = 2; i < shoot_wheels_and_rev.n; i++) {
@@ -260,9 +239,7 @@ void _control_loop_rev(void)
 
     // --- OUTER LOOP: Position Control ---
     // Output is the desired REV velocity setpoint
-    shoot_wheels_and_rev.r_x[3] = PID_Calculate(&pid_rev_pos,
-                                                  shoot_wheels_and_rev.r_x[2],
-                                                  shoot_wheels_and_rev.x[2]);
+    shoot_wheels_and_rev.r_x[3] = PID_Calculate(&pid_rev_pos, shoot_wheels_and_rev.r_x[2], shoot_wheels_and_rev.x[2]);
 
     // In MULTIPLE_SHOOTING the velocity reference is set directly by the state machine,
     // so we override the position PID output in that case
@@ -272,12 +249,11 @@ void _control_loop_rev(void)
 
     // --- INNER LOOP: Velocity Control ---
     // Output is the motor current command
-    shoot_wheels_and_rev.u[2] = PID_Calculate(&pid_rev_vel,
-                                               shoot_wheels_and_rev.r_x[3],
-                                               shoot_wheels_and_rev.x[3]);
-	shoot_wheels_and_rev.u[2] *= M2006_ADC_CONVERTION;
-	saturate(&shoot_wheels_and_rev.u[2], 10000);
+    shoot_wheels_and_rev.u[2] = PID_Calculate(&pid_rev_vel, shoot_wheels_and_rev.r_x[3], shoot_wheels_and_rev.x[3]);
+		
+	  shoot_wheels_and_rev.ud[2] = shoot_wheels_and_rev.u[2]*DJI_Motor_ADC[DJI_M2006]; //M2006_ADC_CONVERTION;
+		
 #if !IS_REV_ENABLED
-    shoot_wheels_and_rev.u[2] = 0;
+    shoot_wheels_and_rev.ud[2] = 0;
 #endif
 }

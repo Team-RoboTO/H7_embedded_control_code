@@ -82,8 +82,8 @@ typedef struct
     float KD;             // Derivative gain
     float Alpha;          // First-order low-pass filter coefficient for the derivative term
     float Deadband;       // Deadband threshold - PID stops calculating when |error| is below this value
-    float LimitIntegral;  // Saturation limit for the integral term (anti-windup)
-    float LimitOutput;    // Saturation limit for the total output
+    float LimitIntegral;  // Saturation limit for the integral term (anti-windup) [Ampere]
+    float LimitOutput;    // Saturation limit for the total output [Ampere]
 } PID_Parameter_Typedef;
 
 /**

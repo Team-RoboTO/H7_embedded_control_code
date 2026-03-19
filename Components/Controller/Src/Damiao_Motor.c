@@ -1,6 +1,7 @@
 #include "damiao_motor.h"
 #include <string.h>
 #include "Motor.h"
+#include "math_utils.h"
 
 /**
  * @file    damiao_motor.c
@@ -134,6 +135,25 @@ void DM_Motor_CAN_TxMessage(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,DM_Motor_Info_T
 
 }
 //------------------------------------------------------------------------------
+float DM_Motor_Encoder_To_Anglesum(DM_Motor_Data_Typedef *Data,float Torque_Ratio,uint16_t MAXEncoder){
+		/* 
+		 * Update the cumulative angular position.
+		 * Assumption of the algorithm: between two consecutive samples, the motor's encoder cannot
+		 * travel more than 75% of a full rotation revolution (360 degrees).
+		 */
+		float delta_ang_pos_digital = (float)(Data->Position - Data->Last_Position);
+		
+		if (delta_ang_pos_digital < -0.75f * 8192) {
+				delta_ang_pos_digital += 8192;
+		}
+		else if (delta_ang_pos_digital > 0.75f * 8192) {
+				delta_ang_pos_digital -= 8192;
+		}
+		delta_ang_pos_digital *= 0.027778f*2*pi/8192;
+		Data->Angle_sum += delta_ang_pos_digital;
+		
+	 return Data->Angle_sum;
+}
 
 /**
   * @brief  Update the DM_Motor Information
@@ -146,7 +166,8 @@ void DM_Motor_Info_Update(uint32_t *Identifier,uint8_t *Rx_Buf,DM_Motor_Info_Typ
 {
 	 
 	if(*Identifier != DM_Motor->FDCANFrame.RxIdentifier) return;
-	
+	  
+		DM_Motor->Data.Last_Position = DM_Motor->Data.Position;
 	  DM_Motor->Data.State = Rx_Buf[0]>>4;
 		DM_Motor->Data.P_int = ((uint16_t)(Rx_Buf[1]) <<8) | ((uint16_t)(Rx_Buf[2]));
 		DM_Motor->Data.V_int = ((uint16_t)(Rx_Buf[3]) <<4) | ((uint16_t)(Rx_Buf[4])>>4);

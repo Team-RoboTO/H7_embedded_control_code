@@ -20,10 +20,11 @@
 #include "PID.h"
 #include "Motor.h"
 #include "arm_math.h"
-
+#include "shooting_control.h"
 #include "Damiao_Motor.h"
 #include "Cubemars_Motor.h"
 #include "DJI_Motor.h"
+#include "state_machine.h"
 
 static void Control_Init(Control_Info_Typedef *Control_Info);
 static void Control_Measure_Update(Control_Info_Typedef *Control_Info);
@@ -46,8 +47,9 @@ void Control_Task(void const * argument)
 	for(;;)
   {
 		Control_Task_SysTick = osKernelSysTick();
+		robot_states_update_state_machine();
+		control_loop_shooting();
 
-		
 	  Control_Measure_Update(&Control_Info);
 		Control_Target_Update(&Control_Info);
     Control_Info_Update(&Control_Info);
@@ -66,7 +68,7 @@ static void Control_Init(Control_Info_Typedef *Control_Info){
 
 static void Control_Measure_Update(Control_Info_Typedef *Control_Info){
 
-  Control_Info->Measure.Chassis_Velocity = DJI_Chassis_Motor[0].Data.Velocity;
+  Control_Info->Measure.Chassis_Velocity = DJI_Chassis_Motor[0].Data.Velocity_rpm;
 
 }
 

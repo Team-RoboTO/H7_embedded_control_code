@@ -3,7 +3,7 @@
 #include "controlled_system.h"
 #include "arm_math.h"
 #include "robot_config.h"
-#include "motor.h"
+#include "cubemars_motor.h"
 
 /**
  * @brief Power model coefficients for different chassis types
@@ -75,8 +75,8 @@ void chassis_power_control(uint16_t limit, float *u){
 		
 		// P = Mechanical Power + Torque Losses + Velocity Losses + Constant Losses
 		estimated_give_power[i] = 
-			estimated_torque[i] * chassis_motor[i].Data.Velocity/9.55                               // Mechanical Power: P_mech = τ*ω [W]
-				+ k2 * chassis_motor[i].Data.Velocity * chassis_motor[i].Data.Velocity/9.55/9.55  // Velocity Losses: k2*ω² [W]
+			estimated_torque[i] * CM_Chassis_Motor[i].Data.Velocity/9.55                               // Mechanical Power: P_mech = τ*ω [W]
+				+ k2 * CM_Chassis_Motor[i].Data.Velocity * CM_Chassis_Motor[i].Data.Velocity/9.55/9.55  // Velocity Losses: k2*ω² [W]
         + k1 * estimated_torque[i] * estimated_torque[i]                                          // Torque Losses: k1*τ² [W]
         + p0 ;                                                                                    // Constant Losses [W]
 		
@@ -111,8 +111,8 @@ void chassis_power_control(uint16_t limit, float *u){
 				continue;
 			}
 			// Coefficients of the quadratic equation normalized by k1
-      float b = chassis_motor[i].Data.Velocity/9.55/k1;
-			float c = k2 * chassis_motor[i].Data.Velocity * chassis_motor[i].Data.Velocity/(k1*9.55*9.55) - scaled_give_power[i]/k1 + p0/k1;
+      float b = CM_Chassis_Motor[i].Data.Velocity/9.55/k1;
+			float c = k2 * CM_Chassis_Motor[i].Data.Velocity * CM_Chassis_Motor[i].Data.Velocity/(k1*9.55*9.55) - scaled_give_power[i]/k1 + p0/k1;
 			float delta = b * b - 4 * c;
 
 			// No real solution: impossible to reach the target power --> maintain the current value

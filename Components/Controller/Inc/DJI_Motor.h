@@ -6,6 +6,8 @@
 #include "stm32h723xx.h"
 #include "bsp_can.h"
 #include "motor.h"
+
+
 /**
  * @file    dji_motor.h
  * @brief   DJI M3508, M2006, GM6020 CAN protocol + motor control
@@ -19,6 +21,7 @@
 typedef enum{
     DJI_GM6020,
     DJI_M3508,
+		DJI_M3508_SHOOTING_WHEELS,
     DJI_M2006,
     DJI_MOTOR_TYPE_NUM,
 }DJI_Motor_Type_e;
@@ -37,13 +40,15 @@ typedef struct
  */
 typedef struct 
 {
-  bool Initlized;   /*!< init flag */
-  int16_t  Current;   /*!< Motor electric current */
-  int16_t  Velocity;    /*!< Motor rotate velocity (RPM)*/
-  int16_t  Encoder;   /*!< Motor encoder angle */
-  int16_t  Last_Encoder;   /*!< previous Motor encoder angle */
-  float    Angle;   /*!< Motor angle in degree */
-  uint8_t  Temperature;   /*!< Motor Temperature */
+  bool     Initlized;   	// init flag
+  int16_t  Current;   		// Motor electric current
+  int16_t  Velocity_rpm;  // Motor rotate velocity at the encoder shaft(RPM) !!!pay attention to reduction ratio
+	float    Velocity_rads; // Motor rotate velocity at the output shaft (rad/s) 
+  int16_t  Encoder;  		  // Motor encoder angle
+  int16_t  Last_Encoder;  // previous Motor encoder angle
+  float    Angle;   			// Motor angle in degree
+	float    Angle_sum;     // Motor angle in rad 
+  uint8_t  Temperature;   // Motor Temperature
 }DJI_Motor_Data_Typedef;
 
 /**
@@ -67,4 +72,11 @@ extern void DJI_Motor_Info_Update(uint32_t *Identifier, uint8_t *Rx_Buf, DJI_Mot
 extern void DJI_M3508_M2006_TxMessage(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame, int16_t cur1, int16_t cur2, int16_t cur3, int16_t cur4);
 extern void DJI_GM6020_TxMessage(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame, uint32_t tx_id, int16_t vol1, int16_t vol2, int16_t vol3, int16_t vol4);
 
+// ADC constants
+static const float DJI_Motor_ADC[DJI_MOTOR_TYPE_NUM] = {
+    [DJI_GM6020]                = 16384.f / 3.f,
+    [DJI_M3508]                 = 16384.f / 20.f,
+    [DJI_M3508_SHOOTING_WHEELS] = 16384.f / 20.f,
+    [DJI_M2006]                 = 10000.0f / 10.0f,
+};
 #endif /* DJI_MOTOR_H */

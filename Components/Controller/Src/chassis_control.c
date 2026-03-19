@@ -2,7 +2,8 @@
 #include "PID.h"
 #include "Remote_Control.h"
 #include "state_machine.h"
-#include "Motor.h"
+#include "Cubemars_Motor.h"
+#include "Damiao_Motor.h"
 #include "power_estimation.h"
 #include "Referee_System.h"
 #include "math_utils.h"
@@ -30,19 +31,19 @@ controlled_system_MIT_t chassis = {
 static float max_r_ang_vel_wheels = 45.0;  // Max reference of angular velocity of wheels [rad/s]
 uint8_t is_rotating = 0; //flag for complete the rotation until the head return alligned to the zero 
 
-int16_t remote_commands_bwd_fwd;  // in range [-660, +660]
-int16_t remote_commands_left_right;  // in range [-660, +660]
-static float remote_commands_bwd_fwd_float;  // in range [-660, +660], but float
+int16_t remote_commands_bwd_fwd;  							// in range [-660, +660]
+int16_t remote_commands_left_right;  						// in range [-660, +660]
+static float remote_commands_bwd_fwd_float;  		// in range [-660, +660], but float
 static float remote_commands_left_right_float;  // in range [-660, +660], but float
-static float r_ang_vel_wheel_1_bwd_fwd;  // [rad/s]
-static float r_ang_vel_wheel_1_left_right;  // [rad/s]
-static float r_ang_vel_wheel_2_bwd_fwd;  // [rad/s]
-static float r_ang_vel_wheel_2_left_right;  // [rad/s]
-static float r_ang_vel_wheel_3_bwd_fwd;  // [rad/s]
-static float r_ang_vel_wheel_3_left_right;  // [rad/s]
-static float r_ang_vel_wheel_4_bwd_fwd;  // [rad/s]
-static float r_ang_vel_wheel_4_left_right;  // [rad/s]
-static float r_ang_vel_wheels_chassis_yaw;  // [rad/s]
+static float r_ang_vel_wheel_1_bwd_fwd;  				// [rad/s]
+static float r_ang_vel_wheel_1_left_right;  		// [rad/s]
+static float r_ang_vel_wheel_2_bwd_fwd;  				// [rad/s]
+static float r_ang_vel_wheel_2_left_right;  		// [rad/s]
+static float r_ang_vel_wheel_3_bwd_fwd; 				// [rad/s]
+static float r_ang_vel_wheel_3_left_right;  		// [rad/s]
+static float r_ang_vel_wheel_4_bwd_fwd;  				// [rad/s]
+static float r_ang_vel_wheel_4_left_right;  		// [rad/s]
+static float r_ang_vel_wheels_chassis_yaw;  		// [rad/s]
 
 static float max_reference = 0; 
 static uint8_t is_first_iter = 0;
@@ -55,9 +56,9 @@ static uint16_t ID_w2 = 122; //ID wheels back left with front the battery
 static uint16_t ID_w3 = 123; //ID wheels front left with front the battery
 
 //MIT variables
-static float MIT_p_des = 0.0f; // range -12.5 - +12.5 [rad]
-static float MIT_kp = 0.0f;    // range 0-500
-static float MIT_kd = 0.2f;    // range 0-5
+static float MIT_p_des = 0.0f; 	// range -12.5 - +12.5 [rad]
+static float MIT_kp = 0.0f;    	// range 0-500
+static float MIT_kd = 0.2f;    	// range 0-5
 static float MIT_t_ff = 0.0f;   // range -15.0 - 15.0 [Nm]
 
   /********************/
@@ -69,19 +70,19 @@ void control_loop_chassis() {
     // If stop command arrived, send zeros as control signals
     if (state_remote_commands == COMMANDS_STOP) {
 			// alternating logic to safely exit control mode for exit MIT control
-			MIT_motor_Command(&FDCAN2_TxFrame,&chassis_motor[0],Motor_Disable);
-			MIT_motor_Command(&FDCAN2_TxFrame,&chassis_motor[1],Motor_Disable);
-			MIT_motor_Command(&FDCAN2_TxFrame,&chassis_motor[2],Motor_Disable);
-			MIT_motor_Command(&FDCAN2_TxFrame,&chassis_motor[3],Motor_Disable);
+			CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[0],CM_Motor_Disable);
+			CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[1],CM_Motor_Disable);
+			CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[2],CM_Motor_Disable);
+			CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[3],CM_Motor_Disable);
 			is_first_iter = 1;  // reset init flag
       return;
     }
 		
     if (is_first_iter == 1) {
-	    MIT_motor_Command(&FDCAN2_TxFrame,&chassis_motor[0],Motor_Enable);
-			MIT_motor_Command(&FDCAN2_TxFrame,&chassis_motor[1],Motor_Enable);
-			MIT_motor_Command(&FDCAN2_TxFrame,&chassis_motor[2],Motor_Enable);
-			MIT_motor_Command(&FDCAN2_TxFrame,&chassis_motor[3],Motor_Enable);
+	    CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[0],CM_Motor_Enable);
+			CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[1],CM_Motor_Enable);
+			CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[2],CM_Motor_Enable);
+			CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[3],CM_Motor_Enable);
       is_first_iter = 0;
     }
 		
@@ -89,7 +90,7 @@ void control_loop_chassis() {
     for (uint8_t i = 0; i < chassis.p; i++) {
         chassis.x_prev[i] = chassis.x[i];
     }
-  	chassis.x[4] = nearest_target_angle_from_start_angle(gimbal_motor[0].Data.Angle_sum - GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD, 0);
+  	chassis.x[4] = nearest_target_angle_from_start_angle(DM_Yaw_Motor.Data.Angle_sum - GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD, 0);
     
     // Remote commands
 		switch (state_remote_commands) {
@@ -143,7 +144,7 @@ void control_loop_chassis() {
 						break;
 					}
 					
-					else if (is_rotating == 1 && ((gimbal_motor[0].Data.Angle_sum > (GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD + 1000)) || (gimbal_motor[0].Data.Angle_sum < (GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD)))) {
+					else if (is_rotating == 1 && ((DM_Yaw_Motor.Data.Angle_sum > (GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD + 1000)) || (DM_Yaw_Motor.Data.Angle_sum < (GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD)))) {
 					 // Forward/Backward
             r_ang_vel_wheel_1_bwd_fwd       = ((float) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels * cos(- chassis.x[4] + pi/4);
             r_ang_vel_wheel_2_bwd_fwd       = ((float) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels * sin(- chassis.x[4] + pi/4);
@@ -214,10 +215,10 @@ void control_loop_chassis() {
 	
     // Send control signals
   #if IS_CHASSIS_ENABLED
-		MIT_motor_CAN_TxMessage(&FDCAN1_TxFrame,&chassis_motor[0],0,chassis.r_x[0],0,0.2,0);
-		MIT_motor_CAN_TxMessage(&FDCAN1_TxFrame,&chassis_motor[1],0,chassis.r_x[1],0,0.2,0);
-		MIT_motor_CAN_TxMessage(&FDCAN1_TxFrame,&chassis_motor[2],0,chassis.r_x[2],0,0.2,0);	
-		MIT_motor_CAN_TxMessage(&FDCAN1_TxFrame,&chassis_motor[3],0,chassis.r_x[3],0,0.2,0);	
+		CM_Motor_CAN_TxMessage(&FDCAN1_TxFrame,&CM_Chassis_Motor[0],0,chassis.r_x[0],0,0.2,0);
+		CM_Motor_CAN_TxMessage(&FDCAN1_TxFrame,&CM_Chassis_Motor[1],0,chassis.r_x[1],0,0.2,0);
+		CM_Motor_CAN_TxMessage(&FDCAN1_TxFrame,&CM_Chassis_Motor[2],0,chassis.r_x[2],0,0.2,0);	
+		CM_Motor_CAN_TxMessage(&FDCAN1_TxFrame,&CM_Chassis_Motor[3],0,chassis.r_x[3],0,0.2,0);	
 }
 #endif
 

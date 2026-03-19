@@ -249,14 +249,14 @@ CM_Motor_Info_Typedef CM_Pitch_Motor = {
  */
 DJI_Motor_Info_Typedef DJI_Shooting_Motor[2] = {
     [0] = {
-        .Type = DJI_M3508,
+        .Type = DJI_M3508_SHOOTING_WHEELS,
         .FDCANFrame = {
             .TxIdentifier = 0x200,
             .RxIdentifier = 0x201,
         },
     },
     [1] = {
-        .Type = DJI_M3508,
+        .Type = DJI_M3508_SHOOTING_WHEELS,
         .FDCANFrame = {
             .TxIdentifier = 0x200,
             .RxIdentifier = 0x202,

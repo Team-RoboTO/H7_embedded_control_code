@@ -28,7 +28,7 @@
 
 #define IS_CHASSIS_ENABLED 				    1  // Enable/Disable chassis motors
 #define IS_GIMBAL_ENABLED 			     	1  // Enable/Disable gimbal motors
-#define IS_SHOOT_WHEELS_ENABLED 	    0  // Enable/Disable shooting wheels motors
+#define IS_SHOOT_WHEELS_ENABLED 	    1  // Enable/Disable shooting wheels motors
 #define IS_REV_ENABLED 				      	1  // Enable/Disable REV motor
 
   /********************/
