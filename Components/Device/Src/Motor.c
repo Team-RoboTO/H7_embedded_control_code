@@ -147,8 +147,8 @@ CM_Motor_Info_Typedef CM_Chassis_Motor[4] = {
         .Type = CM_AK40_10,
         .Control_Mode = CM_MIT_MODE,
         .FDCANFrame = {
-            .TxIdentifier = 0x01,
-            .RxIdentifier = 0x01,
+            .TxIdentifier = 123,
+            .RxIdentifier = 0x0000007B,
         },
         .Param_Range = {
             .P_MAX  = 12.5f,
@@ -162,8 +162,8 @@ CM_Motor_Info_Typedef CM_Chassis_Motor[4] = {
         .Type = CM_AK40_10,
         .Control_Mode = CM_MIT_MODE,
         .FDCANFrame = {
-            .TxIdentifier = 0x02,
-            .RxIdentifier = 0x02,
+            .TxIdentifier = 120,
+            .RxIdentifier = 0x00000078,
         },
         .Param_Range = {
             .P_MAX  = 12.5f,
@@ -177,8 +177,8 @@ CM_Motor_Info_Typedef CM_Chassis_Motor[4] = {
         .Type = CM_AK40_10,
         .Control_Mode = CM_MIT_MODE,
         .FDCANFrame = {
-            .TxIdentifier = 0x03,
-            .RxIdentifier = 0x03,
+            .TxIdentifier = 121,
+            .RxIdentifier = 0x00000079,
         },
         .Param_Range = {
             .P_MAX  = 12.5f,
@@ -192,8 +192,8 @@ CM_Motor_Info_Typedef CM_Chassis_Motor[4] = {
         .Type = CM_AK40_10,
         .Control_Mode = CM_MIT_MODE,
         .FDCANFrame = {
-            .TxIdentifier = 0x04,
-            .RxIdentifier = 0x04,
+            .TxIdentifier = 122,
+            .RxIdentifier = 0x0000007A,
         },
         .Param_Range = {
             .P_MAX  = 12.5f,
@@ -231,8 +231,8 @@ CM_Motor_Info_Typedef CM_Pitch_Motor = {
     .Type = CM_AK40_10,
     .Control_Mode = CM_MIT_MODE,
     .FDCANFrame = {
-        .TxIdentifier = 121,
-        .RxIdentifier = 0x00000079,
+        .TxIdentifier = 1,
+        .RxIdentifier = 0x00000001,
     },
     .Param_Range = {
         .P_MAX  = 3.141593f,

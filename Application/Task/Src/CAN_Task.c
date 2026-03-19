@@ -38,14 +38,14 @@ void CAN_Task(void const * argument)
     TickType_t CAN_Task_SysTick = 0;
 
     /* ---- Enable DM 8009 motors (original) ---- */
-    DM_Motor_Command(&FDCAN2_TxFrame, &DM_8009_Motor[0], Motor_Enable);
-    osDelay(30);
-    DM_Motor_Command(&FDCAN2_TxFrame, &DM_8009_Motor[1], Motor_Enable);
-    osDelay(30);
-    DM_Motor_Command(&FDCAN2_TxFrame, &DM_8009_Motor[2], Motor_Enable);
-    osDelay(30);
-    DM_Motor_Command(&FDCAN2_TxFrame, &DM_8009_Motor[3], Motor_Enable);
-    osDelay(30);
+//    DM_Motor_Command(&FDCAN2_TxFrame, &DM_8009_Motor[0], Motor_Enable);
+//    osDelay(30);
+//    DM_Motor_Command(&FDCAN2_TxFrame, &DM_8009_Motor[1], Motor_Enable);
+//    osDelay(30);
+//    DM_Motor_Command(&FDCAN2_TxFrame, &DM_8009_Motor[2], Motor_Enable);
+//    osDelay(30);
+//    DM_Motor_Command(&FDCAN2_TxFrame, &DM_8009_Motor[3], Motor_Enable);
+//    osDelay(30);
 
     /* ---- Enable CM Pitch (AK40-10) — MIT enter control mode ---- */
 //    CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Enable);

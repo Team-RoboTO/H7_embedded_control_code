@@ -10,8 +10,8 @@
       <TargetName>COD_H7_Template</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
-      <pArmCC>6220000::V6.22::.\ARM_Compiler_6.22</pArmCC>
-      <pCCUsed>6220000::V6.22::.\ARM_Compiler_6.22</pCCUsed>
+      <pArmCC>6190000::V6.19::ARMCLANG</pArmCC>
+      <pCCUsed>6190000::V6.19::ARMCLANG</pCCUsed>
       <uAC6>1</uAC6>
       <TargetOption>
         <TargetCommonOption>
@@ -82,7 +82,7 @@
           </BeforeMake>
           <AfterMake>
             <RunUserProg1>0</RunUserProg1>
-            <RunUserProg2>0</RunUserProg2>
+            <RunUserProg2>1</RunUserProg2>
             <UserProg1Name></UserProg1Name>
             <UserProg2Name></UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
@@ -341,7 +341,7 @@
               <MiscControls></MiscControls>
               <Define>USE_HAL_DRIVER,STM32H723xx,ARM_MATH_CM7,__FPU_PRESENT=1U,ARM_MATH_CHECK</Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32H7xx/Include;../Drivers/CMSIS/Include;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Application/Task/Inc;../Components/Device/Inc;../Components/Controller/Inc;../Components/Algorithm/Inc;../BSP/Inc;../SystemView/SEGGER/Syscalls;../SystemView/Sample/FreeRTOSV10;../SystemView/Sample/FreeRTOSV10/Patch;../SystemView/Config;../SystemView/SEGGER;../Middlewares/ST/ARM/DSP/Inc;../USB_DEVICE/App;../USB_DEVICE/Target;../Middlewares/ST/STM32_USB_Device_Library/Core/Inc;../Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc;..\Components\Controller\Inc;..\Components\Controller\Inc</IncludePath>
+              <IncludePath>../Core/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32H7xx/Include;../Drivers/CMSIS/Include;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Application/Task/Inc;../Components/Device/Inc;../Components/Controller/Inc;../Components/Algorithm/Inc;../BSP/Inc;../SystemView/SEGGER/Syscalls;../SystemView/Sample/FreeRTOSV10;../SystemView/Sample/FreeRTOSV10/Patch;../SystemView/Config;../SystemView/SEGGER;../Middlewares/ST/ARM/DSP/Inc;../USB_DEVICE/App;../USB_DEVICE/Target;../Middlewares/ST/STM32_USB_Device_Library/Core/Inc;../Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -415,6 +415,21 @@
         <Group>
           <GroupName>Components/Device</GroupName>
           <Files>
+            <File>
+              <FileName>Damiao_Motor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Controller\Src\Damiao_Motor.c</FilePath>
+            </File>
+            <File>
+              <FileName>Cubemars_Motor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Controller\Src\Cubemars_Motor.c</FilePath>
+            </File>
+            <File>
+              <FileName>DJI_Motor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Controller\Src\DJI_Motor.c</FilePath>
+            </File>
             <File>
               <FileName>Motor.c</FileName>
               <FileType>1</FileType>
@@ -511,24 +526,49 @@
               <FilePath>..\Components\Controller\Src\PID.c</FilePath>
             </File>
             <File>
-              <FileName>Cubemars_Motor.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Components\Controller\Src\Cubemars_Motor.c</FilePath>
-            </File>
-            <File>
-              <FileName>Damiao_Motor.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Components\Controller\Src\Damiao_Motor.c</FilePath>
-            </File>
-            <File>
-              <FileName>DJI_Motor.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Components\Controller\Src\DJI_Motor.c</FilePath>
-            </File>
-            <File>
               <FileName>Can_Recieve.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Components\Controller\Src\Can_Recieve.c</FilePath>
+            </File>
+            <File>
+              <FileName>chassis_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Controller\Src\chassis_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>gimbal_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Controller\Src\gimbal_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>power_estimation.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Controller\Src\power_estimation.c</FilePath>
+            </File>
+            <File>
+              <FileName>Robot_config.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Controller\Src\Robot_config.c</FilePath>
+            </File>
+            <File>
+              <FileName>shooting_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Controller\Src\shooting_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>state_machine.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Controller\Src\state_machine.c</FilePath>
+            </File>
+            <File>
+              <FileName>control_utils.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Algorithm\Src\control_utils.c</FilePath>
+            </File>
+            <File>
+              <FileName>math_utils.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Algorithm\Src\math_utils.c</FilePath>
             </File>
           </Files>
         </Group>

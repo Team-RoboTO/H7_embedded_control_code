@@ -428,8 +428,6 @@ void DMA1_Stream7_IRQHandler(void)
 
 /**
   * @brief This function handles UART5 global interrupt.
-  *        SBUS remote control IDLE line detection is handled directly here,
-  *        bypassing HAL state machine to avoid RxState desync with manual DMA double-buffering.
   */
 void UART5_IRQHandler(void)
 {

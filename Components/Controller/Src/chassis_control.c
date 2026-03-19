@@ -46,14 +46,9 @@ static float r_ang_vel_wheel_4_left_right;  		// [rad/s]
 static float r_ang_vel_wheels_chassis_yaw;  		// [rad/s]
 
 static float max_reference = 0; 
-static uint8_t is_first_iter = 0;
+static uint8_t is_first_iter = 1;
 
 uint16_t chassis_power_limit_local = 60;
-
-//static uint16_t ID_w0 = 120; //ID wheels front right with front the battery
-//static uint16_t ID_w1 = 121; //ID wheels back right with front the battery
-//static uint16_t ID_w2 = 122; //ID wheels back left with front the battery
-//static uint16_t ID_w3 = 123; //ID wheels front left with front the battery
 
 //MIT variables
 static float MIT_p_des = 0.0f; 	// range -12.5 - +12.5 [rad]
@@ -140,7 +135,7 @@ void control_loop_chassis() {
 						r_ang_vel_wheel_3_left_right    = ((float) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels;
 						r_ang_vel_wheel_4_left_right    = ((float) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels;
 						// Align chassis to gimbal
-						r_ang_vel_wheels_chassis_yaw    = max(min(chassis.x[4], pi/2), -pi/2) * (2/pi) * max_r_ang_vel_wheels;
+						//r_ang_vel_wheels_chassis_yaw    = max(min(chassis.x[4], pi/2), -pi/2) * (2/pi) * max_r_ang_vel_wheels;
 						break;
 					}
 					
@@ -215,10 +210,10 @@ void control_loop_chassis() {
 	
     // Send control signals
   #if IS_CHASSIS_ENABLED
-		CM_Motor_CAN_TxMessage(&FDCAN1_TxFrame,&CM_Chassis_Motor[0],0,chassis.r_x[0],0,0.2,0);
-		CM_Motor_CAN_TxMessage(&FDCAN1_TxFrame,&CM_Chassis_Motor[1],0,chassis.r_x[1],0,0.2,0);
-		CM_Motor_CAN_TxMessage(&FDCAN1_TxFrame,&CM_Chassis_Motor[2],0,chassis.r_x[2],0,0.2,0);	
-		CM_Motor_CAN_TxMessage(&FDCAN1_TxFrame,&CM_Chassis_Motor[3],0,chassis.r_x[3],0,0.2,0);	
+		CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame,&CM_Chassis_Motor[0],0,chassis.r_x[0],0,0.2,0);
+		CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame,&CM_Chassis_Motor[1],0,chassis.r_x[1],0,0.2,0);
+		CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame,&CM_Chassis_Motor[2],0,chassis.r_x[2],0,0.2,0);	
+		CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame,&CM_Chassis_Motor[3],0,chassis.r_x[3],0,0.2,0);	
 }
 #endif
 

@@ -64,6 +64,8 @@ volatile uint32_t fdcan2_tx_error_count = 0;
 volatile uint32_t fdcan2_rx_error_count = 0;
 volatile uint32_t fdcan2_rx_callback_count = 0;
 
+
+uint32_t fifo_number_1 = 0;
 /**
  * @brief The structure that contains the Information of FDCAN1 Transmit(CLASSIC_CAN).
  *        Bus: DJI shooting wheels + rev motor
@@ -298,30 +300,32 @@ static void FDCAN3_RxFifo0RxHandler(uint32_t *Identifier, uint8_t Data[8])
 static void FDCAN2_RxFifo1RxHandler(FDCAN_RxHeaderTypeDef *RxHeader, uint8_t Data[8])
 {
     uint32_t id = RxHeader->Identifier;
+	
+		fifo_number_1 = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan2);
 
 		/* Standard ID — DM yaw or CM chassis */
 		switch (id)
 		{
-				case 0x00000079:
+				case 0x00000001:
             CM_Motor_Info_Update(&id, Data, &CM_Pitch_Motor);
 						break;
-				case 0x05:
+				case 0x0000007B:
 						CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[0]);
 						break;
 
-				case 0x02:
+				case 0x00000078:
 						CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[1]);
 						break;
 
-				case 0x03:
+				case 0x00000079:
 						CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[2]);
 						break;
 
-				case 0x04:
+				case 0x0000007A:
 						CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[3]);
 						break;
 
-				case 0x01:
+				case 0x021:
 						DM_Motor_Info_Update(&id, Data, &DM_Yaw_Motor);
 						break;
 
