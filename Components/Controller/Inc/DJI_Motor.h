@@ -47,7 +47,7 @@ typedef struct
   int16_t  Encoder;  		  // Motor encoder angle
   int16_t  Last_Encoder;  // previous Motor encoder angle
   float    Angle;   			// Motor angle in degree
-	float    Angle_sum;     // Motor angle in rad 
+	float    Angle_sum;     // Motor total angle in rad 
   uint8_t  Temperature;   // Motor Temperature
 }DJI_Motor_Data_Typedef;
 

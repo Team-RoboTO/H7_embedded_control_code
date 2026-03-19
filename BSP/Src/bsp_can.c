@@ -57,6 +57,13 @@ volatile uint32_t fdcan1_tx_error_count = 0;
 volatile uint32_t fdcan1_rx_error_count = 0;
 volatile uint32_t fdcan1_rx_callback_count = 0;
 
+
+volatile HAL_StatusTypeDef fdcan2_tx_status = HAL_OK;
+volatile uint32_t fdcan2_protocol_status = 0;
+volatile uint32_t fdcan2_tx_error_count = 0;
+volatile uint32_t fdcan2_rx_error_count = 0;
+volatile uint32_t fdcan2_rx_callback_count = 0;
+
 /**
  * @brief The structure that contains the Information of FDCAN1 Transmit(CLASSIC_CAN).
  *        Bus: DJI shooting wheels + rev motor
@@ -206,6 +213,20 @@ void USER_FDCAN_AddMessageToTxFifoQ(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame){
         fdcan1_tx_error_count = err_counters.TxErrorCnt;
         fdcan1_rx_error_count = err_counters.RxErrorCnt;
     }
+		
+		/* Capture debug info for FDCAN2 */
+    if(FDCAN_TxFrame->hcan == &hfdcan2){
+        FDCAN_ProtocolStatusTypeDef psr;
+        FDCAN_ErrorCountersTypeDef err_counters;
+        
+        fdcan2_tx_status = status;
+        HAL_FDCAN_GetProtocolStatus(FDCAN_TxFrame->hcan, &psr);
+        fdcan2_protocol_status = psr.LastErrorCode;
+        
+        HAL_FDCAN_GetErrorCounters(FDCAN_TxFrame->hcan, &err_counters);
+        fdcan2_tx_error_count = err_counters.TxErrorCnt;
+        fdcan2_rx_error_count = err_counters.RxErrorCnt;
+    }
 }
 
 /**
@@ -281,7 +302,7 @@ static void FDCAN2_RxFifo1RxHandler(FDCAN_RxHeaderTypeDef *RxHeader, uint8_t Dat
 		/* Standard ID — DM yaw or CM chassis */
 		switch (id)
 		{
-				case 0x00000068:
+				case 0x00000079:
             CM_Motor_Info_Update(&id, Data, &CM_Pitch_Motor);
 						break;
 				case 0x05:

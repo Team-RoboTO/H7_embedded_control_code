@@ -25,6 +25,7 @@
 #include "Cubemars_Motor.h"
 #include "DJI_Motor.h"
 #include "state_machine.h"
+#include "gimbal_control.h"
 
 static void Control_Init(Control_Info_Typedef *Control_Info);
 static void Control_Measure_Update(Control_Info_Typedef *Control_Info);
@@ -49,7 +50,7 @@ void Control_Task(void const * argument)
 		Control_Task_SysTick = osKernelSysTick();
 		robot_states_update_state_machine();
 		control_loop_shooting();
-
+		control_loop_gimbal();
 	  Control_Measure_Update(&Control_Info);
 		Control_Target_Update(&Control_Info);
     Control_Info_Update(&Control_Info);

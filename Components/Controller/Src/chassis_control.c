@@ -50,10 +50,10 @@ static uint8_t is_first_iter = 0;
 
 uint16_t chassis_power_limit_local = 60;
 
-static uint16_t ID_w0 = 120; //ID wheels front right with front the battery
-static uint16_t ID_w1 = 121; //ID wheels back right with front the battery
-static uint16_t ID_w2 = 122; //ID wheels back left with front the battery
-static uint16_t ID_w3 = 123; //ID wheels front left with front the battery
+//static uint16_t ID_w0 = 120; //ID wheels front right with front the battery
+//static uint16_t ID_w1 = 121; //ID wheels back right with front the battery
+//static uint16_t ID_w2 = 122; //ID wheels back left with front the battery
+//static uint16_t ID_w3 = 123; //ID wheels front left with front the battery
 
 //MIT variables
 static float MIT_p_des = 0.0f; 	// range -12.5 - +12.5 [rad]

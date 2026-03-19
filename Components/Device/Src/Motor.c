@@ -231,12 +231,12 @@ CM_Motor_Info_Typedef CM_Pitch_Motor = {
     .Type = CM_AK40_10,
     .Control_Mode = CM_MIT_MODE,
     .FDCANFrame = {
-        .TxIdentifier = 104,
-        .RxIdentifier = 0x00000068,
+        .TxIdentifier = 121,
+        .RxIdentifier = 0x00000079,
     },
     .Param_Range = {
         .P_MAX  = 3.141593f,
-        .V_MAX  = 50.0f,
+        .V_MAX  = 45.0f,
         .T_MAX  = 25.0f,
         .KP_MAX = 500.0f,
         .KD_MAX = 5.0f,

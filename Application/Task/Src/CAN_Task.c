@@ -48,36 +48,36 @@ void CAN_Task(void const * argument)
     osDelay(30);
 
     /* ---- Enable CM Pitch (AK40-10) — MIT enter control mode ---- */
-    CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Enable);
+//    CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Enable);
     osDelay(30);
 
     for(;;)
     {
-        CAN_Task_SysTick = osKernelSysTick();
+//        CAN_Task_SysTick = osKernelSysTick();
 
-        /* ---- DM 8009 motors (original) ---- */
-        // CAN-FD   float Postion, float Velocity, float KP, float KD, float Torque
-        DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &DM_8009_Motor[0], 0, velocity_desired, 0, 1, 0);
-        DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &DM_8009_Motor[1], 0, 5, 0, 1, 0);
-        DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &DM_8009_Motor[2], 0, 0, 0, 0, 0);
-        DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &DM_8009_Motor[3], 0, 0, 0, 0, 0);
+//        /* ---- DM 8009 motors (original) ---- */
+//        // CAN-FD   float Postion, float Velocity, float KP, float KD, float Torque
+//        DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &DM_8009_Motor[0], 0, velocity_desired, 0, 1, 0);
+//        DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &DM_8009_Motor[1], 0, 5, 0, 1, 0);
+//        DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &DM_8009_Motor[2], 0, 0, 0, 0, 0);
+//        DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &DM_8009_Motor[3], 0, 0, 0, 0, 0);
 
-        /* ---- CM Pitch: MIT velocity test (5 rad/s, KD=1) ---- */
-        CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &CM_Pitch_Motor,
-                               0, velocity_desired, 0, 1, 0);
+//        /* ---- CM Pitch: MIT velocity test (5 rad/s, KD=1) ---- */
+//        CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &CM_Pitch_Motor,
+//                               0, velocity_desired, 0, 1, 0);
 
-        /* ---- DJI motors on FDCAN1 (original raw byte packing) ---- */
-        FDCAN1_TxFrame.Header.Identifier = 0x1ff;
-        //Control_Info.SendValue[0] = 2000;
-        FDCAN1_TxFrame.Data[0] = 0x07;
-        FDCAN1_TxFrame.Data[1] = 0xD0;
-        FDCAN1_TxFrame.Data[2] = (uint8_t)(Control_Info.SendValue[1] >> 8);
-        FDCAN1_TxFrame.Data[3] = (uint8_t)(Control_Info.SendValue[1]);
-        FDCAN1_TxFrame.Data[4] = (uint8_t)(Control_Info.SendValue[2] >> 8);
-        FDCAN1_TxFrame.Data[5] = (uint8_t)(Control_Info.SendValue[2]);
-        FDCAN1_TxFrame.Data[6] = (uint8_t)(Control_Info.SendValue[3] >> 8);
-        FDCAN1_TxFrame.Data[7] = (uint8_t)(Control_Info.SendValue[3]);
-        USER_FDCAN_AddMessageToTxFifoQ(&FDCAN1_TxFrame);
+//        /* ---- DJI motors on FDCAN1 (original raw byte packing) ---- */
+//        FDCAN1_TxFrame.Header.Identifier = 0x1ff;
+//        //Control_Info.SendValue[0] = 2000;
+//        FDCAN1_TxFrame.Data[0] = 0x07;
+//        FDCAN1_TxFrame.Data[1] = 0xD0;
+//        FDCAN1_TxFrame.Data[2] = (uint8_t)(Control_Info.SendValue[1] >> 8);
+//        FDCAN1_TxFrame.Data[3] = (uint8_t)(Control_Info.SendValue[1]);
+//        FDCAN1_TxFrame.Data[4] = (uint8_t)(Control_Info.SendValue[2] >> 8);
+//        FDCAN1_TxFrame.Data[5] = (uint8_t)(Control_Info.SendValue[2]);
+//        FDCAN1_TxFrame.Data[6] = (uint8_t)(Control_Info.SendValue[3] >> 8);
+//        FDCAN1_TxFrame.Data[7] = (uint8_t)(Control_Info.SendValue[3]);
+//        USER_FDCAN_AddMessageToTxFifoQ(&FDCAN1_TxFrame);
 
         if(CAN_Task_SysTick % 2 == 0){
 

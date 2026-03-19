@@ -162,7 +162,7 @@ void _control_loop_rev(void)
     for (uint8_t i = 2; i < shoot_wheels_and_rev.p; i++) {
         shoot_wheels_and_rev.x_prev[i] = shoot_wheels_and_rev.x[i];
     }
-    shoot_wheels_and_rev.x[2] = (float) DJI_Rev_Motor.Data.Angle_sum;      // REV angular position [rad]
+    shoot_wheels_and_rev.x[2] = (float) DJI_Rev_Motor.Data.Angle_sum;           // REV angular position [rad]
     shoot_wheels_and_rev.x[3] = (float) DJI_Rev_Motor.Data.Velocity_rads;       // REV angular velocity [rad/s]
 
     // Update reference history
