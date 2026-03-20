@@ -21,7 +21,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "usbd_cdc_if.h"
 #include "MiniPC.h"
-
 /* USER CODE BEGIN INCLUDE */
 
 /* USER CODE END INCLUDE */

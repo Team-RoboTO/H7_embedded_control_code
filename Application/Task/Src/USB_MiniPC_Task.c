@@ -10,6 +10,7 @@
 #include "USB_MiniPC_Task.h"
 #include "MiniPC.h"
 #include "string.h"
+#include "Referee_System.h"
 #include "logic_utils.h"
 #include "INS_task.h"
 #include "math_utils.c"
@@ -40,6 +41,7 @@ static uint32_t usb_minipc_task_sleep_time_ms;
 void USB_MiniPC_Task(void const *pvParameters)
 {
     /* Set task period based on robot type */
+	/*
 #if IS_STD_CIRC
     dt_usb_minipc_ms = dt_usb_minipc_std_circ_ms;
 #elif IS_STD_RECT
@@ -48,8 +50,8 @@ void USB_MiniPC_Task(void const *pvParameters)
     dt_usb_minipc_ms = dt_usb_minipc_sentry_ms;
 #elif IS_HERO
     dt_usb_minipc_ms = dt_usb_minipc_hero_ms;
-#endif
-		dt_usb_minipc_ms = 10; //to remove after test
+#endif*/
+		dt_usb_minipc_ms = 1; //to remove after test
 	
     dt_usb_minipc = SEC(dt_usb_minipc_ms);
 
@@ -70,6 +72,6 @@ void USB_MiniPC_Task(void const *pvParameters)
         usb_minipc_task_elapsed_time_ms     = usb_minipc_task_end_timestamp_ms - usb_minipc_task_start_timestamp_ms;
         usb_minipc_task_sleep_time_ms       = max(dt_usb_minipc_ms - usb_minipc_task_elapsed_time_ms, (uint32_t) 0);
 
-        osDelay(usb_minipc_task_sleep_time_ms);
+        //osDelay(usb_minipc_task_sleep_time_ms);
     }
 }

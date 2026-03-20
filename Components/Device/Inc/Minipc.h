@@ -21,6 +21,7 @@
 #include <string.h>
 #include "main.h"
 #include "INS_Task.h"
+#include "Referee_System.h"
 
 /* ============================================================
    PROTOCOL DIMENSIONS
