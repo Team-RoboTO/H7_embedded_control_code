@@ -46,7 +46,6 @@ static float r_ang_vel_wheel_4_left_right;  		// [rad/s]
 static float r_ang_vel_wheels_chassis_yaw;  		// [rad/s]
 
 static float max_reference = 0; 
-static uint8_t is_first_iter = 1;
 
 uint16_t chassis_power_limit_local = 60;
 
@@ -62,24 +61,7 @@ static float MIT_t_ff = 0.0f;   // range -15.0 - 15.0 [Nm]
 
 void control_loop_chassis() {   
 	
-    // If stop command arrived, send zeros as control signals
-    if (state_remote_commands == COMMANDS_STOP) {
-			// alternating logic to safely exit control mode for exit MIT control
-			CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[0],CM_Motor_Disable);
-			CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[1],CM_Motor_Disable);
-			CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[2],CM_Motor_Disable);
-			CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[3],CM_Motor_Disable);
-			is_first_iter = 1;  // reset init flag
-      return;
-    }
-		
-    if (is_first_iter == 1) {
-	    CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[0],CM_Motor_Enable);
-			CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[1],CM_Motor_Enable);
-			CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[2],CM_Motor_Enable);
-			CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[3],CM_Motor_Enable);
-      is_first_iter = 0;
-    }
+    
 		
     // Update outputs from sensor data
     for (uint8_t i = 0; i < chassis.p; i++) {
@@ -201,6 +183,7 @@ void control_loop_chassis() {
 			for (uint8_t i = 0; i < chassis.n; i++) chassis.r_x[i] *= (44/max_reference);
 		}
 
+		
 		// Competition Power Limit
 		#if IS_POWER_LIMIT_ENABLED
 		chassis_power_limit_local	= robot_status.chassis_power_limit-20;

@@ -104,8 +104,7 @@ void control_loop_gimbal() {
 
     // STOP command: zero all outputs and reset
     if (state_remote_commands == COMMANDS_STOP) {
-				CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Disable);
-				DM_Motor_Command(&FDCAN2_TxFrame, &DM_Yaw_Motor, Motor_Disable);
+				
 				// reset both PIDs on stop
 				pid_yaw_pos.PID_Calc_Clear(&pid_yaw_pos);
 				pid_yaw_vel.PID_Calc_Clear(&pid_yaw_vel);
@@ -128,9 +127,7 @@ void control_loop_gimbal() {
 		
 		 // enter MIT mode
     if (is_exit == 1) {
-				CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Enable);
-				DM_Motor_Command(&FDCAN2_TxFrame, &DM_Yaw_Motor, Motor_Enable);
-				CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Save_Zero_Position);
+				
         is_exit = false;
     }
 		
@@ -215,13 +212,12 @@ void control_loop_gimbal() {
 
 // transmit commands over CAN (alternating to respect bandwidth limits)
 #if IS_GIMBAL_ENABLED
-		CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &CM_Pitch_Motor, test_angle, 0, 10, 1, 0); 
+		DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &DM_Yaw_Motor,0, 0,0,0,0);
+		//CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &CM_Pitch_Motor, test_angle, 0, 10, 1, 0); 
 		// pitch - MIT Mode
 //		CAN_Tx_MIT_Control(cm_p_des, cm_v_des, cm_kp, cm_kd, cm_t_ff, ID_pitch);
 
 //		// yaw - voltage mode
 //		CAN_Tx_gimbal((int16_t)gimbal.ud[0], 0);
 #endif
-
-    is_first_iter = false;
 }

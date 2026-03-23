@@ -5,7 +5,7 @@
   * @brief          : bsp can functions 
   * @author         : GrassFan Wang
   * @date           : 2025/01/22
-  * @version        : v2.0
+  * @version        : v2.1
   ******************************************************************************
   * @attention      : Pay attention to enable the fdcan filter
   *
@@ -142,7 +142,7 @@ void BSP_FDCAN_Init(void){
   /* ---- FDCAN2: DM + CubeMars motors (standard + extended ID) ---- */
 	FDCAN_FilterTypeDef FDCAN2_FilterConfig;
 
-  /* Standard ID filter (DM MIT + CM MIT chassis feedback) ? FIFO1 */
+  /* Standard ID filter (DM MIT + CM MIT chassis feedback) -> FIFO1 */
   FDCAN2_FilterConfig.IdType = FDCAN_STANDARD_ID;
   FDCAN2_FilterConfig.FilterIndex = 0;
   FDCAN2_FilterConfig.FilterType = FDCAN_FILTER_MASK;
@@ -152,7 +152,7 @@ void BSP_FDCAN_Init(void){
   
 	HAL_FDCAN_ConfigFilter(&hfdcan2, &FDCAN2_FilterConfig);
 
-  /* Extended ID filter (CubeMars pitch feedback: 0x0000296A) ? FIFO1 */
+  /* Extended ID filter (CubeMars pitch feedback: 0x0000296A) -> FIFO1 */
   FDCAN_FilterTypeDef FDCAN2_ExtFilterConfig;
 
   FDCAN2_ExtFilterConfig.IdType = FDCAN_EXTENDED_ID;
@@ -306,8 +306,11 @@ static void FDCAN2_RxFifo1RxHandler(FDCAN_RxHeaderTypeDef *RxHeader, uint8_t Dat
 		/* Standard ID — DM yaw or CM chassis */
 		switch (id)
 		{
-				case 0x00000001:
-            CM_Motor_Info_Update(&id, Data, &CM_Pitch_Motor);
+//				case 0x00000001:
+//            CM_Motor_Info_Update(&id, Data, &CM_Pitch_Motor);
+//						break;
+			case 0x01:
+						DM_Motor_Info_Update(&id, Data, &DM_Yaw_Motor);
 						break;
 				case 0x0000007B:
 						CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[0]);
@@ -325,9 +328,7 @@ static void FDCAN2_RxFifo1RxHandler(FDCAN_RxHeaderTypeDef *RxHeader, uint8_t Dat
 						CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[3]);
 						break;
 
-				case 0x021:
-						DM_Motor_Info_Update(&id, Data, &DM_Yaw_Motor);
-						break;
+				
 
 				default:
 						break;
@@ -335,7 +336,13 @@ static void FDCAN2_RxFifo1RxHandler(FDCAN_RxHeaderTypeDef *RxHeader, uint8_t Dat
 }
 
 /**
-  * @brief  Rx FIFO 0 callback.
+  * @brief  Rx FIFO 0 callback — drains ALL pending messages from the FIFO.
+  *
+  *         The "new message" interrupt fires once per arrival, but if several
+  *         frames land between ISR entry and the read, only one would be
+  *         consumed without the while-loop.  Draining the FIFO here prevents
+  *         overflow when 4+ motors respond nearly simultaneously.
+  *
   * @param  hfdcan pointer to an FDCAN_HandleTypeDef structure that contains
   *         the configuration information for the specified FDCAN.
   * @param  RxFifo0ITs indicates which Rx FIFO 0 interrupts are signaled.
@@ -343,28 +350,42 @@ static void FDCAN2_RxFifo1RxHandler(FDCAN_RxHeaderTypeDef *RxHeader, uint8_t Dat
   */
 void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 { 
-  
-	HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, &FDCAN_RxFIFO0Frame.Header, FDCAN_RxFIFO0Frame.Data);
-	
-	/* Debug: count how many times RX callback fires */
-	fdcan1_rx_callback_count++;
-	
-  if(hfdcan == &hfdcan1){	
-	
-     FDCAN1_RxFifo0RxHandler(&FDCAN_RxFIFO0Frame.Header.Identifier, FDCAN_RxFIFO0Frame.Data);
-	 
+	if (hfdcan == &hfdcan1)
+	{
+		while (HAL_FDCAN_GetRxFifoFillLevel(hfdcan, FDCAN_RX_FIFO0) > 0)
+		{
+			HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, 
+			                       &FDCAN_RxFIFO0Frame.Header, 
+			                       FDCAN_RxFIFO0Frame.Data);
+
+			fdcan1_rx_callback_count++;
+
+			FDCAN1_RxFifo0RxHandler(&FDCAN_RxFIFO0Frame.Header.Identifier, 
+			                         FDCAN_RxFIFO0Frame.Data);
+		}
 	}
 
-  if(hfdcan == &hfdcan3){
-	
-     FDCAN3_RxFifo0RxHandler(&FDCAN_RxFIFO0Frame.Header.Identifier, FDCAN_RxFIFO0Frame.Data);
-	
+	if (hfdcan == &hfdcan3)
+	{
+		while (HAL_FDCAN_GetRxFifoFillLevel(hfdcan, FDCAN_RX_FIFO0) > 0)
+		{
+			HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, 
+			                       &FDCAN_RxFIFO0Frame.Header, 
+			                       FDCAN_RxFIFO0Frame.Data);
+
+			FDCAN3_RxFifo0RxHandler(&FDCAN_RxFIFO0Frame.Header.Identifier, 
+			                         FDCAN_RxFIFO0Frame.Data);
+		}
 	}
-	
 }
 	
 /**
-  * @brief  Rx FIFO 1 callback.
+  * @brief  Rx FIFO 1 callback — drains ALL pending messages from the FIFO.
+  *
+  *         Same drain-loop strategy as FIFO 0 above.  This is the critical
+  *         fix for FDCAN2 where 4 CubeMars chassis + DM yaw + CM pitch can
+  *         produce up to 6 near-simultaneous responses.
+  *
   * @param  hfdcan pointer to an FDCAN_HandleTypeDef structure that contains
   *         the configuration information for the specified FDCAN.
   * @param  RxFifo1ITs indicates which Rx FIFO 1 interrupts are signaled.
@@ -372,13 +393,18 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
   */
 void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo1ITs)
 { 
-  
-	HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO1, &FDCAN_RxFIFO1Frame.Header, FDCAN_RxFIFO1Frame.Data);
-	
-  if(hfdcan == &hfdcan2){
+	if (hfdcan == &hfdcan2)
+	{
+		while (HAL_FDCAN_GetRxFifoFillLevel(hfdcan, FDCAN_RX_FIFO1) > 0)
+		{
+			HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO1, 
+			                       &FDCAN_RxFIFO1Frame.Header, 
+			                       FDCAN_RxFIFO1Frame.Data);
 
-      FDCAN2_RxFifo1RxHandler(&FDCAN_RxFIFO1Frame.Header, FDCAN_RxFIFO1Frame.Data);
+			fdcan2_rx_callback_count++;
 
-  }
-	 
+			FDCAN2_RxFifo1RxHandler(&FDCAN_RxFIFO1Frame.Header, 
+			                         FDCAN_RxFIFO1Frame.Data);
+		}
+	}
 }
