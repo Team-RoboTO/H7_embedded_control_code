@@ -39,7 +39,6 @@ static float Chassis_PID_Param[7] = {13.f,0.1f,0.f,0.f,  0.f,      5000.f,  1200
 
 PID_Info_TypeDef Chassis_PID;
 
-static uint8_t is_first_iter = 1;
 
 
 void Control_Task(void const * argument)
@@ -54,42 +53,7 @@ void Control_Task(void const * argument)
 		Control_Task_SysTick = osKernelSysTick();
 		robot_states_update_state_machine();
 		
-		// If stop command arrived, send zeros as control signals
-    if (state_remote_commands == COMMANDS_STOP) {
-			// alternating logic to safely exit control mode for exit MIT control
-			CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[0],CM_Motor_Disable);
-			osDelay(30);
-			CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[1],CM_Motor_Disable);
-			osDelay(30);
-			CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[2],CM_Motor_Disable);
-			osDelay(30);
-			CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[3],CM_Motor_Disable);
-			osDelay(30);
-			CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Disable);
-			osDelay(30);
-			DM_Motor_Command(&FDCAN2_TxFrame, &DM_Yaw_Motor, Motor_Disable);
-			osDelay(30);
-			
-			is_first_iter = 1;  // reset init flag
-    }
 		
-    else if (is_first_iter == 1) {
-	    CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[0],CM_Motor_Enable);
-			osDelay(30);
-			CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[1],CM_Motor_Enable);
-			osDelay(30);
-			CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[2],CM_Motor_Enable);
-			osDelay(30);
-			CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[3],CM_Motor_Enable);
-      osDelay(30);
-			CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Enable);
-			osDelay(30);
-			DM_Motor_Command(&FDCAN2_TxFrame, &DM_Yaw_Motor, Motor_Enable);
-			osDelay(30);
-			CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Save_Zero_Position);
-			osDelay(30);
-			is_first_iter = 0;
-    }
 		
 		
 		

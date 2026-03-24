@@ -526,11 +526,6 @@
               <FilePath>..\Components\Controller\Src\PID.c</FilePath>
             </File>
             <File>
-              <FileName>Can_Recieve.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Components\Controller\Src\Can_Recieve.c</FilePath>
-            </File>
-            <File>
               <FileName>chassis_control.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Components\Controller\Src\chassis_control.c</FilePath>

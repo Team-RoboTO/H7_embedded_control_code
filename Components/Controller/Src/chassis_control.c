@@ -192,11 +192,5 @@ void control_loop_chassis() {
 		#endif
 	
     // Send control signals
-  #if IS_CHASSIS_ENABLED
-		CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame,&CM_Chassis_Motor[0],0,chassis.r_x[0],0,0.2,0);
-		CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame,&CM_Chassis_Motor[1],0,chassis.r_x[1],0,0.2,0);
-		CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame,&CM_Chassis_Motor[2],0,chassis.r_x[2],0,0.2,0);	
-		CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame,&CM_Chassis_Motor[3],0,chassis.r_x[3],0,0.2,0);	
 }
-#endif
 

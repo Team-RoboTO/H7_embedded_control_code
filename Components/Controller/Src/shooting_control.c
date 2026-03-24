@@ -138,10 +138,6 @@ void _control_loop_shoot_wheels(void){
         shoot_wheels_and_rev.ud[i] = shoot_wheels_and_rev.u[i]*DJI_Motor_ADC[DJI_M3508];
     }
 
-#if !IS_SHOOT_WHEELS_ENABLED
-    shoot_wheels_and_rev.ud[0] = 0;
-    shoot_wheels_and_rev.ud[1] = 0;
-#endif
 }
 
   /************************/
@@ -253,7 +249,5 @@ void _control_loop_rev(void)
 		
 	  shoot_wheels_and_rev.ud[2] = shoot_wheels_and_rev.u[2]*DJI_Motor_ADC[DJI_M2006]; //M2006_ADC_CONVERTION;
 		
-#if !IS_REV_ENABLED
-    shoot_wheels_and_rev.ud[2] = 0;
-#endif
+
 }
