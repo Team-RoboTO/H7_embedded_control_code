@@ -5,9 +5,29 @@
   * @brief          : bsp can functions 
   * @author         : GrassFan Wang
   * @date           : 2025/01/22
-  * @version        : v1.0
+  * @version        : v2.1
   ******************************************************************************
   * @attention      : Pay attention to enable the fdcan filter
+  *
+  *   Bus assignment (new robot):
+  *     FDCAN1 (classic CAN, FIFO0) : DJI Shooting_Motor[2] + DJI Rev_Motor + DJI Yaw_Motor (GM6020)
+  *     FDCAN2 (classic CAN, FIFO1) : DM Yaw + CM Pitch + CM Chassis[4]
+  *
+  *   FDCAN1 RX IDs (all standard):
+  *     0x201  DJI_Shooting_Motor[0]   (M3508, left)
+  *     0x202  DJI_Shooting_Motor[1]   (M3508, right)
+  *     0x203  DJI_Rev_Motor           (M2006, feeder)
+  *     0x206  DJI_Yaw_Motor           (GM6020, yaw)
+  *
+  *   FDCAN2 RX IDs:
+  *     Standard:
+  *       0x01  CM_Chassis_Motor[0]    (AK40-10)
+  *       0x02  CM_Chassis_Motor[1]    (AK40-10)
+  *       0x03  CM_Chassis_Motor[2]    (AK40-10)
+  *       0x04  CM_Chassis_Motor[3]    (AK40-10)
+  *       0x05  DM_Yaw_Motor           (DM-J6006-2EC)
+  *     Extended:
+  *       0x0000296A  CM_Pitch_Motor   (AK40-10)
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -17,6 +37,10 @@
 #include "bsp_can.h"
 #include "Motor.h"
 #include "Remote_Control.h"
+
+#include "Damiao_Motor.h"
+#include "Cubemars_Motor.h"
+#include "DJI_Motor.h"
 
 /**
  * @brief The structure that contains the Information of FDCAN1 and FDCAN2 Receive.
@@ -33,8 +57,18 @@ volatile uint32_t fdcan1_tx_error_count = 0;
 volatile uint32_t fdcan1_rx_error_count = 0;
 volatile uint32_t fdcan1_rx_callback_count = 0;
 
+
+volatile HAL_StatusTypeDef fdcan2_tx_status = HAL_OK;
+volatile uint32_t fdcan2_protocol_status = 0;
+volatile uint32_t fdcan2_tx_error_count = 0;
+volatile uint32_t fdcan2_rx_error_count = 0;
+volatile uint32_t fdcan2_rx_callback_count = 0;
+
+
+uint32_t fifo_number_1 = 0;
 /**
  * @brief The structure that contains the Information of FDCAN1 Transmit(CLASSIC_CAN).
+ *        Bus: DJI shooting wheels + rev motor
  */
 FDCAN_TxFrame_TypeDef FDCAN1_TxFrame = {
 	.hcan = &hfdcan1,
@@ -49,7 +83,8 @@ FDCAN_TxFrame_TypeDef FDCAN1_TxFrame = {
 };
 
 /**
- * @brief The structure that contains the Information of FDCAN2 Transmit(FDCAN).
+ * @brief The structure that contains the Information of FDCAN2 Transmit(CLASSIC_CAN).
+ *        Bus: DM yaw + CM pitch + CM chassis[4]
  */
 FDCAN_TxFrame_TypeDef FDCAN2_TxFrame = {
   .hcan = &hfdcan2,
@@ -80,12 +115,13 @@ FDCAN_TxFrame_TypeDef FDCAN3_TxFrame = {
 
 /**
   * @brief  Configures the FDCAN Filter. 
-            FDCAN1:CLASSIC_CAN  FDCAN2:FDCAN  FDCAN3:CLASSIC_CAN
+  *         FDCAN1: CLASSIC_CAN (DJI)   FDCAN2: CLASSIC_CAN (DM + CM)
   * @param  None
   * @retval None
   */
 void BSP_FDCAN_Init(void){
 
+  /* ---- FDCAN1: DJI motors (standard ID, shooting + rev) ---- */
   FDCAN_FilterTypeDef FDCAN1_FilterConfig;
 	
 	FDCAN1_FilterConfig.IdType = FDCAN_STANDARD_ID;
@@ -102,10 +138,11 @@ void BSP_FDCAN_Init(void){
   HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0);
   
   HAL_FDCAN_Start(&hfdcan1);
- 	
-	
+
+  /* ---- FDCAN2: DM + CubeMars motors (standard + extended ID) ---- */
 	FDCAN_FilterTypeDef FDCAN2_FilterConfig;
-	
+
+  /* Standard ID filter (DM MIT + CM MIT chassis feedback) -> FIFO1 */
   FDCAN2_FilterConfig.IdType = FDCAN_STANDARD_ID;
   FDCAN2_FilterConfig.FilterIndex = 0;
   FDCAN2_FilterConfig.FilterType = FDCAN_FILTER_MASK;
@@ -115,17 +152,25 @@ void BSP_FDCAN_Init(void){
   
 	HAL_FDCAN_ConfigFilter(&hfdcan2, &FDCAN2_FilterConfig);
 
-  HAL_FDCAN_ConfigGlobalFilter(&hfdcan2, FDCAN_REJECT, FDCAN_REJECT, FDCAN_FILTER_REMOTE, FDCAN_FILTER_REMOTE);
+  /* Extended ID filter (CubeMars pitch feedback: 0x0000296A) -> FIFO1 */
+  FDCAN_FilterTypeDef FDCAN2_ExtFilterConfig;
+
+  FDCAN2_ExtFilterConfig.IdType = FDCAN_EXTENDED_ID;
+  FDCAN2_ExtFilterConfig.FilterIndex = 0;
+  FDCAN2_ExtFilterConfig.FilterType = FDCAN_FILTER_MASK;
+  FDCAN2_ExtFilterConfig.FilterConfig = FDCAN_FILTER_TO_RXFIFO1;
+  FDCAN2_ExtFilterConfig.FilterID1 = 0x00000000;
+  FDCAN2_ExtFilterConfig.FilterID2 = 0x00000000;
+
+  HAL_FDCAN_ConfigFilter(&hfdcan2, &FDCAN2_ExtFilterConfig);
+
+  /* Accept both standard and extended non-matching frames into FIFO1 */
+  HAL_FDCAN_ConfigGlobalFilter(&hfdcan2, FDCAN_ACCEPT_IN_RX_FIFO1, FDCAN_ACCEPT_IN_RX_FIFO1, FDCAN_FILTER_REMOTE, FDCAN_FILTER_REMOTE);
   
   HAL_FDCAN_ActivateNotification(&hfdcan2, FDCAN_IT_RX_FIFO1_NEW_MESSAGE, 0);
 
-  HAL_FDCAN_EnableTxDelayCompensation(&hfdcan2);
- 
-  HAL_FDCAN_ConfigTxDelayCompensation(&hfdcan2,14,14);
-
   HAL_FDCAN_Start(&hfdcan2);
-	
-	
+
 //	FDCAN_FilterTypeDef FDCAN3_FilterConfig;
 //	
 //	FDCAN3_FilterConfig.IdType = FDCAN_STANDARD_ID;
@@ -158,7 +203,6 @@ void USER_FDCAN_AddMessageToTxFifoQ(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame){
     );
     
     /* Capture debug info for FDCAN1 */
-    /* Capture debug info for FDCAN1 */
     if(FDCAN_TxFrame->hcan == &hfdcan1){
         FDCAN_ProtocolStatusTypeDef psr;
         FDCAN_ErrorCountersTypeDef err_counters;
@@ -171,98 +215,196 @@ void USER_FDCAN_AddMessageToTxFifoQ(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame){
         fdcan1_tx_error_count = err_counters.TxErrorCnt;
         fdcan1_rx_error_count = err_counters.RxErrorCnt;
     }
+		
+		/* Capture debug info for FDCAN2 */
+    if(FDCAN_TxFrame->hcan == &hfdcan2){
+        FDCAN_ProtocolStatusTypeDef psr;
+        FDCAN_ErrorCountersTypeDef err_counters;
+        
+        fdcan2_tx_status = status;
+        HAL_FDCAN_GetProtocolStatus(FDCAN_TxFrame->hcan, &psr);
+        fdcan2_protocol_status = psr.LastErrorCode;
+        
+        HAL_FDCAN_GetErrorCounters(FDCAN_TxFrame->hcan, &err_counters);
+        fdcan2_tx_error_count = err_counters.TxErrorCnt;
+        fdcan2_rx_error_count = err_counters.RxErrorCnt;
+    }
 }
 
 /**
-  * @brief  Function to converting the FDCAN1 received message to Fifo0.
-	* @param  Identifier: Received the identifier.
-	* @param  Data: Array that contains the received massage.
+  * @brief  FDCAN1 RX handler — DJI motors (shooting wheels + rev + yaw GM6020).
+  *         Dispatches to the single matching motor based on ID.
+  *
+  *         RX IDs:  0x201 = shoot left, 0x202 = shoot right,
+  *                  0x203 = rev, 0x206 = yaw (GM6020)
+  *
+  * @param  Identifier: Received standard identifier.
+  * @param  Data: 8-byte CAN data buffer.
   * @retval None
   */
-static void FDCAN1_RxFifo0RxHandler(uint32_t *Identifier,uint8_t Data[8])
+static void FDCAN1_RxFifo0RxHandler(uint32_t *Identifier, uint8_t Data[8])
 {
-   
-	DJI_Motor_Info_Update(Identifier,Data,&Chassis_Motor[0]);
-  DJI_Motor_Info_Update(Identifier,Data,&Chassis_Motor[1]);
-	DJI_Motor_Info_Update(Identifier,Data,&Chassis_Motor[2]);
-	DJI_Motor_Info_Update(Identifier,Data,&Chassis_Motor[3]);
+    uint32_t id = *Identifier;
 
+    switch (id)
+    {
+        case 0x201:
+            DJI_Motor_Info_Update(Identifier, Data, &DJI_Shooting_Motor[0]);
+            break;
+
+        case 0x202:
+            DJI_Motor_Info_Update(Identifier, Data, &DJI_Shooting_Motor[1]);
+            break;
+
+        case 0x203:
+            DJI_Motor_Info_Update(Identifier, Data, &DJI_Rev_Motor);
+            break;
+
+        case 0x205:
+            DJI_Motor_Info_Update(Identifier, Data, &DJI_Yaw_Motor);
+            break;
+
+        default:
+            break;
+    }
 }
 
 /**
-  * @brief  Function to converting the FDCAN3 received message to Fifo0.
-	* @param  Identifier: Received the identifier.
-	* @param  Data: Array that contains the received massage.
+  * @brief  FDCAN3 RX handler — currently unused.
+  * @param  Identifier: Received identifier.
+  * @param  Data: 8-byte CAN data buffer.
   * @retval None
   */
-static void FDCAN3_RxFifo0RxHandler(uint32_t *Identifier,uint8_t Data[8])
+static void FDCAN3_RxFifo0RxHandler(uint32_t *Identifier, uint8_t Data[8])
 {
-
-
-
+    (void)Identifier;
+    (void)Data;
 }
 
-
 /**
-  * @brief  Function to converting the FDCAN2 received message to Fifo1.
-	* @param  Identifier: Received the identifier.
-	* @param  Data: Array that contains the received massage.
+  * @brief  FDCAN2 RX handler — DM yaw + CM pitch + CM chassis[4].
+  *         Dispatches to the single matching motor based on ID and frame type.
+  *
+  *         Standard ID frames:
+  *           0x01 = chassis[0], 0x02 = chassis[1],
+  *           0x03 = chassis[2], 0x04 = chassis[3],
+  *           0x05 = DM yaw (J6006)
+  *
+  *         Extended ID frames:
+  *           0x0000296A = CM pitch (AK40-10)
+  *
+  * @param  RxHeader: Pointer to full RX header (needed for IdType check).
+  * @param  Data: 8-byte CAN data buffer.
   * @retval None
   */
-static void FDCAN2_RxFifo1RxHandler(uint32_t *Identifier,uint8_t Data[8])
+static void FDCAN2_RxFifo1RxHandler(FDCAN_RxHeaderTypeDef *RxHeader, uint8_t Data[8])
 {
+    uint32_t id = RxHeader->Identifier;
 	
-	DM_Motor_Info_Update(Identifier,Data,&DM_8009_Motor[0]);
-  DM_Motor_Info_Update(Identifier,Data,&DM_8009_Motor[1]);
-	DM_Motor_Info_Update(Identifier,Data,&DM_8009_Motor[2]);
-	DM_Motor_Info_Update(Identifier,Data,&DM_8009_Motor[3]);
-	
+		fifo_number_1 = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan2);
 
+		/* Standard ID — DM yaw or CM chassis */
+		switch (id)
+		{
+				case 0x00000002:
+            CM_Motor_Info_Update(&id, Data, &CM_Pitch_Motor);
+						break;
+				case 0x01:
+						DM_Motor_Info_Update(&id, Data, &DM_Yaw_Motor);
+						break;
+				case 0x0000007B:
+						CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[0]);
+						break;
+
+				case 0x00000078:
+						CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[1]);
+						break;
+
+				case 0x00000079:
+						CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[2]);
+						break;
+
+				case 0x0000007A:
+						CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[3]);
+						break;
+
+				
+
+				default:
+						break;
+		}
 }
 
 /**
-  * @brief  Rx FIFO 0 callback.
+  * @brief  Rx FIFO 0 callback — drains ALL pending messages from the FIFO.
+  *
+  *         The "new message" interrupt fires once per arrival, but if several
+  *         frames land between ISR entry and the read, only one would be
+  *         consumed without the while-loop.  Draining the FIFO here prevents
+  *         overflow when 4+ motors respond nearly simultaneously.
+  *
   * @param  hfdcan pointer to an FDCAN_HandleTypeDef structure that contains
   *         the configuration information for the specified FDCAN.
   * @param  RxFifo0ITs indicates which Rx FIFO 0 interrupts are signaled.
-  *         This parameter can be any combination of @arg FDCAN_Rx_Fifo0_Interrupts.
   * @retval None
   */
 void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 { 
-  
-	HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, &FDCAN_RxFIFO0Frame.Header, FDCAN_RxFIFO0Frame.Data);
-	
-	/* Debug: count how many times RX callback fires */
-	fdcan1_rx_callback_count++;
-	
-  if(hfdcan == &hfdcan1){	
-	
-   FDCAN1_RxFifo0RxHandler(&FDCAN_RxFIFO0Frame.Header.Identifier,FDCAN_RxFIFO0Frame.Data);
-	 
+	if (hfdcan == &hfdcan1)
+	{
+		while (HAL_FDCAN_GetRxFifoFillLevel(hfdcan, FDCAN_RX_FIFO0) > 0)
+		{
+			HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, 
+			                       &FDCAN_RxFIFO0Frame.Header, 
+			                       FDCAN_RxFIFO0Frame.Data);
+
+			fdcan1_rx_callback_count++;
+
+			FDCAN1_RxFifo0RxHandler(&FDCAN_RxFIFO0Frame.Header.Identifier, 
+			                         FDCAN_RxFIFO0Frame.Data);
+		}
 	}
 
-  if(hfdcan == &hfdcan3){
-	
-	 FDCAN3_RxFifo0RxHandler(&FDCAN_RxFIFO0Frame.Header.Identifier,FDCAN_RxFIFO0Frame.Data);
-	
+	if (hfdcan == &hfdcan3)
+	{
+		while (HAL_FDCAN_GetRxFifoFillLevel(hfdcan, FDCAN_RX_FIFO0) > 0)
+		{
+			HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, 
+			                       &FDCAN_RxFIFO0Frame.Header, 
+			                       FDCAN_RxFIFO0Frame.Data);
+
+			FDCAN3_RxFifo0RxHandler(&FDCAN_RxFIFO0Frame.Header.Identifier, 
+			                         FDCAN_RxFIFO0Frame.Data);
+		}
 	}
-	
 }
 	
 /**
-  * @brief  Rx FIFO 1 callback.
+  * @brief  Rx FIFO 1 callback — drains ALL pending messages from the FIFO.
+  *
+  *         Same drain-loop strategy as FIFO 0 above.  This is the critical
+  *         fix for FDCAN2 where 4 CubeMars chassis + DM yaw + CM pitch can
+  *         produce up to 6 near-simultaneous responses.
+  *
   * @param  hfdcan pointer to an FDCAN_HandleTypeDef structure that contains
   *         the configuration information for the specified FDCAN.
   * @param  RxFifo1ITs indicates which Rx FIFO 1 interrupts are signaled.
-  *         This parameter can be any combination of @arg FDCAN_Rx_Fifo1_Interrupts.
   * @retval None
   */
-void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
+void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo1ITs)
 { 
-  
-	HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO1, &FDCAN_RxFIFO1Frame.Header, FDCAN_RxFIFO1Frame.Data);
-	
-  FDCAN2_RxFifo1RxHandler(&FDCAN_RxFIFO1Frame.Header.Identifier,FDCAN_RxFIFO1Frame.Data);
-	 
+	if (hfdcan == &hfdcan2)
+	{
+		while (HAL_FDCAN_GetRxFifoFillLevel(hfdcan, FDCAN_RX_FIFO1) > 0)
+		{
+			HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO1, 
+			                       &FDCAN_RxFIFO1Frame.Header, 
+			                       FDCAN_RxFIFO1Frame.Data);
+
+			fdcan2_rx_callback_count++;
+
+			FDCAN2_RxFifo1RxHandler(&FDCAN_RxFIFO1Frame.Header, 
+			                         FDCAN_RxFIFO1Frame.Data);
+		}
+	}
 }

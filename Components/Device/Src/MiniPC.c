@@ -48,8 +48,8 @@ fp32 Tx_data[NUM_FP32_TX_MINIPC] = {0};
 {
    
     /* --- Referee data --- */
-    Tx_data[0] = (fp32)(Referee_System_Info.game_status.game_progress == 4);         /* battle mode: 1.0 if in battle      */
-    Tx_data[1] = (fp32)(Referee_System_Info.robot_status.robot_id > 100);            /* color: 0.0=RED, 1.0=BLUE           */
+		Tx_data[0] = (fp32)(Referee_System_Info.robot_status.robot_id > 100);            /* color: 0.0=RED, 1.0=BLUE           */  
+		Tx_data[1] = (fp32)(Referee_System_Info.game_status.game_progress == 4);         /* battle mode: 1.0 if in battle      */
     Tx_data[2] = (fp32) Referee_System_Info.robot_status.current_HP;                 /* HP: uint16_t cast to fp32          */
     Tx_data[3] = (fp32)((Referee_System_Info.rfid_status.rfid_status >> 19) & 0x1);  /* resupply zone: bit 19              */
     Tx_data[4] = (fp32)((Referee_System_Info.event_data.event_data   >>  5) & 0x3);  /* central highland: bits 5-6 (0/1/2) */
@@ -86,16 +86,15 @@ void MiniPC_Transmit_Info(void)
     tx_count++;
 		//random_value++;
 
-    /* Fill float array from referee system */
+    // Fill float array from referee system
     MiniPC_Prepare_Tx_Data(Tx_data, random_value);
 
-    /* Serialize: fp32 array -> raw bytes, little-endian */
+    // Serialize: fp32 array -> raw bytes, little-endian 
     for (uint8_t i = 0; i < NUM_FP32_TX_MINIPC; i++)
     {
         memcpy(&Tx_miniPC_binary_data[i * sizeof(fp32)], &Tx_data[i], sizeof(fp32));
     }
 
-    /* Transmit over USB CDC — correct size is NUM_BYTES_TX_MINIPC, not sizeof(ptr) */
     CDC_Transmit_HS(Tx_miniPC_binary_data, NUM_BYTES_TX_MINIPC); 
 	}
 }

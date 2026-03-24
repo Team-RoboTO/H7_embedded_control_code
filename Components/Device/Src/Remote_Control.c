@@ -1,6 +1,3 @@
-
-
-
 /* Includes ------------------------------------------------------------------*/
 #include "Remote_Control.h"
 #include "ramp.h"
@@ -15,9 +12,9 @@
 };
 
 /**
- * @brief remote control usart RxDMA MultiBuffer
+ * @brief remote control usart RxDMA MultiBuffer (cache-line aligned, padded to 32 bytes)
  */
-__attribute__((section (".AXI_SRAM"))) uint8_t SBUS_MultiRx_Buf[2][SBUS_RX_BUF_NUM];
+__attribute__((section (".AXI_SRAM"), aligned(32))) uint8_t SBUS_MultiRx_Buf[2][SBUS_RX_BUF_ALIGNED];
  
 /* Private variables ---------------------------------------------------------*/
 /**
@@ -38,11 +35,10 @@ static void Key_Status_Update(KeyBoard_Info_Typedef *KeyInfo,bool KeyBoard_Statu
   *         contains the information  for the remote control.
   * @retval none
   */
-void SBUS_TO_RC(volatile const uint8_t *sbus_buf, Remote_Info_Typedef  *remote_ctrl)
+void SBUS_TO_RC(volatile const uint8_t *sbus_buf, Remote_Info_Typedef *remote_ctrl)
 {
     if (sbus_buf == NULL || remote_ctrl == NULL) return;
-
-    /* Channel 0, 1, 2, 3 */
+	    /* Channel 0, 1, 2, 3 */
     remote_ctrl->rc.ch[0] = (  sbus_buf[0]       | (sbus_buf[1] << 8 ) ) & 0x07ff;                            //!< Channel 0
     remote_ctrl->rc.ch[1] = ( (sbus_buf[1] >> 3) | (sbus_buf[2] << 5 ) ) & 0x07ff;                            //!< Channel 1
     remote_ctrl->rc.ch[2] = ( (sbus_buf[2] >> 6) | (sbus_buf[3] << 2 ) | (sbus_buf[4] << 10) ) & 0x07ff;      //!< Channel 2
@@ -85,26 +81,24 @@ void SBUS_TO_RC(volatile const uint8_t *sbus_buf, Remote_Info_Typedef  *remote_c
   *         contains the information  for the remote control.
   * @retval none
   */
-void Remote_Message_Moniter(Remote_Info_Typedef  *remote_ctrl)
+void Remote_Message_Moniter(Remote_Info_Typedef *remote_ctrl)
 {
-  /* Juege the device status */
-  if(remote_ctrl->online_cnt <= 0x32U)
-  {
-    /* clear the data */
-    memset(remote_ctrl,0,sizeof(Remote_Info_Typedef));
+    if(remote_ctrl->online_cnt <= 0x32U)
+    {
+        memset(remote_ctrl, 0, sizeof(Remote_Info_Typedef));
 
-    /* reset the online count */
-		
-    /* set the lost flag */
-		remote_ctrl->rc_lost = true;
-		
-  }
-  else if(remote_ctrl->online_cnt > 0)
-  {
-    /* online count decrements which reseted in received interrupt  */
-    remote_ctrl->online_cnt--;
-  }
+        /* reset sticks and dial to center so they read 0 after the -1024 offset */
+        remote_ctrl->rc.ch[0] = 1024U;
+        remote_ctrl->rc.ch[0] = 1024U;
+        remote_ctrl->rc.ch[0] = 1024U;
+        remote_ctrl->rc.ch[0] = 1024U;
+        remote_ctrl->rc.ch[0] = 1024U;
+
+        remote_ctrl->rc_lost = true;
+    }
+    else if(remote_ctrl->online_cnt > 0)
+    {
+        remote_ctrl->online_cnt--;
+    }
 }
 //------------------------------------------------------------------------------
-
-

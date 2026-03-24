@@ -1,0 +1,11 @@
+Comunication function that i need
+
+CAN_Tx_MIT_VEL_Control(KD, vel, ID)
+CAN_Tx_MIT_POS_Control(KP,KD, POS, ID)
+
+all the values that are in input in the function need to be assigned as zeros.
+
+
+we still need can_receive_robot and can_trasmit_robot?
+
+logic_utils merged with math utils

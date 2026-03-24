@@ -20,6 +20,13 @@
 #include "PID.h"
 #include "Motor.h"
 #include "arm_math.h"
+#include "shooting_control.h"
+#include "Damiao_Motor.h"
+#include "Cubemars_Motor.h"
+#include "DJI_Motor.h"
+#include "state_machine.h"
+#include "gimbal_control.h"
+#include "chassis_control.h"
 
 static void Control_Init(Control_Info_Typedef *Control_Info);
 static void Control_Measure_Update(Control_Info_Typedef *Control_Info);
@@ -32,6 +39,8 @@ static float Chassis_PID_Param[7] = {13.f,0.1f,0.f,0.f,  0.f,      5000.f,  1200
 
 PID_Info_TypeDef Chassis_PID;
 
+
+
 void Control_Task(void const * argument)
 {
   /* USER CODE BEGIN Control_Task */
@@ -42,8 +51,16 @@ void Control_Task(void const * argument)
 	for(;;)
   {
 		Control_Task_SysTick = osKernelSysTick();
-
+		robot_states_update_state_machine();
 		
+		
+		
+		
+		
+		
+		//control_loop_shooting(); //<--- error
+		//control_loop_gimbal(); 
+		control_loop_chassis();
 	  Control_Measure_Update(&Control_Info);
 		Control_Target_Update(&Control_Info);
     Control_Info_Update(&Control_Info);
@@ -62,7 +79,7 @@ static void Control_Init(Control_Info_Typedef *Control_Info){
 
 static void Control_Measure_Update(Control_Info_Typedef *Control_Info){
 
-  Control_Info->Measure.Chassis_Velocity = Chassis_Motor[0].Data.Velocity;
+  Control_Info->Measure.Chassis_Velocity = DJI_Chassis_Motor[0].Data.Velocity_rpm;
 
 }
 

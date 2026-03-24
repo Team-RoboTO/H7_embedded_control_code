@@ -1,5 +1,6 @@
 #include <math.h>
 #include "math_utils.h"
+#include "stdint.h"
 
   /*****************/
  /*   FUNCTIONS   */
@@ -49,32 +50,6 @@ int is_in_range(float value, float bound1, float bound2) {
 	
 	return 0;
 }
-
-/*
-void roots2coeff(int degree, float complex *roots, float *coeff) {
-
-    double complex cmpx_coeff[degree + 1];
-
-    // set initial coefficients to 0
-    for (int i = 0; i <= degree; i++) {
-        cmpx_coeff[i] = 0;
-    }
-
-    // compute the polynomial coefficients
-    cmpx_coeff[degree] = 1;
-    for (int i = 0; i < degree; i++) {
-        for (int j = degree; j >= 1; j--) {
-            cmpx_coeff[degree - j] = cmpx_coeff[degree - j + 1] - (roots[i]) * cmpx_coeff[degree - j];
-        }
-        cmpx_coeff[degree] *= -roots[i];
-    }
-
-    // return just the real part of coefficients (imaginary part is null because the only complex roots are conjugates, hence they cancel each other)
-    for (int i = 0; i <= degree; i++) {
-        coeff[i] = creal(cmpx_coeff[i]);
-    }
-}
-*/
 
 void mat_mult(float *result, float *mat1, float *mat2, uint8_t m, uint8_t p, uint8_t n) {
 
