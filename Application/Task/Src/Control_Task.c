@@ -65,8 +65,8 @@ void Control_Task(void const * argument)
 			osDelay(30);
 			CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[3],CM_Motor_Disable);
 			osDelay(30);
-			//CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Disable);
-			//osDelay(30);
+			CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Disable);
+			osDelay(30);
 			DM_Motor_Command(&FDCAN2_TxFrame, &DM_Yaw_Motor, Motor_Disable);
 			osDelay(30);
 			
@@ -82,11 +82,12 @@ void Control_Task(void const * argument)
 			osDelay(30);
 			CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[3],CM_Motor_Enable);
       osDelay(30);
-			//CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Enable);
-			//osDelay(30);
+			CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Enable);
+			osDelay(30);
 			DM_Motor_Command(&FDCAN2_TxFrame, &DM_Yaw_Motor, Motor_Enable);
 			osDelay(30);
-			//CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Save_Zero_Position);
+			CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Save_Zero_Position);
+			osDelay(30);
 			is_first_iter = 0;
     }
 		

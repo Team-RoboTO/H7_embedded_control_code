@@ -306,10 +306,10 @@ static void FDCAN2_RxFifo1RxHandler(FDCAN_RxHeaderTypeDef *RxHeader, uint8_t Dat
 		/* Standard ID — DM yaw or CM chassis */
 		switch (id)
 		{
-//				case 0x00000001:
-//            CM_Motor_Info_Update(&id, Data, &CM_Pitch_Motor);
-//						break;
-			case 0x01:
+				case 0x00000002:
+            CM_Motor_Info_Update(&id, Data, &CM_Pitch_Motor);
+						break;
+				case 0x01:
 						DM_Motor_Info_Update(&id, Data, &DM_Yaw_Motor);
 						break;
 				case 0x0000007B:

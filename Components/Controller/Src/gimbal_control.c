@@ -151,7 +151,7 @@ void control_loop_gimbal() {
 
                 case COMMANDS_REMOTE_CONTROLLER:
                     remote_commands_yaw   = -remote_ctrl.rc.ch[0];
-                    remote_commands_pitch = +remote_ctrl.rc.ch[1];
+                    remote_commands_pitch = -remote_ctrl.rc.ch[1];
                     
                         gimbal.r_x[0] = gimbal.x[0] + (remote_commands_yaw / MAX_RC_TILT) * 45 * DEG_TO_RAD;
                     
@@ -213,7 +213,7 @@ void control_loop_gimbal() {
 // transmit commands over CAN (alternating to respect bandwidth limits)
 #if IS_GIMBAL_ENABLED
 		DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &DM_Yaw_Motor,0, 0,0,0,0);
-		//CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &CM_Pitch_Motor, test_angle, 0, 10, 1, 0); 
+		CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &CM_Pitch_Motor, test_angle * 25 / 45, 0, 20, 1, 0); 
 		// pitch - MIT Mode
 //		CAN_Tx_MIT_Control(cm_p_des, cm_v_des, cm_kp, cm_kd, cm_t_ff, ID_pitch);
 
