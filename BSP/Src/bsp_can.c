@@ -50,22 +50,46 @@ FDCAN_RxFrame_TypeDef FDCAN_RxFIFO1Frame;
 
 /**
  * @brief Debug variables for FDCAN1 TX diagnostics.
+ *
+ *   fdcan1_tx_total             Total TX attempts (calls to AddMessageToTxFifoQ)
+ *   fdcan1_fifo_overflow_count  HAL returned error (TX FIFO was full, message dropped)
+ *   fdcan1_hw_bus_errors        Cumulative hardware bus errors (no ACK, bit/stuff errors)
+ *   fdcan1_hw_error_snapshot    Latest raw TxErrorCnt from CAN controller
+ *   fdcan1_tx_status            Last HAL return code (HAL_OK = 0)
+ *   fdcan1_protocol_status      Last CAN error code from protocol status register
+ *   fdcan1_rx_callback_count    Total RX callbacks fired
  */
 volatile HAL_StatusTypeDef fdcan1_tx_status = HAL_OK;
 volatile uint32_t fdcan1_protocol_status = 0;
-volatile uint32_t fdcan1_tx_error_count = 0;
+volatile uint32_t fdcan1_hw_error_snapshot = 0;
+volatile uint32_t fdcan1_hw_bus_errors = 0;
 volatile uint32_t fdcan1_rx_error_count = 0;
 volatile uint32_t fdcan1_rx_callback_count = 0;
+volatile uint32_t fdcan1_tx_total = 0;
+volatile uint32_t fdcan1_fifo_overflow_count = 0;
 
-
+/**
+ * @brief Debug variables for FDCAN2 TX diagnostics.
+ *
+ *   fdcan2_tx_total             Total TX attempts (calls to AddMessageToTxFifoQ)
+ *   fdcan2_fifo_overflow_count  HAL returned error (TX FIFO was full, message dropped)
+ *   fdcan2_hw_bus_errors        Cumulative hardware bus errors (no ACK, bit/stuff errors)
+ *   fdcan2_hw_error_snapshot    Latest raw TxErrorCnt from CAN controller
+ *   fdcan2_tx_status            Last HAL return code (HAL_OK = 0)
+ *   fdcan2_protocol_status      Last CAN error code from protocol status register
+ *   fdcan2_rx_callback_count    Total RX callbacks fired
+ */
 volatile HAL_StatusTypeDef fdcan2_tx_status = HAL_OK;
 volatile uint32_t fdcan2_protocol_status = 0;
-volatile uint32_t fdcan2_tx_error_count = 0;
+volatile uint32_t fdcan2_hw_error_snapshot = 0;
+volatile uint32_t fdcan2_hw_bus_errors = 0;
 volatile uint32_t fdcan2_rx_error_count = 0;
 volatile uint32_t fdcan2_rx_callback_count = 0;
-
+volatile uint32_t fdcan2_tx_total = 0;
+volatile uint32_t fdcan2_fifo_overflow_count = 0;
 
 uint32_t fifo_number_1 = 0;
+
 /**
  * @brief The structure that contains the Information of FDCAN1 Transmit(CLASSIC_CAN).
  *        Bus: DJI shooting wheels + rev motor
@@ -207,26 +231,44 @@ void USER_FDCAN_AddMessageToTxFifoQ(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame){
         FDCAN_ProtocolStatusTypeDef psr;
         FDCAN_ErrorCountersTypeDef err_counters;
         
+        fdcan1_tx_total++;
+        if (status != HAL_OK) {
+            fdcan1_fifo_overflow_count++;
+        }
+        
         fdcan1_tx_status = status;
         HAL_FDCAN_GetProtocolStatus(FDCAN_TxFrame->hcan, &psr);
         fdcan1_protocol_status = psr.LastErrorCode;
         
         HAL_FDCAN_GetErrorCounters(FDCAN_TxFrame->hcan, &err_counters);
-        fdcan1_tx_error_count = err_counters.TxErrorCnt;
+        /* Accumulate: add the delta since last snapshot */
+        if (err_counters.TxErrorCnt > fdcan1_hw_error_snapshot) {
+            fdcan1_hw_bus_errors += (err_counters.TxErrorCnt - fdcan1_hw_error_snapshot);
+        }
+        fdcan1_hw_error_snapshot = err_counters.TxErrorCnt;
         fdcan1_rx_error_count = err_counters.RxErrorCnt;
     }
 		
-		/* Capture debug info for FDCAN2 */
+    /* Capture debug info for FDCAN2 */
     if(FDCAN_TxFrame->hcan == &hfdcan2){
         FDCAN_ProtocolStatusTypeDef psr;
         FDCAN_ErrorCountersTypeDef err_counters;
+        
+        fdcan2_tx_total++;
+        if (status != HAL_OK) {
+            fdcan2_fifo_overflow_count++;
+        }
         
         fdcan2_tx_status = status;
         HAL_FDCAN_GetProtocolStatus(FDCAN_TxFrame->hcan, &psr);
         fdcan2_protocol_status = psr.LastErrorCode;
         
         HAL_FDCAN_GetErrorCounters(FDCAN_TxFrame->hcan, &err_counters);
-        fdcan2_tx_error_count = err_counters.TxErrorCnt;
+        /* Accumulate: add the delta since last snapshot */
+        if (err_counters.TxErrorCnt > fdcan2_hw_error_snapshot) {
+            fdcan2_hw_bus_errors += (err_counters.TxErrorCnt - fdcan2_hw_error_snapshot);
+        }
+        fdcan2_hw_error_snapshot = err_counters.TxErrorCnt;
         fdcan2_rx_error_count = err_counters.RxErrorCnt;
     }
 }
@@ -301,38 +343,36 @@ static void FDCAN2_RxFifo1RxHandler(FDCAN_RxHeaderTypeDef *RxHeader, uint8_t Dat
 {
     uint32_t id = RxHeader->Identifier;
 	
-		fifo_number_1 = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan2);
+    fifo_number_1 = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan2);
 
-		/* Standard ID — DM yaw or CM chassis */
-		switch (id)
-		{
-				case 0x00000002:
+    /* Standard ID — DM yaw or CM chassis */
+    switch (id)
+    {
+        case 0x00000002:
             CM_Motor_Info_Update(&id, Data, &CM_Pitch_Motor);
-						break;
-				case 0x01:
-						DM_Motor_Info_Update(&id, Data, &DM_Yaw_Motor);
-						break;
-				case 0x0000007B:
-						CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[0]);
-						break;
+            break;
+        case 0x01:
+            DM_Motor_Info_Update(&id, Data, &DM_Yaw_Motor);
+            break;
+        case 0x0000007B:
+            CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[0]);
+            break;
 
-				case 0x00000078:
-						CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[1]);
-						break;
+        case 0x00000078:
+            CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[1]);
+            break;
 
-				case 0x00000079:
-						CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[2]);
-						break;
+        case 0x00000079:
+            CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[2]);
+            break;
 
-				case 0x0000007A:
-						CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[3]);
-						break;
+        case 0x0000007A:
+            CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[3]);
+            break;
 
-				
-
-				default:
-						break;
-		}
+        default:
+            break;
+    }
 }
 
 /**

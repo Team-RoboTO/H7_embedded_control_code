@@ -213,7 +213,7 @@ DM_Motor_Info_Typedef DM_Yaw_Motor = {
     .Type = DM_MOTOR_J6006,
     .Control_Mode = MIT,
     .Param_Range = {
-        .P_MAX = 12.5f,
+        .P_MAX = 3.141592f,
         .V_MAX = 45.0f,
         .T_MAX = 12.0f,
     },
