@@ -54,14 +54,14 @@ controlled_system_t gimbal = {
  * [0] KP, [1] KI, [2] KD, [3] Alpha (LPF), [4] Deadband, [5] LimitIntegral, [6] LimitOutput
  */
 
-static PID_Info_TypeDef pid_yaw_pos;
-static PID_Info_TypeDef pid_yaw_vel;
+PID_Info_TypeDef pid_yaw_pos;
+PID_Info_TypeDef pid_yaw_vel;
 
 // Yaw Position PID params: KP, KI, KD, Alpha, Deadband, LimitIntegral, LimitOutput
-static float pid_yaw_pos_params[PID_PARAMETER_NUM] = {5.0f, 2.0f, 0.0f, 0.0f, 0.0f, 100.0f, 45.0f};
+float pid_yaw_pos_params[PID_PARAMETER_NUM] = {4.0f, 0.01f, 1.0f, 0.0f, 0.0f, 10.0f, 30.0f};
 
 // Yaw Velocity PID params: KP, KI, KD, Alpha, Deadband, LimitIntegral, LimitOutput
-static float pid_yaw_vel_params[PID_PARAMETER_NUM] = {10.0f, 0.0f, 0.0f, 0.0f, 0.0f, 100.0f, 15000.0f};
+float pid_yaw_vel_params[PID_PARAMETER_NUM] = {0.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 30.0f};
 
   /*************************/
  /*   CONTROL VARIABLES   */
@@ -76,7 +76,6 @@ static float yaw_command_from_cv_prev;
 static float pitch_command_from_cv_prev;
 
 static uint8_t is_first_iter = true;
-static uint8_t is_exit = true;
 
 static float m_linear_interpolation_yaw = 0;
 static float m_linear_interpolation_pitch = 0;
@@ -101,17 +100,6 @@ float test_angle = 0;
 /********************/
 
 void control_loop_gimbal() {
-
-    // STOP command: zero all outputs and reset
-    if (state_remote_commands == COMMANDS_STOP) {
-				
-				// reset both PIDs on stop
-				pid_yaw_pos.PID_Calc_Clear(&pid_yaw_pos);
-				pid_yaw_vel.PID_Calc_Clear(&pid_yaw_vel);
-				is_exit = 1;
-        return;
-    }
-
     // update system state from IMU/INS sensors
     for (uint8_t i = 0; i < gimbal.p; i++) {
         gimbal.x_prev[i] = gimbal.x[i];
@@ -125,12 +113,6 @@ void control_loop_gimbal() {
         gimbal.r_x_prev[i] = gimbal.r_x[i];
     }
 		
-		 // enter MIT mode
-    if (is_exit == 1) {
-				
-        is_exit = false;
-    }
-		
     // one-time initialization
     if (is_first_iter) {
         gimbal.r_x[0] = gimbal.x[0];
@@ -138,10 +120,20 @@ void control_loop_gimbal() {
 			
 				// PID_INIT
 				PID_Init(&pid_yaw_pos, PID_POSITION, pid_yaw_pos_params);
-				PID_Init(&pid_yaw_vel, PID_POSITION, pid_yaw_vel_params);
+				PID_Init(&pid_yaw_vel, PID_VELOCITY, pid_yaw_vel_params);
 			
         is_first_iter = false;
     }
+		
+		// STOP command: zero all outputs and reset
+    if (state_remote_commands == COMMANDS_STOP) {
+				
+				// reset both PIDs on stop
+				pid_yaw_pos.PID_Calc_Clear(&pid_yaw_pos);
+				pid_yaw_vel.PID_Calc_Clear(&pid_yaw_vel);
+        return;
+    }
+
 
     // setpoint generation: manual or auto-aim
     switch (state_gimbal) {
@@ -152,9 +144,9 @@ void control_loop_gimbal() {
                 case COMMANDS_REMOTE_CONTROLLER:
                     remote_commands_yaw   = -remote_ctrl.rc.ch[0];
                     remote_commands_pitch = -remote_ctrl.rc.ch[1];
-                    
-                        gimbal.r_x[0] = gimbal.x[0] + (remote_commands_yaw / MAX_RC_TILT) * 45 * DEG_TO_RAD;
-                    
+                        if (remote_commands_yaw != 0){
+													gimbal.r_x[0] = gimbal.x[0] + (remote_commands_yaw / MAX_RC_TILT) * 45 * DEG_TO_RAD;
+												}
                         test_angle = cm_p_des_origin + (remote_commands_pitch / MAX_RC_TILT) * 20 * DEG_TO_RAD;
                     break;
 
@@ -201,15 +193,15 @@ void control_loop_gimbal() {
  /*   CONTROL LOOP EXECUTION  */
 /*****************************/
 
-    // --- OUTER LOOP: Position Control (yaw only) the output is a desired yaw velocity.
-    gimbal.r_x[2] = PID_Calculate(&pid_yaw_pos, gimbal.r_x[0], gimbal.x[0]);
+//    // --- OUTER LOOP: Position Control (yaw only) the output is a desired yaw velocity.
+//    gimbal.r_x[2] = PID_Calculate(&pid_yaw_pos, gimbal.r_x[0], gimbal.x[0]);
 
-    // --- INNER LOOP: Velocity Control (yaw only) the output is a motor velocity command.
-    for (uint8_t i = 0; i < gimbal.m; i++) {
-        gimbal.u_prev[i] = gimbal.u[i];
-    }
-    gimbal.u[0] = PID_Calculate(&pid_yaw_vel, gimbal.r_x[2], gimbal.x[2]);
-
+//    // --- INNER LOOP: Velocity Control (yaw only) the output is a motor velocity command.
+//    for (uint8_t i = 0; i < gimbal.m; i++) {
+//        gimbal.u_prev[i] = gimbal.u[i];
+//    }
+//    gimbal.u[0] = PID_Calculate(&pid_yaw_vel, gimbal.r_x[2], gimbal.x[2]);
+	gimbal.u[0] = PID_Calculate(&pid_yaw_pos, gimbal.r_x[0], gimbal.x[0]);
 // transmit commands over CAN (alternating to respect bandwidth limits)
 
 }

@@ -39,6 +39,9 @@
 
 static uint8_t is_first_iter = 1;
 
+static uint8_t is_init = 1;
+
+
 extern controlled_system_t shoot_wheels_and_rev;
 
 extern float test_angle;
@@ -49,7 +52,13 @@ void CAN_Task(void const * argument)
 
     for(;;)
     {
-		// If stop command arrived, send zeros as control signals
+			  if (is_init) {
+					DM_Motor_Command(&FDCAN2_TxFrame, &DM_Yaw_Motor, Motor_Save_Zero_Position);
+					osDelay(30);
+					
+					is_init = 0;  
+				}
+				// If stop command arrived, send zeros as control signals
 				if (state_remote_commands == COMMANDS_STOP) {
 					// alternating logic to safely exit control mode for exit MIT control
 					CM_Motor_Command(&FDCAN2_TxFrame,&CM_Chassis_Motor[0],CM_Motor_Disable);
@@ -87,7 +96,7 @@ void CAN_Task(void const * argument)
 				}
 
 				#if IS_GIMBAL_ENABLED
-						DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &DM_Yaw_Motor,0, 0,0,0,0);
+						DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &DM_Yaw_Motor,0,gimbal.u[0],0,1,0);
 						CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &CM_Pitch_Motor, test_angle * 25 / 45, 0, 20, 1, 0); 
 						// pitch - MIT Mode
 				//		CAN_Tx_MIT_Control(cm_p_des, cm_v_des, cm_kp, cm_kd, cm_t_ff, ID_pitch);

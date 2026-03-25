@@ -52,7 +52,7 @@ uint16_t chassis_power_limit_local = 60;
 //MIT variables
 static float MIT_p_des = 0.0f; 	// range -12.5 - +12.5 [rad]
 static float MIT_kp = 0.0f;    	// range 0-500
-static float MIT_kd = 0.2f;    	// range 0-5
+static float MIT_kd = 0.15f;    	// range 0-5
 static float MIT_t_ff = 0.0f;   // range -15.0 - 15.0 [Nm]
 
   /********************/
@@ -67,7 +67,7 @@ void control_loop_chassis() {
     for (uint8_t i = 0; i < chassis.p; i++) {
         chassis.x_prev[i] = chassis.x[i];
     }
-  	chassis.x[4] = nearest_target_angle_from_start_angle(DM_Yaw_Motor.Data.Angle_sum - GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD, 0);
+  	chassis.x[4] = nearest_target_angle_from_start_angle(DM_Yaw_Motor.Data.Position - GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD, 0);
     
     // Remote commands
 		switch (state_remote_commands) {
@@ -117,7 +117,7 @@ void control_loop_chassis() {
 						r_ang_vel_wheel_3_left_right    = ((float) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels;
 						r_ang_vel_wheel_4_left_right    = ((float) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels;
 						// Align chassis to gimbal
-						//r_ang_vel_wheels_chassis_yaw    = max(min(chassis.x[4], pi/2), -pi/2) * (2/pi) * max_r_ang_vel_wheels;
+						r_ang_vel_wheels_chassis_yaw    = max(min(chassis.x[4], pi/2), -pi/2) * (2/pi) * max_r_ang_vel_wheels;
 						break;
 					}
 					
