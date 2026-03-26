@@ -58,8 +58,8 @@ void Control_Task(void const * argument)
 		
 		
 		
-		//control_loop_shooting(); //<--- error
-		//control_loop_gimbal(); 
+		control_loop_shooting();
+		control_loop_gimbal();
 		control_loop_chassis();
 	  Control_Measure_Update(&Control_Info);
 		Control_Target_Update(&Control_Info);

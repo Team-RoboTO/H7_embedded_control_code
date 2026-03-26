@@ -84,6 +84,12 @@ void control_loop_shooting(void)
 /*********************************/
 
 void _control_loop_shoot_wheels(void){
+		
+		if (is_first_iter == 1) {
+			PID_Init(&pid_shoot_wheel_left,  PID_POSITION, pid_shoot_wheel_left_params);
+			PID_Init(&pid_shoot_wheel_right, PID_POSITION, pid_shoot_wheel_right_params);
+		}
+		
 		// STOP command
     if (state_remote_commands == COMMANDS_STOP) {
         shoot_wheels_and_rev.ud[0] = 0;
@@ -96,10 +102,6 @@ void _control_loop_shoot_wheels(void){
 				return;
     }
 		
-		if (is_first_iter == 1) {
-			PID_Init(&pid_shoot_wheel_left,  PID_POSITION, pid_shoot_wheel_left_params);
-			PID_Init(&pid_shoot_wheel_right, PID_POSITION, pid_shoot_wheel_right_params);
-		}
 	
     // Update state from sensors
     for (uint8_t i = 0; i < 2; i++) {
@@ -146,14 +148,6 @@ void _control_loop_shoot_wheels(void){
 
 void _control_loop_rev(void)
 {
-    // On STOP: zero output and reset PIDs
-    if (state_remote_commands == COMMANDS_STOP) {
-        shoot_wheels_and_rev.ud[2] = 0;
-        pid_rev_pos.PID_Calc_Clear(&pid_rev_pos);
-        pid_rev_vel.PID_Calc_Clear(&pid_rev_vel);
-        return;
-    }
-
     // Update state from sensors
     for (uint8_t i = 2; i < shoot_wheels_and_rev.p; i++) {
         shoot_wheels_and_rev.x_prev[i] = shoot_wheels_and_rev.x[i];
@@ -171,6 +165,14 @@ void _control_loop_rev(void)
 				PID_Init(&pid_rev_pos, PID_POSITION, pid_rev_pos_params);
 				PID_Init(&pid_rev_vel, PID_POSITION, pid_rev_vel_params);
         shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.x[2];
+    }
+		
+		   // On STOP: zero output and reset PIDs
+    if (state_remote_commands == COMMANDS_STOP) {
+        shoot_wheels_and_rev.ud[2] = 0;
+        pid_rev_pos.PID_Calc_Clear(&pid_rev_pos);
+        pid_rev_vel.PID_Calc_Clear(&pid_rev_vel);
+        return;
     }
 
     // Clear unstuck flag once error is small enough

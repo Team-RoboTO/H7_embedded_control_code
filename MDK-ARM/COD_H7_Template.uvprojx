@@ -82,7 +82,7 @@
           </BeforeMake>
           <AfterMake>
             <RunUserProg1>0</RunUserProg1>
-            <RunUserProg2>0</RunUserProg2>
+            <RunUserProg2>1</RunUserProg2>
             <UserProg1Name></UserProg1Name>
             <UserProg2Name></UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
@@ -331,7 +331,7 @@
             <uGnu>1</uGnu>
             <useXO>0</useXO>
             <v6Lang>3</v6Lang>
-            <v6LangP>5</v6LangP>
+            <v6LangP>3</v6LangP>
             <vShortEn>1</vShortEn>
             <vShortWch>1</vShortWch>
             <v6Lto>0</v6Lto>
@@ -581,14 +581,14 @@
               <FilePath>..\Components\Algorithm\Src\Kalman_Filter.c</FilePath>
             </File>
             <File>
-              <FileName>Quaternion.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Components\Algorithm\Src\Quaternion.c</FilePath>
-            </File>
-            <File>
               <FileName>LPF.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Components\Algorithm\Src\LPF.c</FilePath>
+            </File>
+            <File>
+              <FileName>Quaternion.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Algorithm\Src\Quaternion.c</FilePath>
             </File>
             <File>
               <FileName>Ramp.c</FileName>
@@ -2956,8 +2956,8 @@
   <RTE>
     <apis/>
     <components>
-      <component Cclass="CMSIS" Cgroup="CORE" Cvendor="ARM" Cversion="5.6.0" condition="ARMv6_7_8-M Device">
-        <package name="CMSIS" schemaVersion="1.7.7" url="http://www.keil.com/pack/" vendor="ARM" version="5.9.0"/>
+      <component Cclass="CMSIS" Cgroup="CORE" Cvendor="ARM" Cversion="6.1.0" condition="ARMv6_7_8-M Device">
+        <package name="CMSIS" schemaVersion="1.7.36" url="https://www.keil.com/pack/" vendor="ARM" version="6.1.0"/>
         <targetInfos>
           <targetInfo name="COD_H7_Template"/>
         </targetInfos>
