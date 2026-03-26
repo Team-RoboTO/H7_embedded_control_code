@@ -8,6 +8,8 @@
 #include "Referee_System.h"
 #include "math_utils.h"
 #include "control_utils.h"
+#include "MiniPC.h"
+
 
   /*************************/
  /*   CONTROLLED SYSTEM   */
@@ -55,6 +57,8 @@ static float MIT_kp = 0.0f;    	// range 0-500
 static float MIT_kd = 0.15f;    	// range 0-5
 static float MIT_t_ff = 0.0f;   // range -15.0 - 15.0 [Nm]
 
+static float radius_wheels = 0.0825f;
+
   /********************/
  /*   CONTROL LOOP   */
 /********************/
@@ -78,18 +82,20 @@ void control_loop_chassis() {
                 remote_commands_left_right  = remote_ctrl.rc.ch[2];
                 break;
             case COMMANDS_KEYBOARD_MOUSE:
-                // Update commands from keyboard
-//                compute_weights_WASD_keys(dt_chassis);
-//                remote_commands_bwd_fwd_float     = MAX_RC_TILT * weight_fwd_key;
-//                remote_commands_bwd_fwd_float    -= MAX_RC_TILT * weight_bwd_key;
-//                remote_commands_left_right_float  = MAX_RC_TILT * weight_right_key;
-//                remote_commands_left_right_float -= MAX_RC_TILT * weight_left_key;
-                saturate(&remote_commands_bwd_fwd_float,    MAX_RC_TILT);  // Value should never reach saturation, but keep it for safety
-                saturate(&remote_commands_left_right_float, MAX_RC_TILT);  // Value should never reach saturation, but keep it for safety
-                // Convert from float to int16
-                remote_commands_bwd_fwd    = -(int16_t) remote_commands_bwd_fwd_float;
-                remote_commands_left_right = -(int16_t) remote_commands_left_right_float;
-                break;
+							 remote_commands_bwd_fwd = fwd_bwd_cv*sqrt(2)*radius_wheels;
+							 remote_commands_left_right = left_right_cv*sqrt(2)*radius_wheels;
+//                // Update commands from keyboard
+////                compute_weights_WASD_keys(dt_chassis);
+////                remote_commands_bwd_fwd_float     = MAX_RC_TILT * weight_fwd_key;
+////                remote_commands_bwd_fwd_float    -= MAX_RC_TILT * weight_bwd_key;
+////                remote_commands_left_right_float  = MAX_RC_TILT * weight_right_key;
+////                remote_commands_left_right_float -= MAX_RC_TILT * weight_left_key;
+//                saturate(&remote_commands_bwd_fwd_float,    MAX_RC_TILT);  // Value should never reach saturation, but keep it for safety
+//                saturate(&remote_commands_left_right_float, MAX_RC_TILT);  // Value should never reach saturation, but keep it for safety
+//                // Convert from float to int16
+//                remote_commands_bwd_fwd    = -(int16_t) remote_commands_bwd_fwd_float;
+//                remote_commands_left_right = -(int16_t) remote_commands_left_right_float;
+//                break;
 
             default:
                 remote_commands_bwd_fwd     = 0;

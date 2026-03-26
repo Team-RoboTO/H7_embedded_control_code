@@ -157,11 +157,35 @@ void control_loop_gimbal() {
                     break;
 
                 case COMMANDS_KEYBOARD_MOUSE:
-                    remote_commands_yaw   = MOUSE_X_MOVE_SPEED*0.001;
-                    remote_commands_pitch = MOUSE_Y_MOVE_SPEED*0.001;
-                    gimbal.r_x[0] += (remote_commands_yaw   / MAX_RC_TILT) * 15 * DEG_TO_RAD;
-                    gimbal.r_x[1]  = cm_p_des_origin + (remote_commands_pitch / MAX_RC_TILT) * 30 * DEG_TO_RAD;
-                    break;
+									yaw_command_from_cv_prev   = yaw_command_from_cv;
+									pitch_command_from_cv_prev = pitch_command_from_cv;
+									time_stamp_cv_prev = time_stamp_cv;
+									yaw_command_from_cv        = yaw_cv;
+									pitch_command_from_cv      = pitch_cv;
+									time_stamp_cv              = time_cv;
+
+									if (time_stamp_cv_prev != time_stamp_cv) {
+											m_linear_interpolation_yaw   = yaw_command_from_cv   * OVER_ESTIMATED_CV_FREQUENCY;
+											m_linear_interpolation_pitch = pitch_command_from_cv * OVER_ESTIMATED_CV_FREQUENCY;
+											gimbal.r_x[0] = gimbal.x[0];
+											gimbal.r_x[1] = gimbal.x[1];
+											yaw_sat   = gimbal.x[0] + yaw_command_from_cv;
+											pitch_sat = gimbal.x[1] + pitch_command_from_cv;
+									}
+
+									gimbal.r_x[0] += m_linear_interpolation_yaw;
+									gimbal.r_x[1] += m_linear_interpolation_pitch;
+									saturate(&gimbal.r_x[0], yaw_sat);
+									saturate(&gimbal.r_x[1], pitch_sat);
+									break;
+								
+								
+								
+//                    remote_commands_yaw   = MOUSE_X_MOVE_SPEED*0.001;
+//                    remote_commands_pitch = MOUSE_Y_MOVE_SPEED*0.001;
+//                    gimbal.r_x[0] += (remote_commands_yaw   / MAX_RC_TILT) * 15 * DEG_TO_RAD;
+//                    gimbal.r_x[1]  = cm_p_des_origin + (remote_commands_pitch / MAX_RC_TILT) * 30 * DEG_TO_RAD;
+//                    break;
 
                 default:
                     break;
