@@ -24,6 +24,7 @@
 #include "PID.h"
 #include "cubemars_motor.h"
 #include "damiao_motor.h"
+#include "MiniPC.h"
 
   /*************************/
  /*   CONTROLLED SYSTEM   */
@@ -70,8 +71,10 @@ float pid_yaw_vel_params[PID_PARAMETER_NUM] = {0.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0
 static float remote_commands_yaw;
 static float remote_commands_pitch;
 
+static float time_stamp_cv = 0;
 static float yaw_command_from_cv = 0;
 static float pitch_command_from_cv = 0;
+static float time_stamp_cv_prev = 0;
 static float yaw_command_from_cv_prev;
 static float pitch_command_from_cv_prev;
 
@@ -94,6 +97,9 @@ float cm_p_des_origin = 0;
 extern uint8_t is_rotating;
 
 float test_angle = 0;
+
+float OVER_ESTIMATED_CV_FREQUENCY = 90;
+
 
   /********************/
  /*   CONTROL LOOP   */
@@ -162,26 +168,28 @@ void control_loop_gimbal() {
             }
             break;
 
-//        case GIMBAL_AUTO_AIM:
-//            yaw_command_from_cv_prev   = yaw_command_from_cv;
-//            pitch_command_from_cv_prev = pitch_command_from_cv;
-//            yaw_command_from_cv        = yaw_cv;
-//            pitch_command_from_cv      = pitch_cv;
+        case GIMBAL_AUTO_AIM:
+            yaw_command_from_cv_prev   = yaw_command_from_cv;
+            pitch_command_from_cv_prev = pitch_command_from_cv;
+						time_stamp_cv_prev = time_stamp_cv;
+            yaw_command_from_cv        = yaw_cv;
+            pitch_command_from_cv      = pitch_cv;
+				    time_stamp_cv              = time_cv;
 
-//            if (pitch_command_from_cv != pitch_command_from_cv_prev) {
-//                m_linear_interpolation_yaw   = yaw_command_from_cv   * OVER_ESTIMATED_CV_FREQUENCY;
-//                m_linear_interpolation_pitch = pitch_command_from_cv * OVER_ESTIMATED_CV_FREQUENCY;
-//                gimbal.r_x[0] = gimbal.x[0];
-//                gimbal.r_x[1] = gimbal.x[1];
-//                yaw_sat   = gimbal.x[0] + yaw_command_from_cv;
-//                pitch_sat = gimbal.x[1] + pitch_command_from_cv;
-//            }
+            if (time_stamp_cv_prev != time_stamp_cv) {
+                m_linear_interpolation_yaw   = yaw_command_from_cv   * OVER_ESTIMATED_CV_FREQUENCY;
+                m_linear_interpolation_pitch = pitch_command_from_cv * OVER_ESTIMATED_CV_FREQUENCY;
+                gimbal.r_x[0] = gimbal.x[0];
+                gimbal.r_x[1] = gimbal.x[1];
+                yaw_sat   = gimbal.x[0] + yaw_command_from_cv;
+                pitch_sat = gimbal.x[1] + pitch_command_from_cv;
+            }
 
-//            gimbal.r_x[0] += m_linear_interpolation_yaw   * dt_gimbal;
-//            gimbal.r_x[1] += m_linear_interpolation_pitch * dt_gimbal;
-//            saturate(&gimbal.r_x[0], yaw_sat);
-//            saturate(&gimbal.r_x[1], pitch_sat);
-//            break;
+            gimbal.r_x[0] += m_linear_interpolation_yaw;
+            gimbal.r_x[1] += m_linear_interpolation_pitch;
+            saturate(&gimbal.r_x[0], yaw_sat);
+            saturate(&gimbal.r_x[1], pitch_sat);
+            break;
 
         default:
             break;

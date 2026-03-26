@@ -27,7 +27,7 @@
    PROTOCOL DIMENSIONS
    ============================================================ */
 #define NUM_FP32_TX_MINIPC      10
-#define NUM_FP32_RX_MINIPC      6
+#define NUM_FP32_RX_MINIPC      7
 #define NUM_BYTES_TX_MINIPC     (NUM_FP32_TX_MINIPC * sizeof(fp32))   /* 40 bytes */
 #define NUM_BYTES_RX_MINIPC     (NUM_FP32_RX_MINIPC * sizeof(fp32))   /* 24 bytes */
 
@@ -42,6 +42,7 @@ extern fp32 Rx_miniPC_fp32_data[NUM_FP32_RX_MINIPC];
 #define fwd_bwd_cv          Rx_miniPC_fp32_data[3]
 #define left_right_cv       Rx_miniPC_fp32_data[4]
 #define angle_cv            Rx_miniPC_fp32_data[5]
+#define time_cv       			Rx_miniPC_fp32_data[6]
 /* ============================================================
    FUNCTIONS
    ============================================================ */

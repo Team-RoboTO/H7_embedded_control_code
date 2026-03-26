@@ -34,6 +34,8 @@ uint32_t tx_count = 0;
 
 fp32 Tx_data[NUM_FP32_TX_MINIPC] = {0};
 
+fp32 fake_data[10] = {0};
+
 /* ============================================================
    TRANSMIT
    Call this periodically (from a FreeRTOS task) to send
@@ -48,11 +50,19 @@ fp32 Tx_data[NUM_FP32_TX_MINIPC] = {0};
 {
    
     /* --- Referee data --- */
+//		Tx_data[0] = (fp32)(Referee_System_Info.robot_status.robot_id > 100);            /* color: 0.0=RED, 1.0=BLUE           */  
+//		Tx_data[1] = (fp32)(Referee_System_Info.game_status.game_progress == 4);         /* battle mode: 1.0 if in battle      */
+//    Tx_data[2] = (fp32) Referee_System_Info.robot_status.current_HP;                 /* HP: uint16_t cast to fp32          */
+//    Tx_data[3] = (fp32)((Referee_System_Info.rfid_status.rfid_status >> 19) & 0x1);  /* resupply zone: bit 19              */
+//    Tx_data[4] = (fp32)((Referee_System_Info.event_data.event_data   >>  5) & 0x3);  /* central highland: bits 5-6 (0/1/2) */
+// 
+	
+	
 		Tx_data[0] = (fp32)(Referee_System_Info.robot_status.robot_id > 100);            /* color: 0.0=RED, 1.0=BLUE           */  
-		Tx_data[1] = (fp32)(Referee_System_Info.game_status.game_progress == 4);         /* battle mode: 1.0 if in battle      */
-    Tx_data[2] = (fp32) Referee_System_Info.robot_status.current_HP;                 /* HP: uint16_t cast to fp32          */
-    Tx_data[3] = (fp32)((Referee_System_Info.rfid_status.rfid_status >> 19) & 0x1);  /* resupply zone: bit 19              */
-    Tx_data[4] = (fp32)((Referee_System_Info.event_data.event_data   >>  5) & 0x3);  /* central highland: bits 5-6 (0/1/2) */
+		Tx_data[1] = fake_data[1];         /* battle mode: 1.0 if in battle      */
+    Tx_data[2] = fake_data[2];                 /* HP: uint16_t cast to fp32          */
+    Tx_data[3] = fake_data[3];  /* resupply zone: bit 19              */
+    Tx_data[4] = fake_data[4];  /* central highland: bits 5-6 (0/1/2) */
  
     /* --- IMU data from INS_Task --- */
     Tx_data[5] = INS_Info.Yaw_Angle;    /* float, degrees */
@@ -60,8 +70,8 @@ fp32 Tx_data[NUM_FP32_TX_MINIPC] = {0};
     Tx_data[7] = INS_Info.Roll_Angle;   /* float, degrees */
  
     /* --- Chassis velocities (TODO: replace when chassis task is ready) --- */
-    Tx_data[8] = 0.0f;   /* linear velocity  [fp32, m/s]   */
-    Tx_data[9] = 0.0f;   /* angular velocity [fp32, rad/s] */
+    Tx_data[8] = fake_data[8];   /* linear velocity  [fp32, m/s]   */
+    Tx_data[9] = fake_data[9];   /* angular velocity [fp32, rad/s] */
 	
 	//Dummy data 
 		/*
@@ -84,6 +94,7 @@ void MiniPC_Transmit_Info(void)
 	//Begin transmitting only once it has received something (from python test script)
 	if(rx_count>0){
     tx_count++;
+	}
 		//random_value++;
 
     // Fill float array from referee system
@@ -96,7 +107,7 @@ void MiniPC_Transmit_Info(void)
     }
 
     CDC_Transmit_HS(Tx_miniPC_binary_data, NUM_BYTES_TX_MINIPC); 
-	}
+	
 }
 
 /* ============================================================
