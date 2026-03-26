@@ -613,7 +613,7 @@ extern uint8_t Referee_System_Info_MultiRx_Buf[2][REFEREE_RXFRAME_LENGTH];
 /**
  * @brief Referee structure variable
  */
-extern Referee_System_Info_TypeDef Referee_Info;
+extern Referee_System_Info_TypeDef Referee_System_Info;
 /* Exported functions prototypes ---------------------------------------------*/
 extern void Referee_System_Frame_Update(uint8_t *Buff);
 

@@ -60,6 +60,9 @@ osStaticThreadDef_t Start_CAN_TaskControlBlock;
 osThreadId Start_Detect_TaskHandle;
 uint32_t Start_Detect_TaskBuffer[ 2048 ];
 osStaticThreadDef_t Start_Detect_TaskControlBlock;
+osThreadId Start_USB_MiniPC_TaskHandle;
+uint32_t Start_USB_MiniPC_TaskBuffer[ 2048 ];
+osStaticThreadDef_t Start_USB_MiniPC_TaskControlBlock;
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -70,6 +73,7 @@ void INS_Task(void const * argument);
 void Control_Task(void const * argument);
 void CAN_Task(void const * argument);
 void Detect_Task(void const * argument);
+void USB_MiniPC_Task(void const * argument);
 
 extern void MX_USB_DEVICE_Init(void);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
@@ -132,6 +136,10 @@ void MX_FREERTOS_Init(void) {
   /* definition and creation of Start_Detect_Task */
   osThreadStaticDef(Start_Detect_Task, Detect_Task, osPriorityBelowNormal, 0, 2048, Start_Detect_TaskBuffer, &Start_Detect_TaskControlBlock);
   Start_Detect_TaskHandle = osThreadCreate(osThread(Start_Detect_Task), NULL);
+
+  /* definition and creation of Start_USB_MiniPC_Task */
+  osThreadStaticDef(Start_USB_MiniPC_Task, USB_MiniPC_Task, osPriorityAboveNormal, 0, 2048, Start_USB_MiniPC_TaskBuffer, &Start_USB_MiniPC_TaskControlBlock);
+  Start_USB_MiniPC_TaskHandle = osThreadCreate(osThread(Start_USB_MiniPC_Task), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -211,6 +219,24 @@ __weak void Detect_Task(void const * argument)
     osDelay(1);
   }
   /* USER CODE END Detect_Task */
+}
+
+/* USER CODE BEGIN Header_USB_MiniPC_Task */
+/**
+* @brief Function implementing the Start_USB_MiniPC_Task thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_USB_MiniPC_Task */
+__weak void USB_MiniPC_Task(void const * argument)
+{
+  /* USER CODE BEGIN USB_MiniPC_Task */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END USB_MiniPC_Task */
 }
 
 /* Private application code --------------------------------------------------*/
