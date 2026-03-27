@@ -14,7 +14,7 @@ extern controlled_system_MIT_t chassis;
   /********************/
  /*   CONTROL LOOP   */
 /********************/
-#define GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD 0.12458992f
+#define GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD -0.124877453f
 
 void control_loop_chassis(void);
 

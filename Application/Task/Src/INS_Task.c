@@ -22,6 +22,9 @@
 #include "tim.h"
 #include "Quaternion.h"
 #include "bsp_pwm.h"
+#include "rtt_log.h"
+#include "segger_rtt.h"
+
 
 /**
   * @brief the structure that contains the information for the INS.
@@ -145,6 +148,10 @@ void INS_Task(void const * argument)
 			BMI088_Temp_Control(BMI088_Info.Temperature);
 		}
 
+			
+//		float data[] = { INS_Info.Yaw_Angle, INS_Info.Roll_Angle};
+//		RTT_Log(data, 2);
+		
     osDelayUntil(&INS_Task_SysTick,1);
 		
   }

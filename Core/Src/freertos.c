@@ -51,18 +51,24 @@
 osThreadId Start_INS_TaskHandle;
 uint32_t Start_INS_TaskBuffer[ 2048 ];
 osStaticThreadDef_t Start_INS_TaskControlBlock;
-osThreadId Start_Control_TaskHandle;
-uint32_t Start_Control_TaskBuffer[ 2048 ];
-osStaticThreadDef_t Start_Control_TaskControlBlock;
+osThreadId Start_Chassis_TaskHandle;
+uint32_t Start_Chassis_TaskBuffer[ 2048 ];
+osStaticThreadDef_t Start_Chassis_TaskControlBlock;
 osThreadId Start_CAN_TaskHandle;
 uint32_t Start_CAN_TaskBuffer[ 2048 ];
 osStaticThreadDef_t Start_CAN_TaskControlBlock;
-osThreadId Start_Detect_TaskHandle;
-uint32_t Start_Detect_TaskBuffer[ 2048 ];
-osStaticThreadDef_t Start_Detect_TaskControlBlock;
+osThreadId Start_Gimbal_TaskHandle;
+uint32_t Start_Gimbal_TaskBuffer[ 2048 ];
+osStaticThreadDef_t Start_Gimbal_TaskControlBlock;
 osThreadId Start_USB_MiniPC_TaskHandle;
-uint32_t Start_USB_MiniPC_TaskBuffer[ 2048 ];
+uint32_t Start_USB_MiniPC_TaskBuffer[ 1024 ];
 osStaticThreadDef_t Start_USB_MiniPC_TaskControlBlock;
+osThreadId Start_Shooting_TaskHandle;
+uint32_t Start_Shooting_TaskBuffer[ 2048 ];
+osStaticThreadDef_t Start_Shooting_TaskControlBlock;
+osThreadId Start_Image_Transmission_TaskHandle;
+uint32_t Start_Image_Transmission_TaskBuffer[ 2048 ];
+osStaticThreadDef_t Start_Image_Transmission_TaskControlBlock;
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -70,10 +76,12 @@ osStaticThreadDef_t Start_USB_MiniPC_TaskControlBlock;
 /* USER CODE END FunctionPrototypes */
 
 void INS_Task(void const * argument);
-void Control_Task(void const * argument);
+void Chassis_Task(void const * argument);
 void CAN_Task(void const * argument);
-void Detect_Task(void const * argument);
+void Gimbal_Task(void const * argument);
 void USB_MiniPC_Task(void const * argument);
+void Shooting_Task(void const * argument);
+void Image_Transmission_Task(void const * argument);
 
 extern void MX_USB_DEVICE_Init(void);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
@@ -125,21 +133,29 @@ void MX_FREERTOS_Init(void) {
   osThreadStaticDef(Start_INS_Task, INS_Task, osPriorityHigh, 0, 2048, Start_INS_TaskBuffer, &Start_INS_TaskControlBlock);
   Start_INS_TaskHandle = osThreadCreate(osThread(Start_INS_Task), NULL);
 
-  /* definition and creation of Start_Control_Task */
-  osThreadStaticDef(Start_Control_Task, Control_Task, osPriorityAboveNormal, 0, 2048, Start_Control_TaskBuffer, &Start_Control_TaskControlBlock);
-  Start_Control_TaskHandle = osThreadCreate(osThread(Start_Control_Task), NULL);
+  /* definition and creation of Start_Chassis_Task */
+  osThreadStaticDef(Start_Chassis_Task, Chassis_Task, osPriorityNormal, 0, 2048, Start_Chassis_TaskBuffer, &Start_Chassis_TaskControlBlock);
+  Start_Chassis_TaskHandle = osThreadCreate(osThread(Start_Chassis_Task), NULL);
 
   /* definition and creation of Start_CAN_Task */
-  osThreadStaticDef(Start_CAN_Task, CAN_Task, osPriorityNormal, 0, 2048, Start_CAN_TaskBuffer, &Start_CAN_TaskControlBlock);
+  osThreadStaticDef(Start_CAN_Task, CAN_Task, osPriorityAboveNormal, 0, 2048, Start_CAN_TaskBuffer, &Start_CAN_TaskControlBlock);
   Start_CAN_TaskHandle = osThreadCreate(osThread(Start_CAN_Task), NULL);
 
-  /* definition and creation of Start_Detect_Task */
-  osThreadStaticDef(Start_Detect_Task, Detect_Task, osPriorityBelowNormal, 0, 2048, Start_Detect_TaskBuffer, &Start_Detect_TaskControlBlock);
-  Start_Detect_TaskHandle = osThreadCreate(osThread(Start_Detect_Task), NULL);
+  /* definition and creation of Start_Gimbal_Task */
+  osThreadStaticDef(Start_Gimbal_Task, Gimbal_Task, osPriorityAboveNormal, 0, 2048, Start_Gimbal_TaskBuffer, &Start_Gimbal_TaskControlBlock);
+  Start_Gimbal_TaskHandle = osThreadCreate(osThread(Start_Gimbal_Task), NULL);
 
   /* definition and creation of Start_USB_MiniPC_Task */
-  osThreadStaticDef(Start_USB_MiniPC_Task, USB_MiniPC_Task, osPriorityAboveNormal, 0, 2048, Start_USB_MiniPC_TaskBuffer, &Start_USB_MiniPC_TaskControlBlock);
+  osThreadStaticDef(Start_USB_MiniPC_Task, USB_MiniPC_Task, osPriorityBelowNormal, 0, 1024, Start_USB_MiniPC_TaskBuffer, &Start_USB_MiniPC_TaskControlBlock);
   Start_USB_MiniPC_TaskHandle = osThreadCreate(osThread(Start_USB_MiniPC_Task), NULL);
+
+  /* definition and creation of Start_Shooting_Task */
+  osThreadStaticDef(Start_Shooting_Task, Shooting_Task, osPriorityBelowNormal, 0, 2048, Start_Shooting_TaskBuffer, &Start_Shooting_TaskControlBlock);
+  Start_Shooting_TaskHandle = osThreadCreate(osThread(Start_Shooting_Task), NULL);
+
+  /* definition and creation of Start_Image_Transmission_Task */
+  osThreadStaticDef(Start_Image_Transmission_Task, Image_Transmission_Task, osPriorityLow, 0, 2048, Start_Image_Transmission_TaskBuffer, &Start_Image_Transmission_TaskControlBlock);
+  Start_Image_Transmission_TaskHandle = osThreadCreate(osThread(Start_Image_Transmission_Task), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -167,22 +183,22 @@ __weak void INS_Task(void const * argument)
   /* USER CODE END INS_Task */
 }
 
-/* USER CODE BEGIN Header_Control_Task */
+/* USER CODE BEGIN Header_Chassis_Task */
 /**
-* @brief Function implementing the StartControl thread.
+* @brief Function implementing the Start_Chassis_Task thread.
 * @param argument: Not used
 * @retval None
 */
-/* USER CODE END Header_Control_Task */
-__weak void Control_Task(void const * argument)
+/* USER CODE END Header_Chassis_Task */
+__weak void Chassis_Task(void const * argument)
 {
-  /* USER CODE BEGIN Control_Task */
+  /* USER CODE BEGIN Chassis_Task */
   /* Infinite loop */
   for(;;)
   {
     osDelay(1);
   }
-  /* USER CODE END Control_Task */
+  /* USER CODE END Chassis_Task */
 }
 
 /* USER CODE BEGIN Header_CAN_Task */
@@ -203,22 +219,22 @@ __weak void CAN_Task(void const * argument)
   /* USER CODE END CAN_Task */
 }
 
-/* USER CODE BEGIN Header_Detect_Task */
+/* USER CODE BEGIN Header_Gimbal_Task */
 /**
-* @brief Function implementing the Start_Detect_Task thread.
+* @brief Function implementing the Start_Gimbal_Task thread.
 * @param argument: Not used
 * @retval None
 */
-/* USER CODE END Header_Detect_Task */
-__weak void Detect_Task(void const * argument)
+/* USER CODE END Header_Gimbal_Task */
+__weak void Gimbal_Task(void const * argument)
 {
-  /* USER CODE BEGIN Detect_Task */
+  /* USER CODE BEGIN Gimbal_Task */
   /* Infinite loop */
   for(;;)
   {
     osDelay(1);
   }
-  /* USER CODE END Detect_Task */
+  /* USER CODE END Gimbal_Task */
 }
 
 /* USER CODE BEGIN Header_USB_MiniPC_Task */
@@ -237,6 +253,42 @@ __weak void USB_MiniPC_Task(void const * argument)
     osDelay(1);
   }
   /* USER CODE END USB_MiniPC_Task */
+}
+
+/* USER CODE BEGIN Header_Shooting_Task */
+/**
+* @brief Function implementing the Start_Shooting_Task thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_Shooting_Task */
+__weak void Shooting_Task(void const * argument)
+{
+  /* USER CODE BEGIN Shooting_Task */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END Shooting_Task */
+}
+
+/* USER CODE BEGIN Header_Image_Transmission_Task */
+/**
+* @brief Function implementing the Start_Image_Transmission_Task thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_Image_Transmission_Task */
+__weak void Image_Transmission_Task(void const * argument)
+{
+  /* USER CODE BEGIN Image_Transmission_Task */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END Image_Transmission_Task */
 }
 
 /* Private application code --------------------------------------------------*/

@@ -10,8 +10,8 @@
       <TargetName>COD_H7_Template</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
-      <pArmCC>6190000::V6.19::ARMCLANG</pArmCC>
-      <pCCUsed>6190000::V6.19::ARMCLANG</pCCUsed>
+      <pArmCC>6190000::V6.19::.\ARM_Compiler_6.19</pArmCC>
+      <pCCUsed>6190000::V6.19::.\ARM_Compiler_6.19</pCCUsed>
       <uAC6>1</uAC6>
       <TargetOption>
         <TargetCommonOption>
@@ -391,19 +391,9 @@
               <FilePath>..\Application\Task\Src\INS_Task.c</FilePath>
             </File>
             <File>
-              <FileName>Control_Task.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Application\Task\Src\Control_Task.c</FilePath>
-            </File>
-            <File>
               <FileName>CAN_Task.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Application\Task\Src\CAN_Task.c</FilePath>
-            </File>
-            <File>
-              <FileName>Detect_Task.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Application\Task\Src\Detect_Task.c</FilePath>
             </File>
             <File>
               <FileName>USB_MiniPC_Task.c</FileName>
@@ -414,6 +404,26 @@
               <FileName>Config.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\Application\Task\Inc\Config.h</FilePath>
+            </File>
+            <File>
+              <FileName>Chassis_Task.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Application\Task\Src\Chassis_Task.c</FilePath>
+            </File>
+            <File>
+              <FileName>Gimbal_Task.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Application\Task\Src\Gimbal_Task.c</FilePath>
+            </File>
+            <File>
+              <FileName>Shooting_Task.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Application\Task\Src\Shooting_Task.c</FilePath>
+            </File>
+            <File>
+              <FileName>Image_Transmission_Task.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Application\Task\Src\Image_Transmission_Task.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -469,6 +479,16 @@
               <FileName>Bmi088_Reg.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\Components\Device\Inc\Bmi088_Reg.h</FilePath>
+            </File>
+            <File>
+              <FileName>rtt_log.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Device\Src\rtt_log.c</FilePath>
+            </File>
+            <File>
+              <FileName>rtt_log.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Components\Device\Inc\rtt_log.h</FilePath>
             </File>
           </Files>
         </Group>
@@ -2273,6 +2293,11 @@
               <FileName>SEGGER_SYSVIEW_Config_FreeRTOS.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\SystemView\Sample\FreeRTOSV10\Config\Cortex-M\SEGGER_SYSVIEW_Config_FreeRTOS.c</FilePath>
+            </File>
+            <File>
+              <FileName>SEGGER_RTT_printf.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\SystemView\SEGGER\SEGGER_RTT_printf.c</FilePath>
             </File>
           </Files>
         </Group>
