@@ -1,15 +1,94 @@
-# 2025RoboMaster辽宁科技大学COD战队电控通用控制系统(达妙MC02 STM32H723VGT6)
+﻿# H7 Embedded Control Code
 
-## **1** **简介**
+## Overview
 
-开发工具：Keil V5.38 STM32CubeMX V6.12.0 VsCode
+This repository contains the low-level embedded firmware for a robot control system built around the DaMiao MC02 development board based on the STM32H723VGT6 microcontroller. It implements the MCU-side control logic for chassis, gimbal, shooting, sensor acquisition, and communication with a high-level Jetson computer.
 
-软件环境：Windows11
+The code is designed for real-time control and coordination of robot subsystems, while exposing a UART interface for command and telemetry exchange with the high-level Jetson system.
 
-硬件环境：达妙MC-02开发板 (STM32H723VGT6) [购买链接](https://item.taobao.com/item.htm?spm=a21n57.sem.item.1.11333903KJqSFo&priceTId=213e002217390905362315413e1b2b&utparam=%7B%22aplus_abtest%22%3A%223b7279edadc7c1c9bb817ff888417af7%22%7D&id=814954787248&ns=1&abbucket=15&xxc=taobaoSearch&skuId=5681498675796&pisk=gfjKxwtqq5VnVvNYTMzMEkdeuTwMyPXEX6WjqQAnP1COn1wer7WWF3C1ZJRhFW5R2C6P-exBZUd5i_plxgjR70BVUM2eqJ-FL3-7iSqDw9We4UduSmsp1c9FCLgWPPx_ORFNUSq0mOUBL3X_iMj_RWpen0tWRUTs1CJmdQ1WRli6_LJSOLiQBRpy1LgBOLg6CKJ2N01SVh96KKnSO0iB5d9e1QtWV_6_BLDE08AszQiRkSLJjhDFM0i5XpL_StA6bhekBeefpCi7GGpKgI6B60iWtTcVyOB39mWMYO1vn6qsvsBVb1p1GuF94175NLC_0bxFo6S2WOzjfOxp_E9ff8iXZMQGhCKxFk69vBLfxeMoqs6OFZYOj-Z2vHOCrHWoHWXOv6XFXTDS5HKhWEIpcolBZNXA2LIzalCA3G59CsZ8OgJdmiBdqjAvE2wTB4uyRdrDKGTIwgRKGdd0pz0rzF4XBI2TB4uyRdJ9iRjxz48gl)
+## Key Features
 
-编译工具：Arm Compiler V6.19，C/C++编译
+- STM32H723VGT6 MCU firmware for DaMiao MC02
+- FreeRTOS-based multitasking architecture
+- Motor control via FDCAN for DJI-compatible and other actuator controllers
+- Chassis, gimbal, shooting, and sensor feedback control loops
+- Remote controller input processing
+- UART / USB CDC communication with host / Jetson
+- SEGGER SystemView support for runtime tracing and debugging
+- Peripheral support for GPIO, ADC, SPI, timers, DMA, BDMA, FDCAN, and USB
 
-剩下内容请阅读[README.pdf](./README.pdf)
+## Project Structure
 
-![](.\ad140e9c0190149d99c92ce133efdfd.jpg)
+- `Application/Task/Inc`, `Application/Task/Src`
+  - Application-level tasks and control logic
+  - Control, CAN, INS, detection, and USB/PC communication tasks
+- `BSP/Inc`, `BSP/Src`
+  - Board support package and hardware peripheral wrappers
+  - Drivers for ADC, CAN, DWT, GPIO, PWM, SPI, ticks, UART, and MCU init
+- `Components/Device/Inc`, `Components/Device/Src`
+  - Motor drivers, device abstractions, and communication helpers
+  - Includes motor control modules and MiniPC/Jetson interface code
+- `Components/Algorithm`, `Components/Controller`
+  - Control algorithms, PID loops, state machines, and higher-level controllers
+- `Core/Inc`, `Core/Src`
+  - CubeMX-generated HAL setup, system startup, and FreeRTOS integration
+- `Drivers/STM32H7xx_HAL_Driver`
+  - STM32H7 HAL library sources
+- `Middlewares/Third_Party/FreeRTOS`
+  - FreeRTOS kernel and scheduling sources
+- `SystemView/SEGGER`
+  - SEGGER SystemView and RTT instrumentation libraries
+- `USB_DEVICE`
+  - USB device stack and USB CDC support
+- `MDK-ARM`
+  - Keil MDK project files and build artifacts
+
+## Hardware Platform
+
+- Target MCU: STM32H723VGT6
+- Board: DaMiao MC02 development board
+- Main high-level interface: UART or USB CDC to Jetson
+- Motor control: FDCAN bus to drive DJI, Cubemars, and custom motors
+- Sensor and actuator interfaces: ADC, SPI, GPIO, PWM, timers
+
+## Firmware Architecture
+
+- `main.c` initializes the MCU, caches, clocks, peripherals, and starts the FreeRTOS scheduler
+- `Control_Task.c` implements the main robot control loop:
+  - updates the state machine
+  - reads sensor and remote control data
+  - computes target and measured values
+  - runs PID-based motion control for chassis, gimbal, and shooting
+- Communication modules bridge the MCU with the Jetson/high-level host
+- Device modules handle low-level CAN, UART, and USB messaging
+
+## Jetson / High-Level Communication
+
+- The MCU provides serial communication channels for command, status, and telemetry
+- `USB_MiniPC_Task` supports a USB CDC connection as a virtual COM port
+- UART-based protocols send robot state and receive motion commands
+- This repository is intended to be paired with high-level planning and perception software on a Jetson system
+
+## Development Environment
+
+- IDE: Keil MDK-ARM 5.38
+- STM32CubeMX: 6.12.0
+- Compiler: Arm Compiler 6.19
+- Host OS: Windows 11
+- Optional editor: Visual Studio Code
+
+## Notes
+
+- This repository focuses on low-level firmware and hardware interfacing.
+- High-level algorithms such as navigation and perception are expected to run on an external Jetson platform.
+- Legacy documentation is included in `README.pdf`.
+- `MDK-ARM` contains the Keil project files for building the firmware.
+
+## Getting Started
+
+1. Open `MDK-ARM/COD_H7_Template.uvprojx` in Keil.
+2. Review `Core/` for peripheral initialization and clock setup.
+3. Inspect `Application/Task/Src/Control_Task.c` for the main control logic.
+4. Explore `Components/Device` for motor and communication driver details.
+5. Connect the MC02 board to the Jetson host using UART or USB-C for command/data exchange.
+
