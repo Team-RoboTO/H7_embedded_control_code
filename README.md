@@ -86,9 +86,27 @@ The code is designed for real-time control and coordination of robot subsystems,
 
 ## Getting Started
 
-1. Open `MDK-ARM/COD_H7_Template.uvprojx` in Keil.
-2. Review `Core/` for peripheral initialization and clock setup.
-3. Inspect `Application/Task/Src/Control_Task.c` for the main control logic.
-4. Explore `Components/Device` for motor and communication driver details.
-5. Connect the MC02 board to the Jetson host using UART or USB-C for command/data exchange.
+### Opening the Project
+Open `MDK-ARM/COD_H7_Template.uvprojx` in Keil µVision (look for the file marked with the green Keil icon).
+
+### Understanding the Codebase
+
+**1. Robot Configuration** — Start here  
+Check `Components/controller/Robot_config.h` to identify which robot or subsystem is currently selected. This file is the entry point for understanding what the build is targeting.
+
+**2. Control Logic**  
+Explore the rest of `Components/controller/` for the core control logic, including:
+- The **state machine** governing high-level behavior
+- **Subsystem controllers** for each actuated or sensed component
+
+**3. Device Drivers**  
+Browse `Components/device/` to see how hardware is integrated — including the IMU, motors, and any other peripherals.
+
+**4. Application Layer**  
+Finally, look through:
+- `Application/Task/` — FreeRTOS task definitions and scheduling
+- `Application/User/Core/` — top-level initializations and high-level application logic
+
+
+
 
