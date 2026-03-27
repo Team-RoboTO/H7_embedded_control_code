@@ -148,44 +148,20 @@ void control_loop_gimbal() {
             switch (state_remote_commands) {
 
                 case COMMANDS_REMOTE_CONTROLLER:
-                    remote_commands_yaw   = -remote_ctrl.rc.ch[0];
-                    remote_commands_pitch = -remote_ctrl.rc.ch[1];
+                    remote_commands_yaw   = -RC_info.RC.Channel[0];
+                    remote_commands_pitch = -RC_info.RC.Channel[1];
                         if (remote_commands_yaw != 0){
 													gimbal.r_x[0] = gimbal.x[0] + (remote_commands_yaw / MAX_RC_TILT) * 45 * DEG_TO_RAD;
 												}
                         test_angle = cm_p_des_origin + (remote_commands_pitch / MAX_RC_TILT) * 20 * DEG_TO_RAD;
                     break;
 
-                case COMMANDS_KEYBOARD_MOUSE:
-									yaw_command_from_cv_prev   = yaw_command_from_cv;
-									pitch_command_from_cv_prev = pitch_command_from_cv;
-									time_stamp_cv_prev = time_stamp_cv;
-									yaw_command_from_cv        = yaw_cv;
-									pitch_command_from_cv      = pitch_cv;
-									time_stamp_cv              = time_cv;
-
-									if (time_stamp_cv_prev != time_stamp_cv) {
-											m_linear_interpolation_yaw   = yaw_command_from_cv   * OVER_ESTIMATED_CV_FREQUENCY;
-											m_linear_interpolation_pitch = pitch_command_from_cv * OVER_ESTIMATED_CV_FREQUENCY;
-											gimbal.r_x[0] = gimbal.x[0];
-											gimbal.r_x[1] = gimbal.x[1];
-											yaw_sat   = gimbal.x[0] + yaw_command_from_cv;
-											pitch_sat = gimbal.x[1] + pitch_command_from_cv;
-									}
-
-									gimbal.r_x[0] += m_linear_interpolation_yaw;
-									gimbal.r_x[1] += m_linear_interpolation_pitch;
-									saturate(&gimbal.r_x[0], yaw_sat);
-									saturate(&gimbal.r_x[1], pitch_sat);
-									break;
-								
-								
-								
-//                    remote_commands_yaw   = MOUSE_X_MOVE_SPEED*0.001;
-//                    remote_commands_pitch = MOUSE_Y_MOVE_SPEED*0.001;
-//                    gimbal.r_x[0] += (remote_commands_yaw   / MAX_RC_TILT) * 15 * DEG_TO_RAD;
-//                    gimbal.r_x[1]  = cm_p_des_origin + (remote_commands_pitch / MAX_RC_TILT) * 30 * DEG_TO_RAD;
-//                    break;
+                case COMMANDS_KEYBOARD_MOUSE:						
+                    remote_commands_yaw   = RC_info.Mouse.X*0.001;
+                    remote_commands_pitch = RC_info.Mouse.Y*0.001;
+                    gimbal.r_x[0] += (remote_commands_yaw   / MAX_RC_TILT) * 15 * DEG_TO_RAD;
+                    gimbal.r_x[1]  = cm_p_des_origin + (remote_commands_pitch / MAX_RC_TILT) * 30 * DEG_TO_RAD;
+                    break;
 
                 default:
                     break;
@@ -193,47 +169,46 @@ void control_loop_gimbal() {
             break;
 
         case GIMBAL_AUTO_AIM:
-            yaw_command_from_cv_prev   = yaw_command_from_cv;
-            pitch_command_from_cv_prev = pitch_command_from_cv;
-						time_stamp_cv_prev = time_stamp_cv;
-            yaw_command_from_cv        = yaw_cv;
-            pitch_command_from_cv      = pitch_cv;
-				    time_stamp_cv              = time_cv;
+						yaw_command_from_cv_prev   = yaw_command_from_cv;
+						pitch_command_from_cv_prev = pitch_command_from_cv;
+						time_stamp_cv_prev         = time_stamp_cv;
 
-            if (time_stamp_cv_prev != time_stamp_cv) {
-                m_linear_interpolation_yaw   = yaw_command_from_cv   * OVER_ESTIMATED_CV_FREQUENCY;
-                m_linear_interpolation_pitch = pitch_command_from_cv * OVER_ESTIMATED_CV_FREQUENCY;
-                gimbal.r_x[0] = gimbal.x[0];
-                gimbal.r_x[1] = gimbal.x[1];
-                yaw_sat   = gimbal.x[0] + yaw_command_from_cv;
-                pitch_sat = gimbal.x[1] + pitch_command_from_cv;
-            }
+						yaw_command_from_cv   = yaw_cv;
+						pitch_command_from_cv = pitch_cv;
+						time_stamp_cv         = time_cv;
 
-            gimbal.r_x[0] += m_linear_interpolation_yaw;
-            gimbal.r_x[1] += m_linear_interpolation_pitch;
-            saturate(&gimbal.r_x[0], yaw_sat);
-            saturate(&gimbal.r_x[1], pitch_sat);
-            break;
+						// dt between last two CV frames (seconds)
+						float cv_dt = time_stamp_cv - time_stamp_cv_prev;
+
+						if (cv_dt > 0.0f) {
+								// Use a counter or a running timestamp here
+								float t_now = HAL_GetTick();
+								float alpha = (t_now - time_stamp_cv_prev) / cv_dt;
+								alpha = fminf(fmaxf(alpha, 0.0f), 1.0f);
+
+								// Interpolate the relative command
+								float yaw_interp   = yaw_command_from_cv_prev + alpha * (yaw_command_from_cv - yaw_command_from_cv_prev);
+								float pitch_interp = pitch_command_from_cv_prev + alpha * (pitch_command_from_cv - pitch_command_from_cv_prev);
+
+								// Convert relative ? absolute reference
+								gimbal.r_x[0] = gimbal.x[0] + yaw_interp;
+								gimbal.r_x[1] = cm_p_des_origin + pitch_interp;
+						} else {
+								// No valid CV interval yet — hold current position
+								gimbal.r_x[0] = gimbal.x[0];
+								gimbal.r_x[1] = cm_p_des_origin;
+						}
+						break;
+				
 
         default:
             break;
     }
 
-    //saturate_in_range(&gimbal.r_x[1], -23 * DEG_TO_RAD, +19.5 * DEG_TO_RAD);
-
   /*****************************/
  /*   CONTROL LOOP EXECUTION  */
 /*****************************/
 
-//    // --- OUTER LOOP: Position Control (yaw only) the output is a desired yaw velocity.
-//    gimbal.r_x[2] = PID_Calculate(&pid_yaw_pos, gimbal.r_x[0], gimbal.x[0]);
-
-//    // --- INNER LOOP: Velocity Control (yaw only) the output is a motor velocity command.
-//    for (uint8_t i = 0; i < gimbal.m; i++) {
-//        gimbal.u_prev[i] = gimbal.u[i];
-//    }
-//    gimbal.u[0] = PID_Calculate(&pid_yaw_vel, gimbal.r_x[2], gimbal.x[2]);
 	gimbal.u[0] = PID_Calculate(&pid_yaw_pos, gimbal.r_x[0], gimbal.x[0]);
-// transmit commands over CAN (alternating to respect bandwidth limits)
 
 }

@@ -73,7 +73,7 @@ void robot_states_update_state_machine() {
 
 uint8_t _state_machine_remote_commands() {
     
-    switch(remote_ctrl.rc.s[0]) {
+    switch(RC_info.RC.Switch) {
         
         case 2:
             // Stop commands
@@ -81,11 +81,12 @@ uint8_t _state_machine_remote_commands() {
 				
 				case 1:
             // Get commands from remote controller
-            return COMMANDS_REMOTE_CONTROLLER;
+				    if (RC_info.RC.Right == 0) return COMMANDS_REMOTE_CONTROLLER;
+				    else return COMMANDS_KEYBOARD_MOUSE;
         
         case 3:
             // Get commands from keyboard and mouse
-            return COMMANDS_KEYBOARD_MOUSE;
+            return COMMANDS_AUTONOMUS;
         
         default:
             return state_remote_commands;
@@ -111,28 +112,15 @@ uint8_t _state_machine_chassis() {
 
 uint8_t _state_machine_chassis_remote_controller() {
     
-    switch(remote_ctrl.rc.s[1]) {
+				if (RC_info.RC.Trigger == 1) return CHASSIS_CONTIGUOUS_ROTATION;
         
-        case 1:
-            // Chassis-follow-gimbal
-            return CHASSIS_FOLLOW_GIMBAL;
+        else return CHASSIS_FOLLOW_GIMBAL;
         
-        case 3:
-            // Contiguous rotation
-            return CHASSIS_CONTIGUOUS_ROTATION;
-				
-				case 2:
-            // Chassis-follow-gimbal
-            return CHASSIS_FOLLOW_GIMBAL;
-        
-        default:
-            return state_chassis;
-    }
 }
 
 uint8_t _state_machine_chassis_keyboard_mouse() {
     
-    if (KeyBoard_SHIFT) {
+    if (RC_info.Key.Set.SHIFT) {
         // Contiguous rotation
 		return CHASSIS_CONTIGUOUS_ROTATION;
         
@@ -167,7 +155,7 @@ uint8_t _state_machine_gimbal_remote_controller() {
 
 uint8_t _state_machine_gimbal_keyboard_mouse() {
     
-    if (MOUSE_PRESSED_RIGHT) {
+    if (RC_info.Mouse.Press_R) {
         // Activate auto-aim driven by CV
         return GIMBAL_AUTO_AIM;
     }
@@ -194,7 +182,7 @@ uint8_t _state_machine_shoot_wheels() {
 
 uint8_t _state_machine_shoot_wheels_remote_controller() {
     
-    if (abs(remote_ctrl.rc.ch[4]) >= shoot_wheels_spin.threshold_rc_wheel_released) {
+    if (abs(RC_info.RC.Wheel) >= shoot_wheels_spin.threshold_rc_wheel_released) {
         // Activate/Continue shooting
         shoot_wheels_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3;
         return SHOOT_WHEELS_SPIN;
@@ -210,7 +198,7 @@ uint8_t _state_machine_shoot_wheels_remote_controller() {
 
 uint8_t _state_machine_shoot_wheels_keyboard_mouse() {
     
-    if (MOUSE_PRESSED_LEFT || MOUSE_PRESSED_RIGHT) {
+    if (RC_info.Mouse.Press_L || RC_info.Mouse.Press_R) {
         // Activate/Continue shooting
         shoot_wheels_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3;
         return SHOOT_WHEELS_SPIN;
@@ -250,12 +238,12 @@ uint8_t _state_machine_rev_remote_controller() {
     if (HAL_GetTick() - time_rev_locked > 0.3*1e3)
         return REV_UNSTUCK;
     
-    if (remote_ctrl.rc.ch[4] >= 300) {
+    if (RC_info.RC.Wheel >= 300) {
         // Multiple shooting
         rev_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3;
         return REV_MULTIPLE_SHOOTING;
     }
-    else if (remote_ctrl.rc.ch[4] <= -300) {
+    else if (RC_info.RC.Wheel <= -300) {
         // Single shooting
         rev_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3;
         return REV_SINGLE_SHOOTING;
@@ -270,18 +258,18 @@ uint8_t _state_machine_rev_keyboard_mouse() {
     
     // TODO manage REV_UNSTUCK state
     
-    if (MOUSE_PRESSED_LEFT) {
+    if (RC_info.Mouse.Press_L) {
         // Activate shooting
         rev_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3;
         return state_rev;
     }
-    else if ((MOUSE_PRESSED_LEFT) && ((HAL_GetTick() * 1e-3 - rev_spin.timestamp_last_shoot_command) < rev_spin.time_threshold_hold_mouse_key_multiple_shooting)) {
+    else if ((RC_info.Mouse.Press_L) && ((HAL_GetTick() * 1e-3 - rev_spin.timestamp_last_shoot_command) < rev_spin.time_threshold_hold_mouse_key_multiple_shooting)) {
         // Triple shooting
 		
         return REV_TRIPLE_SHOOTING;
 
     }
-    else if (MOUSE_PRESSED_LEFT && HAL_GetTick() * 1e-3 - rev_spin.timestamp_last_shoot_command >= rev_spin.time_threshold_hold_mouse_key_multiple_shooting) {
+    else if (RC_info.Mouse.Press_L && HAL_GetTick() * 1e-3 - rev_spin.timestamp_last_shoot_command >= rev_spin.time_threshold_hold_mouse_key_multiple_shooting) {
         // Multiple shooting
         return REV_MULTIPLE_SHOOTING;
     }

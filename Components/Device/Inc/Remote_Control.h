@@ -24,6 +24,9 @@
 #include "math.h"
 #include <stdio.h>
 #include <string.h>
+#include "Robot_config.h"
+#include "Image_Transmission.h"
+
 
 #define MAX_RC_TILT 660
 /* Exported defines -----------------------------------------------------------*/
@@ -166,52 +169,27 @@ typedef  struct
 
 	bool rc_lost;   /*!< lost flag */
 	uint8_t online_cnt;   /*!< online count */
-} Remote_Info_Typedef;
+} NDJ6_Info_Typedef;
 
 /* Exported variables ---------------------------------------------------------*/
 /**
  * @brief remote control structure variable
  */
-extern Remote_Info_Typedef remote_ctrl;
+extern NDJ6_Info_Typedef NDJ6_info;
 /**
  * @brief remote control usart RxDMA MultiBuffer (cache-line aligned)
  */
 extern uint8_t SBUS_MultiRx_Buf[2][SBUS_RX_BUF_ALIGNED];
 
-/* Mouse Exported defines -----------------------------------------------------*/
-#define MOUSE_X_MOVE_SPEED    (remote_ctrl.mouse.x )
-#define MOUSE_Y_MOVE_SPEED    (remote_ctrl.mouse.y )
-#define MOUSE_Z_MOVE_SPEED    (remote_ctrl.mouse.z )
-#define MOUSE_PRESSED_LEFT    (remote_ctrl.mouse.press_l)
-#define MOUSE_PRESSED_RIGHT   (remote_ctrl.mouse.press_r)
-
-/* KeyBoard Exported defines --------------------------------------------------*/
-#define KeyBoard_W            (remote_ctrl.key.set.W)
-#define KeyBoard_S            (remote_ctrl.key.set.S)
-#define KeyBoard_A            (remote_ctrl.key.set.A)
-#define KeyBoard_D            (remote_ctrl.key.set.D)
-#define KeyBoard_SHIFT        (remote_ctrl.key.set.SHIFT)
-#define KeyBoard_CTRL         (remote_ctrl.key.set.CTRL)
-#define KeyBoard_Q            (remote_ctrl.key.set.Q)
-#define KeyBoard_E            (remote_ctrl.key.set.E)
-#define KeyBoard_R            (remote_ctrl.key.set.R)
-#define KeyBoard_F            (remote_ctrl.key.set.F)
-#define KeyBoard_G            (remote_ctrl.key.set.G)
-#define KeyBoard_Z            (remote_ctrl.key.set.Z)
-#define KeyBoard_X            (remote_ctrl.key.set.X)
-#define KeyBoard_C            (remote_ctrl.key.set.C)
-#define KeyBoard_V            (remote_ctrl.key.set.V)
-#define KeyBoard_B            (remote_ctrl.key.set.B)
-
 /* Exported functions prototypes ---------------------------------------------*/
 /**
   * @brief  convert the remote control received message
   */
-extern void SBUS_TO_RC(volatile const uint8_t *sbus_buf, Remote_Info_Typedef *remote_ctrl);
+extern void SBUS_TO_RC(volatile const uint8_t *sbus_buf, NDJ6_Info_Typedef *remote_ctrl);
 /**
   * @brief  clear the remote control data while the device offline
   */
-extern void Remote_Message_Moniter(Remote_Info_Typedef *remote_ctrl);
+extern void Remote_Message_Moniter(NDJ6_Info_Typedef *remote_ctrl);
 
 /**
   * @brief  report the cover status that acrroding the key_R swicthing
@@ -230,5 +208,9 @@ extern bool Mouse_Pressed_Right(void);
   * @brief  report the fire status that acrroding the mouse left swicthing
   */
 extern bool Mouse_Pressed_Left(void);
+
+
+extern VT13_Info_TypeDef RC_info; //struct that includes RC, mouse and keyboards data
+
 
 #endif //REMOTE_CONTROL_H

@@ -15,6 +15,7 @@
 #include "Image_Transmission.h"
 #include "CRC.h"
 #include "usart.h"
+#include "remote_control.h"
 
 __attribute__((section (".AXI_SRAM"))) uint8_t Image_Trans_MultiRx_Buff[2][39];
 
@@ -100,6 +101,12 @@ void VT13_Info_Update(uint8_t *Buff ,VT13_Info_TypeDef *VT13_Info){
 				VT13_Info->Mouse.Press_M = (Buff[16] >> 4) & 0x03;
 
         VT13_Info->Key.V = (Buff[17] | (Buff[18] << 8));
+				
+				#if IS_VT13_REMOTE
+	
+						RC_info = *VT13_Info;                          // direct struct copy, same layout
+						
+				#endif
 		 }
 		 
 }

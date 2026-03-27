@@ -2,11 +2,12 @@
 #include "Remote_Control.h"
 #include "ramp.h"
 
+
 /* Exported variables ---------------------------------------------------------*/
 /**
  * @brief remote control structure variable
  */
- Remote_Info_Typedef remote_ctrl={
+ NDJ6_Info_Typedef NDJ6_info={
 	.online_cnt = 0xFAU,
 	.rc_lost = true,
 };
@@ -35,7 +36,7 @@ static void Key_Status_Update(KeyBoard_Info_Typedef *KeyInfo,bool KeyBoard_Statu
   *         contains the information  for the remote control.
   * @retval none
   */
-void SBUS_TO_RC(volatile const uint8_t *sbus_buf, Remote_Info_Typedef *remote_ctrl)
+void SBUS_TO_RC(volatile const uint8_t *sbus_buf, NDJ6_Info_Typedef *remote_ctrl)
 {
     if (sbus_buf == NULL || remote_ctrl == NULL) return;
 	    /* Channel 0, 1, 2, 3 */
@@ -72,6 +73,25 @@ void SBUS_TO_RC(volatile const uint8_t *sbus_buf, Remote_Info_Typedef *remote_ct
 		
 		/* reset the lost flag */
 		remote_ctrl->rc_lost = false;
+		
+		#if IS_NDJ6_REMOTE
+		RC_info.RC.Channel[0] = NDJ6_info.rc.ch[0];
+    RC_info.RC.Channel[1] = NDJ6_info.rc.ch[1];
+    RC_info.RC.Channel[2] = NDJ6_info.rc.ch[2];
+    RC_info.RC.Channel[3] = NDJ6_info.rc.ch[3];
+    RC_info.RC.Wheel       = NDJ6_info.rc.ch[4];
+
+    RC_info.RC.Switch      = NDJ6_info.rc.s[0];
+    //RC_info.RC.Right       = NDJ6_info.rc.s[1];
+
+    RC_info.Mouse.X        = NDJ6_info.mouse.x;
+    RC_info.Mouse.Y        = NDJ6_info.mouse.y;
+    RC_info.Mouse.Z        = NDJ6_info.mouse.z;
+    RC_info.Mouse.Press_L  = NDJ6_info.mouse.press_l;
+    RC_info.Mouse.Press_R  = NDJ6_info.mouse.press_r;
+
+    RC_info.Key.V          = NDJ6_info.key.v;
+		#endif
 }
 //------------------------------------------------------------------------------
 
@@ -81,11 +101,11 @@ void SBUS_TO_RC(volatile const uint8_t *sbus_buf, Remote_Info_Typedef *remote_ct
   *         contains the information  for the remote control.
   * @retval none
   */
-void Remote_Message_Moniter(Remote_Info_Typedef *remote_ctrl)
+void Remote_Message_Moniter(NDJ6_Info_Typedef *remote_ctrl)
 {
     if(remote_ctrl->online_cnt <= 0x32U)
     {
-        memset(remote_ctrl, 0, sizeof(Remote_Info_Typedef));
+        memset(remote_ctrl, 0, sizeof(NDJ6_Info_Typedef));
 
         /* reset sticks and dial to center so they read 0 after the -1024 offset */
         remote_ctrl->rc.ch[0] = 1024U;
@@ -101,4 +121,7 @@ void Remote_Message_Moniter(Remote_Info_Typedef *remote_ctrl)
         remote_ctrl->online_cnt--;
     }
 }
+
+VT13_Info_TypeDef RC_info = {0};
+
 //------------------------------------------------------------------------------

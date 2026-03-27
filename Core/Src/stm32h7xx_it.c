@@ -464,7 +464,7 @@ void UART5_IRQHandler(void)
               if (size == SBUS_RX_BUF_NUM)
               {
                   SCB_InvalidateDCache_by_Addr((uint32_t *)SBUS_MultiRx_Buf[0], 32);
-                  SBUS_TO_RC(SBUS_MultiRx_Buf[0], &remote_ctrl);
+                  SBUS_TO_RC(SBUS_MultiRx_Buf[0], &NDJ6_info);
               }
           }
           /* Current memory buffer used is Memory 1 */
@@ -482,7 +482,7 @@ void UART5_IRQHandler(void)
               if (size == SBUS_RX_BUF_NUM)
               {
                   SCB_InvalidateDCache_by_Addr((uint32_t *)SBUS_MultiRx_Buf[1], 32);
-                  SBUS_TO_RC(SBUS_MultiRx_Buf[1], &remote_ctrl);
+                  SBUS_TO_RC(SBUS_MultiRx_Buf[1], &NDJ6_info);
               }
           }
 

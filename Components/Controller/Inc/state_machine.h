@@ -13,6 +13,7 @@
 #define COMMANDS_STOP                   0
 #define COMMANDS_REMOTE_CONTROLLER      1
 #define COMMANDS_KEYBOARD_MOUSE         2
+#define	COMMANDS_AUTONOMUS              3 
 
 // Chassis
 #define CHASSIS_FOLLOW_GIMBAL           0

@@ -78,8 +78,8 @@ void control_loop_chassis() {
         
             case COMMANDS_REMOTE_CONTROLLER:
                 // Update commands from remote controller
-                remote_commands_bwd_fwd     = remote_ctrl.rc.ch[3];
-                remote_commands_left_right  = remote_ctrl.rc.ch[2];
+                remote_commands_bwd_fwd     = RC_info.RC.Channel[3];
+                remote_commands_left_right  = RC_info.RC.Channel[2];
                 break;
             case COMMANDS_KEYBOARD_MOUSE:
 							 remote_commands_bwd_fwd = fwd_bwd_cv*sqrt(2)*radius_wheels;
