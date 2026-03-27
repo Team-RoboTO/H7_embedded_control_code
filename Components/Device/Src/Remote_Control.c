@@ -7,6 +7,9 @@
 /**
  * @brief remote control structure variable
  */
+ 
+ VT13_Info_TypeDef RC_info = {0};
+ 
  NDJ6_Info_Typedef NDJ6_info={
 	.online_cnt = 0xFAU,
 	.rc_lost = true,
@@ -121,7 +124,5 @@ void Remote_Message_Moniter(NDJ6_Info_Typedef *remote_ctrl)
         remote_ctrl->online_cnt--;
     }
 }
-
-VT13_Info_TypeDef RC_info = {0};
 
 //------------------------------------------------------------------------------

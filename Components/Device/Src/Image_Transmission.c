@@ -3,8 +3,6 @@
   ******************************************************************************
   * @file           : Image_Transmission.c
   * @brief          : Image_Transmission_Info interfaces functions 
-  * @author         : GrassFan Wang
-  * @date           : 2025/4/20
   * @version        : v1.0
   ******************************************************************************
   * @attention      : to be tested
@@ -107,8 +105,7 @@ void VT13_Info_Update(uint8_t *Buff ,VT13_Info_TypeDef *VT13_Info){
 						RC_info = *VT13_Info;                          // direct struct copy, same layout
 						
 				#endif
-		 }
-		 
+		 }	 
 }
 
 

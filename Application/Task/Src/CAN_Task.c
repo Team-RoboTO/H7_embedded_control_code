@@ -109,8 +109,8 @@ void CAN_Task(void const * argument)
                 DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &DM_Yaw_Motor, 0, gimbal.u[0], 0, 1, 0);
             #endif
             #if IS_CHASSIS_ENABLED
-                CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &CM_Chassis_Motor[0], 0, chassis.r_x[0], 0, 0.2, 0);
-                CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &CM_Chassis_Motor[1], 0, chassis.r_x[1], 0, 0.2, 0);
+                CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &CM_Chassis_Motor[0], 0, chassis.r_x[0], 0, MIT_kd, 0);
+                CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &CM_Chassis_Motor[1], 0, chassis.r_x[1], 0, MIT_kd, 0);
             #endif
             
             split_flag = 1; // Toggle flag for the next ms
@@ -118,11 +118,11 @@ void CAN_Task(void const * argument)
         else {
             // Second Half: Chassis 2, 3 and Pitch
             #if IS_GIMBAL_ENABLED
-                CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &CM_Pitch_Motor, test_angle * 25 / 45, 0, 20, 1, 0);
+                CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &CM_Pitch_Motor, gimbal.r_x[1] * 25 / 45, 0, 20, 1, 0);
             #endif
             #if IS_CHASSIS_ENABLED
-                CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &CM_Chassis_Motor[2], 0, chassis.r_x[2], 0, 0.2, 0);
-                CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &CM_Chassis_Motor[3], 0, chassis.r_x[3], 0, 0.2, 0);
+                CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &CM_Chassis_Motor[2], 0, chassis.r_x[2], 0, MIT_kd, 0);
+                CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &CM_Chassis_Motor[3], 0, chassis.r_x[3], 0, MIT_kd, 0);
             #endif
             
             split_flag = 0; // Toggle flag back

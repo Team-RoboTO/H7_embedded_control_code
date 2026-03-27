@@ -10,6 +10,7 @@
 /*************************/
 
 extern controlled_system_MIT_t chassis;
+extern float MIT_kd;
 
   /********************/
  /*   CONTROL LOOP   */

@@ -29,11 +29,6 @@ controlled_system_t shoot_wheels_and_rev = {
  /*   CONTROLLERS   */
 /*******************/
 
-/**
- * Parameter array layout (PID_PARAMETER_NUM = 7):
- * [0] KP, [1] KI, [2] KD, [3] Alpha (LPF), [4] Deadband, [5] LimitIntegral, [6] LimitOutput
- */
-
 static PID_Info_TypeDef pid_shoot_wheel_left;
 static PID_Info_TypeDef pid_shoot_wheel_right;
 static PID_Info_TypeDef pid_rev_pos;
@@ -53,18 +48,12 @@ static float pid_rev_vel_params[PID_PARAMETER_NUM] = {7.0f,  0.0f, 0.0f, 0.0f, 0
  /*   CONTROL VARIABLES   */
 /*************************/
 
-float r_shoot_wheels_ang_vel = 400;  // [rad/s]
-static uint8_t need_to_set_rev_ang_pos_reference = true;
-static float rev_shooting_frequency = 20;  // Bullets per second [Hz]
+float r_shoot_wheels_ang_vel                       = 400;  // [rad/s]
+static uint8_t need_to_set_rev_ang_pos_reference   = true;
+static float rev_shooting_frequency                = 20;  // Bullets per second [Hz]
 
-static float gain_overall_shoot_wheels = 1.0f;
-static float gain_overall_rev          = 1.0f;
-static uint8_t is_first_iter          = true;
-bool unstuck_rev_enabled              = 0;
-
-// Runtime-adjustable Kp values for REV position loop per shooting mode
-static float Kp_pid_rev_pos_single_shooting = 27.0f;
-static float Kp_pid_rev_pos_triple_shooting = 9.0f;
+static uint8_t is_first_iter                       = true;
+bool unstuck_rev_enabled                           = 0;
 
   /********************/
  /*   CONTROL LOOP   */
@@ -202,13 +191,6 @@ void _control_loop_rev(void)
             }
             break;
 
-        case REV_TRIPLE_SHOOTING:
-            if (need_to_set_rev_ang_pos_reference && !unstuck_rev_enabled) {
-                shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.x[2] + 3 * pi / 4;
-                need_to_set_rev_ang_pos_reference = false;
-            }
-            break;
-
         case REV_MULTIPLE_SHOOTING:
             if (!unstuck_rev_enabled) {
                 shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.x[2];
@@ -218,20 +200,6 @@ void _control_loop_rev(void)
             break;
 
         default:
-            break;
-    }
-
-    // Adjust REV position PID gain depending on shooting mode.
-    // NOTE: PID_Info_TypeDef does not expose Kp directly at runtime,
-    // so we re-initialize only the parameter struct field and re-run PID_Param_Init
-    // to apply the updated gain without resetting the integral or error history.
-    switch (state_rev) {
-        case REV_TRIPLE_SHOOTING:
-            pid_rev_pos.Param.KP = Kp_pid_rev_pos_triple_shooting;
-            break;
-        case REV_SINGLE_SHOOTING:
-        default:
-            pid_rev_pos.Param.KP = Kp_pid_rev_pos_single_shooting;
             break;
     }
 

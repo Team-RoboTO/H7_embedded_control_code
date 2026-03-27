@@ -75,7 +75,7 @@ uint8_t _state_machine_remote_commands() {
     
     switch(RC_info.RC.Switch) {
         
-        case 2:
+        case 0:
             // Stop commands
             return COMMANDS_STOP;
 				

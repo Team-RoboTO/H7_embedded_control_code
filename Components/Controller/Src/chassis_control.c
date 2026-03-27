@@ -1,15 +1,14 @@
 #include "chassis_control.h"
+#include "robot_config.h"
+#include "state_machine.h"
 #include "PID.h"
 #include "Remote_Control.h"
-#include "state_machine.h"
 #include "Cubemars_Motor.h"
 #include "Damiao_Motor.h"
 #include "power_estimation.h"
-#include "Referee_System.h"
 #include "math_utils.h"
 #include "control_utils.h"
 #include "MiniPC.h"
-
 
   /*************************/
  /*   CONTROLLED SYSTEM   */
@@ -52,10 +51,10 @@ static float max_reference = 0;
 uint16_t chassis_power_limit_local = 60;
 
 //MIT variables
-static float MIT_p_des = 0.0f; 	// range -12.5 - +12.5 [rad]
-static float MIT_kp = 0.0f;    	// range 0-500
-static float MIT_kd = 0.15f;    	// range 0-5
-static float MIT_t_ff = 0.0f;   // range -15.0 - 15.0 [Nm]
+static float MIT_p_des = 0.0f; 	    // range -12.5 - +12.5 [rad]
+static float MIT_kp    = 0.0f;    	// range 0-500
+float MIT_kd           = 0.08f;    	// range 0-5
+static float MIT_t_ff  = 0.0f;      // range -15.0 - 15.0 [Nm]
 
 static float radius_wheels = 0.0825f;
 
@@ -65,8 +64,6 @@ static float radius_wheels = 0.0825f;
 
 void control_loop_chassis() {   
 	
-    
-		
     // Update outputs from sensor data
     for (uint8_t i = 0; i < chassis.p; i++) {
         chassis.x_prev[i] = chassis.x[i];
@@ -78,12 +75,16 @@ void control_loop_chassis() {
         
             case COMMANDS_REMOTE_CONTROLLER:
                 // Update commands from remote controller
-                remote_commands_bwd_fwd     = RC_info.RC.Channel[3];
-                remote_commands_left_right  = RC_info.RC.Channel[2];
+                remote_commands_bwd_fwd     = RC_info.RC.Channel[2];
+                remote_commands_left_right  = RC_info.RC.Channel[3];
                 break;
-            case COMMANDS_KEYBOARD_MOUSE:
+						
+            case COMMANDS_AUTONOMUS:
+							 // Update commands from CV
 							 remote_commands_bwd_fwd = fwd_bwd_cv*sqrt(2)*radius_wheels;
 							 remote_commands_left_right = left_right_cv*sqrt(2)*radius_wheels;
+					 
+						case COMMANDS_KEYBOARD_MOUSE:
 //                // Update commands from keyboard
 ////                compute_weights_WASD_keys(dt_chassis);
 ////                remote_commands_bwd_fwd_float     = MAX_RC_TILT * weight_fwd_key;
@@ -168,6 +169,7 @@ void control_loop_chassis() {
             break;
     }
     
+		//generation of the referce to send to the MIT motor
     chassis.r_x[0] = (+ r_ang_vel_wheel_1_bwd_fwd - r_ang_vel_wheel_1_left_right) + r_ang_vel_wheels_chassis_yaw;
 		chassis.r_x[1] = (+ r_ang_vel_wheel_2_bwd_fwd + r_ang_vel_wheel_2_left_right) + r_ang_vel_wheels_chassis_yaw;
 		chassis.r_x[2] = (- r_ang_vel_wheel_3_bwd_fwd + r_ang_vel_wheel_3_left_right) + r_ang_vel_wheels_chassis_yaw;
@@ -192,11 +194,9 @@ void control_loop_chassis() {
 		
 		// Competition Power Limit
 		#if IS_POWER_LIMIT_ENABLED
-		chassis_power_limit_local	= robot_status.chassis_power_limit-20;
+			chassis_power_limit_local	= robot_status.chassis_power_limit-20;
 		
-		chassis_power_control( chassis_power_limit_local , chassis.u);
+			chassis_power_control( chassis_power_limit_local , chassis.u);
 		#endif
-	
-    // Send control signals
 }
 

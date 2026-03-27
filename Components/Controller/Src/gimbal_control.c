@@ -8,19 +8,12 @@
 /* USER CODE END Header */
 
 #include "gimbal_control.h"
-#include "stdbool.h"
-#include <stdlib.h>
-#include <stdint.h>
-#include <math.h>
-#include <time.h>
-#include "control_utils.h"
+#include "Robot_config.h"
+#include "state_machine.h"
 #include "INS_task.h"
 #include "math_utils.h"
 #include "Remote_Control.h"
-#include "robot_config.h"
-#include "Motor.h"
 #include "chassis_control.h"
-#include "state_machine.h"
 #include "PID.h"
 #include "cubemars_motor.h"
 #include "damiao_motor.h"
@@ -31,9 +24,9 @@
 /*************************/
 
 controlled_system_t gimbal = {
-    .n          = 4,
+    .n          = 2,
     .m          = 2,
-    .p          = 4,
+    .p          = 2,
     .x          = {0},
     .x_prev     = {0},
     .u          = {0},
@@ -47,13 +40,6 @@ controlled_system_t gimbal = {
   /*******************/
  /*   CONTROLLERS   */
 /*******************/
-
-/**
- * @brief PID controllers using PID_Info_TypeDef
- * 
- * Parameter array layout (PID_PARAMETER_NUM = 7):
- * [0] KP, [1] KI, [2] KD, [3] Alpha (LPF), [4] Deadband, [5] LimitIntegral, [6] LimitOutput
- */
 
 PID_Info_TypeDef pid_yaw_pos;
 PID_Info_TypeDef pid_yaw_vel;
@@ -74,32 +60,13 @@ static float remote_commands_pitch;
 static float time_stamp_cv = 0;
 static float yaw_command_from_cv = 0;
 static float pitch_command_from_cv = 0;
-static float time_stamp_cv_prev = 0;
+static float time_stamp_cv_prev;
 static float yaw_command_from_cv_prev;
 static float pitch_command_from_cv_prev;
 
 static uint8_t is_first_iter = true;
 
-static float m_linear_interpolation_yaw = 0;
-static float m_linear_interpolation_pitch = 0;
-static float yaw_sat = 0;
-static float pitch_sat = 0;
-
-static float MIT_p_des = 0.0f;
-static float MIT_v_des = 0.0f;
-static float MIT_kp = 45.0f;
-static float MIT_kd = 1.0f;
-static float MIT_t_ff = 0.0f;
-uint16_t ID_pitch = 106;
-
-float cm_p_des_origin = 0;
-
-extern uint8_t is_rotating;
-
-float test_angle = 0;
-
-float OVER_ESTIMATED_CV_FREQUENCY = 90;
-
+float cm_p_des_origin = -23*DEG_TO_RAD;
 
   /********************/
  /*   CONTROL LOOP   */
@@ -112,7 +79,6 @@ void control_loop_gimbal() {
     }
     gimbal.x[0] = INS_Info.Yaw_TolAngle * DEG_TO_RAD;     // yaw position  [rad]
     gimbal.x[1] = INS_Info.Roll_Angle * DEG_TO_RAD;   // pitch position [rad]
-    gimbal.x[2] = INS_Info.Yaw_Gyro;                   // yaw velocity   [rad/s]
 
     // update reference history
     for (uint8_t i = 0; i < 2; i++) {
@@ -122,7 +88,6 @@ void control_loop_gimbal() {
     // one-time initialization
     if (is_first_iter) {
         gimbal.r_x[0] = gimbal.x[0];
-        cm_p_des_origin =  INS_Info.Roll_Angle * DEG_TO_RAD;
 			
 				// PID_INIT
 				PID_Init(&pid_yaw_pos, PID_POSITION, pid_yaw_pos_params);
@@ -153,7 +118,7 @@ void control_loop_gimbal() {
                         if (remote_commands_yaw != 0){
 													gimbal.r_x[0] = gimbal.x[0] + (remote_commands_yaw / MAX_RC_TILT) * 45 * DEG_TO_RAD;
 												}
-                        test_angle = cm_p_des_origin + (remote_commands_pitch / MAX_RC_TILT) * 20 * DEG_TO_RAD;
+                        gimbal.r_x[1] = cm_p_des_origin + (remote_commands_pitch / MAX_RC_TILT) * 20 * DEG_TO_RAD;
                     break;
 
                 case COMMANDS_KEYBOARD_MOUSE:						

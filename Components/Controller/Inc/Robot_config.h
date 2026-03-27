@@ -22,7 +22,7 @@
  /* COMPETITION MODE */
 /********************/
 
-#define IS_MATCH_MODE_ENABLED         0  // Enable/Disable match mode (shooting wheels time on)
+#define IS_MATCH_MODE_ENABLED         0  // Enable/Disable match mode (shooting wheels time on,...)
 #define IS_HEAT_ENABLED               0  // shooting limit 
 #define IS_POWER_LIMIT_ENABLED        0  // chassis power consumption limit 
 #define SUPERCAP_ENABLED              0  // Enable/Disable supercapacitor module
@@ -41,11 +41,13 @@
 #define IS_VT13_REMOTE                1  // new remote
 
 
+
+
   /*****************************/
  /*   CHECK ROBOT SELECTION   */
 /*****************************/
 
-#define IS_ROBOT_CONFIG_WRONG \
+#define IS_ROBOT_TYPE_WRONG \
     IS_STD          < 0 || \
     IS_SENTRY       < 0 || \
     IS_HERO         < 0 || \
@@ -53,6 +55,13 @@
     IS_SENTRY       > 1 || \
     IS_HERO         > 1 || \
     IS_STD + IS_SENTRY + IS_HERO != 1
+		
+#define IS_REMOTE_CONFIG_WRONG \
+    IS_NDJ6_REMOTE          < 0 || \
+    IS_VT13_REMOTE          < 0 || \
+    IS_NDJ6_REMOTE          > 1 || \
+    IS_VT13_REMOTE          > 1 || \
+    IS_NDJ6_REMOTE + IS_VT13_REMOTE != 1
 
 // Event mode and shooting cannot be on at the same time
 #define CONFLICT_EVENT_SHOOTING \
