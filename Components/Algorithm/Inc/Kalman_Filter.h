@@ -7,7 +7,7 @@ extern "C" {
 
 #include "stdint.h"
 #include "arm_math.h"
-#include "Config.h"
+#include "stdbool.h"
 
 #ifndef user_malloc
 #ifdef _CMSIS_OS_H

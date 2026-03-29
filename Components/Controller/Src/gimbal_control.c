@@ -45,7 +45,7 @@ PID_Info_TypeDef pid_yaw_pos;
 PID_Info_TypeDef pid_yaw_vel;
 
 // Yaw Position PID params: KP, KI, KD, Alpha, Deadband, LimitIntegral, LimitOutput
-float pid_yaw_pos_params[PID_PARAMETER_NUM] = {4.0f, 0.01f, 1.0f, 0.0f, 0.0f, 10.0f, 30.0f};
+float pid_yaw_pos_params[PID_PARAMETER_NUM] = {6.0f, 0.0f, 3.0f, 0.0f, 0.0f, 10.0f, 30.0f};
 
 // Yaw Velocity PID params: KP, KI, KD, Alpha, Deadband, LimitIntegral, LimitOutput
 float pid_yaw_vel_params[PID_PARAMETER_NUM] = {0.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 30.0f};

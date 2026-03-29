@@ -19,6 +19,54 @@
 /* Includes ------------------------------------------------------------------*/
 #include "stdint.h"
 
+/* IMU config parameters -----------------------------------------------------*/
+/**
+ * @brief the flag of bmi088 Calibration
+ *        0: DISABLE
+ *        1: ENABLE
+ */
+#define IMU_Calibration_ENABLE  0U
+
+/**
+ * @brief the index of pitch angle update
+ */
+#define IMU_ANGLE_INDEX_PITCH  2U
+/**
+ * @brief the index of yaw angle update
+ */
+#define IMU_ANGLE_INDEX_YAW   0U
+/**
+ * @brief the index of roll angle update
+ */
+#define IMU_ANGLE_INDEX_ROLL   1U
+
+/**
+ * @brief the index of pitch gyro update
+ */
+#define IMU_GYRO_INDEX_PITCH  0U
+/**
+ * @brief the index of yaw gyro update
+ */
+#define IMU_GYRO_INDEX_YAW   2U
+/**
+ * @brief the index of roll gyro update
+ */
+#define IMU_GYRO_INDEX_ROLL   1U
+
+/**
+ * @brief the index of pitch accel update
+ */
+#define IMU_ACCEL_INDEX_PITCH  0U
+/**
+ * @brief the index of yaw accel update
+ */
+#define IMU_ACCEL_INDEX_YAW   2U
+/**
+ * @brief the index of roll accel update
+ */
+#define IMU_ACCEL_INDEX_ROLL   1U
+
+
 /* Exported types ------------------------------------------------------------*/
 /**
  * @brief typedef structure that contains the information for the INS.

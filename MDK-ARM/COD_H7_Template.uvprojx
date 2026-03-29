@@ -828,11 +828,6 @@
               <FilePath>..\Application\Task\Src\USB_MiniPC_Task.c</FilePath>
             </File>
             <File>
-              <FileName>Config.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\Application\Task\Inc\Config.h</FilePath>
-            </File>
-            <File>
               <FileName>Chassis_Task.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Application\Task\Src\Chassis_Task.c</FilePath>

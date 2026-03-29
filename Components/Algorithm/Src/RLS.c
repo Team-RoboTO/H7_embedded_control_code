@@ -1,5 +1,5 @@
 #include "RLS.h"
-
+#include "stdlib.h"
 
 void RLS_Init(Recursive_Least_Squares_Info_TypeDef *RLS,uint8_t X_Size,uint8_t P_Size,uint8_t Y_Size){
 

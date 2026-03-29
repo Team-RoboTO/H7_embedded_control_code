@@ -5,6 +5,8 @@
 #include "stdbool.h"
 #include "Kalman_Filter.h"
 
+#define GravityAccel  9.718f
+
 typedef struct
 {
   bool Init;

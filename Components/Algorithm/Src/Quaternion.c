@@ -1,6 +1,7 @@
 #include "Quaternion.h"
 #include "Kalman_Filter.h"
 #include "arm_math.h"
+#include "control_utils.h"
 
 
 static float Fast_InverseSqrt(float x);
@@ -170,8 +171,8 @@ static void QuaternionEKF_A_Update(KalmanFilter_Info_TypeDef *KF){
   KF->Data.A[23] = -0.5f*KF->Data.Xhatminus[1]*KF->dt;
 
   /* Limit the P data */
-  VAL_LIMIT(KF->Data.P[28],-10000,10000);
-  VAL_LIMIT(KF->Data.P[35],-10000,10000);
+  saturate(&KF->Data.P[28],10000);
+  saturate(&KF->Data.P[35],10000);
 	
 }
 
@@ -357,8 +358,8 @@ static void QuaternionEKF_xhat_Update(KalmanFilter_Info_TypeDef *KF){
 
   if(KF->ChiSquareTest.Result)
   {
-    VAL_LIMIT(KF->Data.Cache_Vector[0][4],-1e-2f*KF->dt,1e-2f*KF->dt);
-    VAL_LIMIT(KF->Data.Cache_Vector[0][5],-1e-2f*KF->dt,1e-2f*KF->dt);
+    saturate(&KF->Data.Cache_Vector[0][4],1e-2f*KF->dt);
+    saturate(&KF->Data.Cache_Vector[0][5],1e-2f*KF->dt);
   }
   KF->Data.Cache_Vector[0][3] = 0;
 

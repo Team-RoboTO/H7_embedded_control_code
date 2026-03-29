@@ -18,13 +18,12 @@
 #include "bmi088.h"
 #include "lpf.h"
 #include "pid.h"
-#include "config.h"
 #include "tim.h"
 #include "Quaternion.h"
 #include "bsp_pwm.h"
 #include "rtt_log.h"
 #include "segger_rtt.h"
-
+#include "math_utils.h"
 
 /**
   * @brief the structure that contains the information for the INS.
@@ -139,9 +138,9 @@ void INS_Task(void const * argument)
 		INS_Info.Yaw_TolAngle = INS_Info.Yaw_Angle + INS_Info.YawRoundCount*360.f;
 		
     /* Update the INS gyro in degrees */
-    INS_Info.Pitch_Gyro = INS_Info.Gyro[IMU_GYRO_INDEX_PITCH]*RadiansToDegrees;
-    INS_Info.Yaw_Gyro   = INS_Info.Gyro[IMU_GYRO_INDEX_YAW]*RadiansToDegrees;
-    INS_Info.Roll_Gyro  = INS_Info.Gyro[IMU_GYRO_INDEX_ROLL]*RadiansToDegrees;
+    INS_Info.Pitch_Gyro = INS_Info.Gyro[IMU_GYRO_INDEX_PITCH]*RAD_TO_DEG;
+    INS_Info.Yaw_Gyro   = INS_Info.Gyro[IMU_GYRO_INDEX_YAW]*RAD_TO_DEG;
+    INS_Info.Roll_Gyro  = INS_Info.Gyro[IMU_GYRO_INDEX_ROLL]*RAD_TO_DEG;
 		
 		if(INS_Task_SysTick%5 == 0)
 		{

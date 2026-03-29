@@ -1,3 +1,37 @@
+/**
+ * @file    chassis_control.c
+ * @brief   Chassis control loop — reference generation for the 4-wheel drive.
+ *
+ * @details
+ * This module computes per-wheel angular velocity references from operator or
+ * autonomous inputs and sends them to the MIT-mode motors each control tick
+ * via control_loop_chassis().
+ *
+ * +---------------------------------------------------------------------------+
+ * ¦ Chassis state            ¦ Behaviour                                      ¦
+ * +--------------------------+------------------------------------------------¦
+ * ¦ FOLLOW_GIMBAL            ¦ Chassis aligns to gimbal yaw via a proportional¦
+ * ¦                          ¦ correction on the yaw error. While is_rotating ¦
+ * ¦                          ¦ is set, field-oriented decomposition is applied ¦
+ * ¦                          ¦ until the head re-aligns, then it clears.      ¦
+ * ¦ CONTIGUOUS_ROTATION      ¦ Full field-oriented movement with constant max  ¦
+ * ¦                          ¦ yaw spin (chassis spins continuously). Sets    ¦
+ * ¦                          ¦ is_rotating = 1 for the return-to-align logic. ¦
+ * +---------------------------------------------------------------------------+
+ *
+ * Command sources (selected by state_remote_commands):
+ *   - REMOTE_CONTROLLER : raw RC channels [-660, +660]
+ *   - KEYBOARD_MOUSE    : WASD keys (logic commented out, pending)
+ *   - AUTONOMUS         : velocity targets from CV pipeline (fwd_bwd_cv,
+ *                         left_right_cv), scaled by wheel radius
+ *
+ * Wheel mixing (mecanum kinematics):
+ *   r_x[0] = (+bwd_fwd - left_right) + yaw     wheel 1
+ *   r_x[1] = (+bwd_fwd + left_right) + yaw     wheel 2
+ *   r_x[2] = (-bwd_fwd + left_right) + yaw     wheel 3
+ *   r_x[3] = (-bwd_fwd - left_right) + yaw     wheel 4
+ */
+
 #include "chassis_control.h"
 #include "robot_config.h"
 #include "state_machine.h"
@@ -53,10 +87,14 @@ uint16_t chassis_power_limit_local = 60;
 //MIT variables
 static float MIT_p_des = 0.0f; 	    // range -12.5 - +12.5 [rad]
 static float MIT_kp    = 0.0f;    	// range 0-500
-float MIT_kd           = 0.08f;    	// range 0-5
+float MIT_kd           = 0.2f;    	// range 0-5
 static float MIT_t_ff  = 0.0f;      // range -15.0 - 15.0 [Nm]
 
 static float radius_wheels = 0.0825f;
+
+// Acceleration limiting
+float max_acceleration = 40.0f;  // [rad/s²] — tune this value
+static float dt_chassis = 0.001f; 
 
   /********************/
  /*   CONTROL LOOP   */
@@ -124,7 +162,7 @@ void control_loop_chassis() {
 						r_ang_vel_wheel_3_left_right    = ((float) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels;
 						r_ang_vel_wheel_4_left_right    = ((float) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels;
 						// Align chassis to gimbal
-						r_ang_vel_wheels_chassis_yaw    = max(min(chassis.x[4], pi/2), -pi/2) * (2/pi) * max_r_ang_vel_wheels;
+						r_ang_vel_wheels_chassis_yaw    = max(min(chassis.x[4], pi/2), -pi/2) * (2/pi) * 10;//max_r_ang_vel_wheels;
 						break;
 					}
 					
@@ -161,7 +199,7 @@ void control_loop_chassis() {
             r_ang_vel_wheel_3_left_right    = ((float) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels * cos(+ chassis.x[4] + pi/4);
             r_ang_vel_wheel_4_left_right    = ((float) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels * sin(+ chassis.x[4] + pi/4);
             // Chassis contiguous rotation
-            r_ang_vel_wheels_chassis_yaw    = max_r_ang_vel_wheels;
+            r_ang_vel_wheels_chassis_yaw    = 20;//max_r_ang_vel_wheels;
 						is_rotating = 1;
             break;
   
@@ -174,7 +212,27 @@ void control_loop_chassis() {
 		chassis.r_x[1] = (+ r_ang_vel_wheel_2_bwd_fwd + r_ang_vel_wheel_2_left_right) + r_ang_vel_wheels_chassis_yaw;
 		chassis.r_x[2] = (- r_ang_vel_wheel_3_bwd_fwd + r_ang_vel_wheel_3_left_right) + r_ang_vel_wheels_chassis_yaw;
 		chassis.r_x[3] = (- r_ang_vel_wheel_4_bwd_fwd - r_ang_vel_wheel_4_left_right) + r_ang_vel_wheels_chassis_yaw;
-    
+		
+		/*
+	  * Acceleration limiter: clamp the per-tick reference delta so that no wheel
+	  * is commanded to change speed faster than max_acceleration [rad/s²].
+	  * All four wheels are clamped independently; the saturation block that
+	  * follows will re-scale proportionally if any wheel still exceeds the
+	  * physical limit after ramping.
+	  */
+		if (is_rotating == 0){
+			float max_delta = max_acceleration * dt_chassis;
+			for (uint8_t i = 0; i < chassis.n; i++) {
+				float delta = chassis.r_x[i] - chassis.r_x_prev[i];
+				
+			if (fabsf(chassis.r_x[i]) > fabsf(chassis.r_x_prev[i])) {
+					if (delta >  max_delta) delta =  max_delta;
+					if (delta < -max_delta) delta = -max_delta;
+					chassis.r_x[i] = chassis.r_x_prev[i] + delta;
+					}
+			}
+		}
+
 		/*
 		Optimal saturation: if one wheel attempts to reach a reference value higher than the
 		physical limit of the wheel, all wheel references are scaled down by the same factor.

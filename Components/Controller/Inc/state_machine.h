@@ -2,7 +2,6 @@
 #define STATE_MACHINE_STD_CIRC_H
 
 #include "robot_config.h"
-
 #include "stdint.h"
 
   /**************/
@@ -30,9 +29,8 @@
 // Rev
 #define REV_STOP                        0
 #define REV_SINGLE_SHOOTING             1
-#define REV_TRIPLE_SHOOTING             2
-#define REV_MULTIPLE_SHOOTING           3
-#define REV_UNSTUCK                     4
+#define REV_MULTIPLE_SHOOTING           2
+#define REV_UNSTUCK                     3
 
 // State variables
 extern uint8_t state_remote_commands;
@@ -66,9 +64,10 @@ extern shoot_wheels_spin_t shoot_wheels_spin;
 
 typedef struct rev_spin {
     
-    float timestamp_last_shoot_command;  // Timestamp of last shoot command [s]
+    float timestamp_last_shoot_command;                     // Timestamp of last shoot command [s]
     float time_threshold_hold_mouse_key_multiple_shooting;  // Threshold time of holding mouse keys after which multiple shooting is triggered [s]
-    
+		float time_rev_locked;                                  // Time that the rev is been locked [ms]
+	
 } rev_spin_t;
 
 extern rev_spin_t rev_spin;
@@ -82,15 +81,19 @@ uint8_t _state_machine_remote_commands();
 uint8_t _state_machine_chassis();
 uint8_t _state_machine_chassis_remote_controller();
 uint8_t _state_machine_chassis_keyboard_mouse();
+uint8_t _state_machine_chassis_autonomus();
 uint8_t _state_machine_gimbal();
 uint8_t _state_machine_gimbal_remote_controller();
 uint8_t _state_machine_gimbal_keyboard_mouse();
+uint8_t _state_machine_gimbal_autonomus();
 uint8_t _state_machine_shoot_wheels();
 uint8_t _state_machine_shoot_wheels_remote_controller();
 uint8_t _state_machine_shoot_wheels_keyboard_mouse();
+uint8_t _state_machine_shoot_wheels_autonomus();
 uint8_t _state_machine_rev();
 uint8_t _state_machine_rev_remote_controller();
 uint8_t _state_machine_rev_keyboard_mouse();
+uint8_t _state_machine_rev_autonomus();
 
 #endif
 

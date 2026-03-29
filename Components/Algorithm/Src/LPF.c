@@ -14,6 +14,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "LPF.h"
+#include "string.h"
 
 
 float sign(float input){
