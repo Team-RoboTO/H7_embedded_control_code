@@ -1,0 +1,7 @@
+{
+    "keil.compilerPath": "C:/Keil_v5/ARM/ARM_Compiler_6.22",
+    "keil.uvPath": "C:/Keil_v5/UV4/UV4.exe",
+    "openocd.path": "C:/OpenOCD/xpack-openocd-0.12.0-7/bin/openocd.exe",
+    "C_Cpp.intelliSenseEngine": "default"
+}
+

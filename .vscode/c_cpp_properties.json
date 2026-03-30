@@ -1,0 +1,45 @@
+{
+    "configurations": [
+        {
+            "name": "COD_H7_Template",
+            "includePath": [
+                "${workspaceFolder}/Core/Inc",
+                "${workspaceFolder}/Application/Task/Inc",
+                "${workspaceFolder}/BSP/Inc",
+                "${workspaceFolder}/Components/Algorithm/Inc",
+                "${workspaceFolder}/Components/Controller/Inc",
+                "${workspaceFolder}/Components/Device/Inc",
+                "${workspaceFolder}/Drivers/STM32H7xx_HAL_Driver/Inc",
+                "${workspaceFolder}/Drivers/STM32H7xx_HAL_Driver/Inc/Legacy",
+                "${workspaceFolder}/Drivers/CMSIS/Device/ST/STM32H7xx/Include",
+                "${workspaceFolder}/Drivers/CMSIS/Include",
+                "${workspaceFolder}/Middlewares/ST/ARM/DSP/Inc",
+                "${workspaceFolder}/Middlewares/ST/STM32_USB_Device_Library/Core/Inc",
+                "${workspaceFolder}/Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc",
+                "${workspaceFolder}/Middlewares/Third_Party/FreeRTOS/Source/include",
+                "${workspaceFolder}/Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS",
+                "${workspaceFolder}/Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F",
+                "${workspaceFolder}/SystemView/SEGGER",
+                "${workspaceFolder}/SystemView/Config",
+                "${workspaceFolder}/SystemView/Sample/FreeRTOSV10",
+                "${workspaceFolder}/SystemView/Sample/FreeRTOSV10/Config/Cortex-M",
+                "${workspaceFolder}/USB_DEVICE/App",
+                "${workspaceFolder}/USB_DEVICE/Target",
+                "${workspaceFolder}/RTT",
+                "${config:keil.compilerPath}/include"
+            ],
+            "defines": [
+                "USE_HAL_DRIVER",
+                "STM32H723xx",
+                "ARM_MATH_CM7",
+                "__FPU_PRESENT=1",
+                "__GNUC__"
+            ],
+            "compilerPath": "${config:keil.compilerPath}/bin/armclang.exe",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "clang-arm"
+        }
+    ],
+    "version": 4
+}

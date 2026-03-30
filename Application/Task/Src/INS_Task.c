@@ -24,6 +24,9 @@
 #include "rtt_log.h"
 #include "segger_rtt.h"
 #include "math_utils.h"
+//#include "EventRecorder.h"
+
+
 
 /**
   * @brief the structure that contains the information for the INS.
@@ -150,8 +153,8 @@ void INS_Task(void const * argument)
 			
 //		float data[] = { INS_Info.Yaw_Angle, INS_Info.Roll_Angle};
 //		RTT_Log(data, 2);
-		
-    osDelayUntil(&INS_Task_SysTick,1);
+
+//	  EventRecord2(0 + EventLevelDetail, HAL_GetTick(), (uint32_t)(INS_Info.Yaw_Angle * 1000000));
 		
   }
   /* USER CODE END INS_Task */

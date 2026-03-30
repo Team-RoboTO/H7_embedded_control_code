@@ -1,0 +1,51 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build (Keil)",
+            "type": "shell",
+            "command": "${config:keil.uvPath}",
+            "args": [
+                "-b",
+                "${workspaceFolder}/MDK-ARM/COD_H7_Template.uvprojx",
+                "-o",
+                "${workspaceFolder}/build_log.txt"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Flash (Keil)",
+            "type": "shell",
+            "command": "${config:keil.uvPath}",
+            "args": [
+                "-f",
+                "${workspaceFolder}/MDK-ARM/COD_H7_Template.uvprojx",
+                "-o",
+                "${workspaceFolder}/flash_log.txt"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Build + Flash",
+            "dependsOn": ["Build (Keil)", "Flash (Keil)"],
+            "dependsOrder": "sequence",
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Flash (OpenOCD)",
+            "type": "shell",
+            "command": "${config:openocd.path}",
+            "args": [
+                "-f", "interface/cmsis-dap.cfg",
+                "-f", "target/stm32h7x.cfg",
+                "-c", "program ${workspaceFolder}/MDK-ARM/COD_H7_Template/COD_H7_Template.axf verify reset exit"
+            ],
+            "problemMatcher": []
+        }
+    ]
+}
