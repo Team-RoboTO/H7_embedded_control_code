@@ -161,7 +161,7 @@ void INS_Task(void const * argument)
 		}
 
 			
-//		float data[] = { INS_Info.Yaw_Angle, INS_Info.Roll_Angle};
+//		float data[] = { INS_Info.Yaw_Angle, };
 //		RTT_Log(data, 2);
 
 		float yaw = INS_Info.Yaw_Angle;

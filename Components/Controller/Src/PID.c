@@ -17,12 +17,16 @@
 #include "math.h"
 /* Includes ------------------------------------------------------------------*/
 
+ static float dt_s = 0.001f;
+
 /**
  * @brief Initializes the PID parameters.
  * @Param PID:   Pointer to the PID_Info_TypeDef structure holding PID state and config.
  * @Param Param: Pointer to the array of PID parameters to load.
  * @retval PID status.
  */
+
+ 
 static PID_Status_e PID_Param_Init(PID_Info_TypeDef *PID, float Param[PID_PARAMETER_NUM])
 {
     // Check if PID type and parameter array are valid.
@@ -150,7 +154,7 @@ float PID_Calculate(PID_Info_TypeDef *PID, float Target, float Measure)
 
             /* Accumulate integral only if KI is non-zero; otherwise clear it */
             if(PID->Param.KI != 0)
-                PID->Integral += PID->Err[0];
+                PID->Integral += PID->Err[0]*dt_s;
             else
                 PID->Integral = 0;
 
@@ -160,7 +164,7 @@ float PID_Calculate(PID_Info_TypeDef *PID, float Target, float Measure)
             /* Compute P, I, D terms */
             PID->Pout = PID->Param.KP * PID->Err[0];
             PID->Iout = PID->Param.KI * PID->Integral;
-            PID->Dout = PID->Param.KD * (PID->Err[0] - PID->Err[1]);  // discrete first derivative
+            PID->Dout = PID->Param.KD * (PID->Err[0] - PID->Err[1]) / dt_s;  // discrete first derivative
 
             /* Apply low-pass filter to derivative term if Alpha is valid */
             if(PID->Param.Alpha > 0.f && PID->Param.Alpha < 1.f)

@@ -20,6 +20,9 @@
 #include "MiniPC.h"
 #include "control_utils.h"
 
+#include "rtt_log.h"
+#include "segger_rtt.h"
+
   /*************************/
  /*   CONTROLLED SYSTEM   */
 /*************************/
@@ -45,7 +48,7 @@ controlled_system_t gimbal = {
 PID_Info_TypeDef pid_yaw_pos;
 
 // Yaw Position PID params: KP, KI, KD, Alpha, Deadband, LimitIntegral, LimitOutput
-float pid_yaw_pos_params[PID_PARAMETER_NUM] = {6.0f, 0.0f, 500.0f, 0.0f, 0.0f, 10.0f, 30.0f};
+float pid_yaw_pos_params[PID_PARAMETER_NUM] = {15.0f, 0.0f, 2.0f, 0.0f, 0.0f, 10.0f, 30.0f};
 
   /*************************/
  /*   CONTROL VARIABLES   */
@@ -64,8 +67,6 @@ static float pitch_command_from_cv_prev;
 static uint8_t is_first_iter = true;
 
 float cm_p_des_origin = -18*DEG_TO_RAD;
-
-float SOME_RATE = 0.15f;
 
 float scale_yaw = 0.02f;
 float scale_pitch = 0.04f;
@@ -122,7 +123,7 @@ void control_loop_gimbal() {
                     remote_commands_yaw   = -RC_info.RC.Channel[0];
                     remote_commands_pitch = -RC_info.RC.Channel[1];
                         if (remote_commands_yaw != 0){
-													 gimbal.r_x[0] += (remote_commands_yaw / MAX_RC_TILT) * SOME_RATE * DEG_TO_RAD;
+													 gimbal.r_x[0] += (remote_commands_yaw / MAX_RC_TILT) * 0.15f * DEG_TO_RAD;
 												}
                         gimbal.r_x[1] = cm_p_des_origin + (remote_commands_pitch / MAX_RC_TILT) * 20 * DEG_TO_RAD;
                     break;
@@ -187,5 +188,7 @@ void control_loop_gimbal() {
 /*****************************/
 
 	gimbal.u[0] = PID_Calculate(&pid_yaw_pos, gimbal.r_x[0], gimbal.x[0]);
+	float data[] = { gimbal.r_x[0], gimbal.x[0], gimbal.u[0] };
+	RTT_Log(data, 3);
 
 }
