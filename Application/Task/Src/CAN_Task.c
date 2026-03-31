@@ -36,6 +36,12 @@ volatile float    can_task_freq_hz = 0.0f;
 static uint32_t   can_task_freq_start_ms = 0;
 static uint32_t   can_task_freq_iters = 0;
 
+float KD_yaw = 0.8f;
+
+float KD_pitch = 1.5f;
+
+float KP_pitch = 30.0f;
+
 void CAN_Task(void const * argument)
 {
     /* Keep the task loop at 1ms (1000Hz) so our split halves result in 500Hz */
@@ -61,7 +67,7 @@ void CAN_Task(void const * argument)
 
         /* One-time init */
         if (is_init) {
-            //DM_Motor_Command(&FDCAN2_TxFrame, &DM_Yaw_Motor, Motor_Save_Zero_Position);
+						CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Save_Zero_Position);
             osDelay(30);
             is_init = 0;
         }
@@ -96,8 +102,6 @@ void CAN_Task(void const * argument)
             osDelay(30);
             DM_Motor_Command(&FDCAN2_TxFrame, &DM_Yaw_Motor, Motor_Enable);
             osDelay(30);
-            CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Save_Zero_Position);
-            osDelay(30);
 
             is_first_iter = 0;
         }
@@ -106,7 +110,7 @@ void CAN_Task(void const * argument)
         if (split_flag == 0) {
             // First Half: Chassis 0, 1 and Yaw
             #if IS_GIMBAL_ENABLED
-                DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &DM_Yaw_Motor, 0, gimbal.u[0], 0, 1, 0);
+                DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &DM_Yaw_Motor, 0, gimbal.u[0], 0, KD_yaw, 0);
             #endif
             #if IS_CHASSIS_ENABLED
                 CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &CM_Chassis_Motor[0], 0, chassis.r_x[0], 0, MIT_kd, 0);
@@ -118,7 +122,7 @@ void CAN_Task(void const * argument)
         else {
             // Second Half: Chassis 2, 3 and Pitch
             #if IS_GIMBAL_ENABLED
-                CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &CM_Pitch_Motor, gimbal.r_x[1] * 25 / 45, 0, 20, 1, 0);
+                CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &CM_Pitch_Motor, gimbal.r_x[1] * 25.0f / 45.0f, 0, KP_pitch, KD_pitch, 0);
             #endif
             #if IS_CHASSIS_ENABLED
                 CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &CM_Chassis_Motor[2], 0, chassis.r_x[2], 0, MIT_kd, 0);
