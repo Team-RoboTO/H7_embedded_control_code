@@ -68,7 +68,7 @@ uint8_t _state_machine_remote_commands() {
             if (RC_info.RC.Right == 0) return COMMANDS_REMOTE_CONTROLLER;
             else                       return COMMANDS_KEYBOARD_MOUSE;
 
-        case 3:
+        case 2:
             return COMMANDS_AUTONOMUS;
 
         default:

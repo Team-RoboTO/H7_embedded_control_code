@@ -36,13 +36,14 @@
    ============================================================ */
 extern fp32 Rx_miniPC_fp32_data[NUM_FP32_RX_MINIPC];
 
-#define yaw_cv              Rx_miniPC_fp32_data[0]
-#define pitch_cv            Rx_miniPC_fp32_data[1]
-#define shoot_frequency_cv  Rx_miniPC_fp32_data[2]
-#define fwd_bwd_cv          Rx_miniPC_fp32_data[3]
-#define left_right_cv       Rx_miniPC_fp32_data[4]
-#define angle_cv            Rx_miniPC_fp32_data[5]
-#define time_cv       			Rx_miniPC_fp32_data[6]
+#define time_cv       			Rx_miniPC_fp32_data[0]
+#define yaw_cv              Rx_miniPC_fp32_data[1]
+#define pitch_cv            Rx_miniPC_fp32_data[2]
+#define shoot_frequency_cv  Rx_miniPC_fp32_data[3]
+#define fwd_bwd_cv          Rx_miniPC_fp32_data[4]
+#define left_right_cv       Rx_miniPC_fp32_data[5]
+#define angle_cv            Rx_miniPC_fp32_data[6]
+
 /* ============================================================
    FUNCTIONS
    ============================================================ */
