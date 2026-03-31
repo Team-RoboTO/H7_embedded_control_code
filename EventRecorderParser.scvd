@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component_viewer schemaVersion="0.1" xmlns:xs="http://www.w3.org/2001/XMLSchema-instance" xs:noNamespaceSchemaLocation="Component_Viewer.xsd">
+<component name="MyEvents" version="1.0.0"/>
+  <events>
+    <group name="IMU Data">
+      <component name="INS" brief="INS Angles" no="0x00"/>
+    </group>
+    <event id="0x0000" level="detail" property="INS Log" value="%d[val2].%d[val3]" info="IMU angle data"/>
+  </events>
+</component_viewer>

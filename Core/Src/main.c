@@ -34,6 +34,8 @@
 #include "bsp_mcu.h"
 
 #include "SEGGER_SYSVIEW.h"
+
+#include "EventRecorder.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -133,7 +135,9 @@ int main(void)
   MCU_Init();
 
 	SEGGER_SYSVIEW_Conf();
-
+	
+	EventRecorderInitialize(EventRecordAll, 1U);
+	EventRecorderStart();
   /* USER CODE END 2 */
 
   /* Call init function for freertos objects (in cmsis_os2.c) */

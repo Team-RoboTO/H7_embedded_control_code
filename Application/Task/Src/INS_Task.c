@@ -21,10 +21,10 @@
 #include "tim.h"
 #include "Quaternion.h"
 #include "bsp_pwm.h"
-#include "rtt_log.h"
-#include "segger_rtt.h"
+//#include "rtt_log.h"
+//#include "segger_rtt.h"
 #include "math_utils.h"
-//#include "EventRecorder.h"
+#include "EventRecorder.h"
 
 
 
@@ -84,6 +84,16 @@ static void INS_Task_Init(void);
 static void BMI088_Temp_Control(float temp);
 
 /* USER CODE BEGIN Header_INS_Task */
+
+
+
+static inline uint32_t float_to_u32(float f) {
+    uint32_t u;
+    memcpy(&u, &f, 4);
+    return u;
+}
+
+
 /**
   * @brief  Function implementing the StartINSTask thread.
   * @param  argument: Not used
@@ -154,7 +164,14 @@ void INS_Task(void const * argument)
 //		float data[] = { INS_Info.Yaw_Angle, INS_Info.Roll_Angle};
 //		RTT_Log(data, 2);
 
-//	  EventRecord2(0 + EventLevelDetail, HAL_GetTick(), (uint32_t)(INS_Info.Yaw_Angle * 1000000));
+		float yaw = INS_Info.Yaw_Angle;
+		int32_t sign = (yaw >= 0) ? 1 : -1;
+		float abs_yaw = (yaw >= 0) ? yaw : -yaw;
+		uint32_t integer_part = (uint32_t)abs_yaw;
+		uint32_t frac_part = (uint32_t)((abs_yaw - integer_part) * 10000);
+
+		EventRecord4(0 + EventLevelDetail, (uint32_t)sign, integer_part, frac_part, HAL_GetTick());
+		osDelayUntil(&INS_Task_SysTick,1);
 		
   }
   /* USER CODE END INS_Task */

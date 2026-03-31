@@ -3,7 +3,7 @@
 #include "stm32h7xx_hal.h"
 #include <string.h>
 
-#define RTT_LOG_INTERVAL_MS 2
+#define RTT_LOG_INTERVAL_MS 1
 #define RTT_MAX_VALUES 15  // max floats per packet (60 bytes + 4 timestamp = 64)
 
 #define RTT_LOG_MAGIC 0xAA
