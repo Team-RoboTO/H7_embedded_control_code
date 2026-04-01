@@ -69,19 +69,19 @@ controlled_system_MIT_t chassis = {
 static float max_r_ang_vel_wheels = 45.0;  // Max reference of angular velocity of wheels [rad/s]
 uint8_t is_rotating = 0; //flag for complete the rotation until the head return alligned to the zero 
 
-int16_t remote_commands_bwd_fwd;  							// in range [-660, +660]
-int16_t remote_commands_left_right;  						// in range [-660, +660]
-static float remote_commands_bwd_fwd_float;  		// in range [-660, +660], but float
+int16_t remote_commands_bwd_fwd;                // in range [-660, +660]
+int16_t remote_commands_left_right;             // in range [-660, +660]
+static float remote_commands_bwd_fwd_float;     // in range [-660, +660], but float
 static float remote_commands_left_right_float;  // in range [-660, +660], but float
-static float r_ang_vel_wheel_1_bwd_fwd;  				// [rad/s]
-static float r_ang_vel_wheel_1_left_right;  		// [rad/s]
-static float r_ang_vel_wheel_2_bwd_fwd;  				// [rad/s]
-static float r_ang_vel_wheel_2_left_right;  		// [rad/s]
-static float r_ang_vel_wheel_3_bwd_fwd; 				// [rad/s]
-static float r_ang_vel_wheel_3_left_right;  		// [rad/s]
-static float r_ang_vel_wheel_4_bwd_fwd;  				// [rad/s]
-static float r_ang_vel_wheel_4_left_right;  		// [rad/s]
-static float r_ang_vel_wheels_chassis_yaw;  		// [rad/s]
+static float r_ang_vel_wheel_1_bwd_fwd;         // [rad/s]
+static float r_ang_vel_wheel_1_left_right;      // [rad/s]
+static float r_ang_vel_wheel_2_bwd_fwd;         // [rad/s]
+static float r_ang_vel_wheel_2_left_right;      // [rad/s]
+static float r_ang_vel_wheel_3_bwd_fwd;         // [rad/s]
+static float r_ang_vel_wheel_3_left_right;      // [rad/s]
+static float r_ang_vel_wheel_4_bwd_fwd;         // [rad/s]
+static float r_ang_vel_wheel_4_left_right;      // [rad/s]
+static float r_ang_vel_wheels_chassis_yaw;      // [rad/s]
 
 static float max_reference = 0; 
 
