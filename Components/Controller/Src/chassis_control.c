@@ -62,11 +62,23 @@ controlled_system_MIT_t chassis = {
     .r_x_prev   = {0},
 };
 
+  /*******************/
+ /*   CONTROLLERS   */
+/*******************/
+
+PID_Info_TypeDef pid_chassis_vel_x;
+PID_Info_TypeDef pid_chassis_vel_y;
+
+
+
+// Velocity PID params: KP, KI, KD, Alpha, Deadband, LimitIntegral, LimitOutput
+float pid_chassis_vel_params[PID_PARAMETER_NUM] = {0.6f, 0.0f, 0.0f, 0.0f, 0.0f, 2.0f, 5.0f};
+
   /*************************/
  /*   CONTROL VARIABLES   */
 /*************************/
 
-static float max_r_ang_vel_wheels = 45.0;  // Max reference of angular velocity of wheels [rad/s]
+static float max_r_ang_vel_wheels = 30.0;  // Max reference of angular velocity of wheels [rad/s]
 uint8_t is_rotating = 0; //flag for complete the rotation until the head return alligned to the zero 
 
 int16_t remote_commands_bwd_fwd;                // in range [-660, +660]
@@ -83,6 +95,22 @@ static float r_ang_vel_wheel_4_bwd_fwd;         // [rad/s]
 static float r_ang_vel_wheel_4_left_right;      // [rad/s]
 static float r_ang_vel_wheels_chassis_yaw;      // [rad/s]
 
+static uint8_t is_first_iter = true;
+
+static float vx;
+static float vy;
+
+static float v1;
+static float v2;
+static float v3;
+static float v4;
+
+static float vx_ref;
+static float vy_ref;
+
+float v_x_target;
+float v_y_target;
+
 static float max_reference = 0; 
 
 uint16_t chassis_power_limit_local = 60;
@@ -95,22 +123,40 @@ static float MIT_t_ff  = 0.0f;      // range -15.0 - 15.0 [Nm]
 
 static float radius_wheels = 0.0825f;
 
-// Acceleration limiting
-float max_acceleration = 40.0f;  // [rad/s�] � tune this value
-static float dt_chassis = 0.001f; 
+// Velocity profiler
+static fp32 v_x_profiled = 0.0f;
+static fp32 v_y_profiled = 0.0f;
+static fp32 max_accel    = 8.0f;  // [m/s�]
+static fp32 max_decel    = 25.0f;  // [m/s�] asymmetric: stop faster than you start
+
+static float dt_chassis = 0.001f;
 
   /********************/
  /*   CONTROL LOOP   */
 /********************/
 
-void control_loop_chassis() {   
-	
+void control_loop_chassis() {
+
+    if (is_first_iter) {
+        PID_Init(&pid_chassis_vel_x, PID_POSITION, pid_chassis_vel_params);
+        PID_Init(&pid_chassis_vel_y, PID_POSITION, pid_chassis_vel_params);
+			
+        is_first_iter = false;
+    }
+
     // Update outputs from sensor data
     for (uint8_t i = 0; i < chassis.p; i++) {
         chassis.x_prev[i] = chassis.x[i];
     }
-  	chassis.x[4] = nearest_target_angle_from_start_angle(DM_Yaw_Motor.Data.Position - GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD, 0);
-    
+
+    // Update wheel velocities from encoder data [rad/s]
+    chassis.x[0] = CM_Chassis_Motor[0].Data.Velocity;
+    chassis.x[1] = CM_Chassis_Motor[1].Data.Velocity;
+    chassis.x[2] = CM_Chassis_Motor[2].Data.Velocity;
+    chassis.x[3] = CM_Chassis_Motor[3].Data.Velocity;
+
+    chassis.x[4] = nearest_target_angle_from_start_angle(DM_Yaw_Motor.Data.Position - GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD, 0);
+
     // Remote commands
 		switch (state_remote_commands) {
         
@@ -148,47 +194,86 @@ void control_loop_chassis() {
     for (uint8_t i = 0; i < chassis.n; i++) {
         chassis.r_x_prev[i] = chassis.r_x[i];
     }
-		
+
+    // --- Forward kinematics: wheel angular velocities ? chassis linear velocities ---
+    v1 = chassis.x[0] * radius_wheels;
+    v2 = chassis.x[1] * radius_wheels;
+    v3 = chassis.x[2] * radius_wheels;
+    v4 = chassis.x[3] * radius_wheels;
+
+    vx = (-v1 + v2 + v3 - v4) / (4.0f * 0.7f);
+    vy = ( v1 + v2 - v3 - v4) / (4.0f * 0.7f);
+
+    // Scale RC input to m/s target
+    v_y_target = ((float) remote_commands_bwd_fwd    / MAX_RC_TILT) * 5.0f;
+    v_x_target = ((float) remote_commands_left_right / MAX_RC_TILT) * 5.0f;
+
+    // --- Velocity profiler: rate-limit the target before feeding the PID ---
+
+    // X axis
+    fp32 step_x  = v_x_target - v_x_profiled;
+    fp32 limit_x = ((v_x_target * v_x_profiled < 0.0f) ||
+                    (fabsf(v_x_target) < fabsf(v_x_profiled)))
+                   ? max_decel * dt_chassis
+                   : max_accel * dt_chassis;
+    if      (step_x >  limit_x) step_x =  limit_x;
+    else if (step_x < -limit_x) step_x = -limit_x;
+    v_x_profiled += step_x;
+
+    // Y axis
+    fp32 step_y  = v_y_target - v_y_profiled;
+    fp32 limit_y = ((v_y_target * v_y_profiled < 0.0f) ||
+                    (fabsf(v_y_target) < fabsf(v_y_profiled)))
+                   ? max_decel * dt_chassis
+                   : max_accel * dt_chassis;
+    if      (step_y >  limit_y) step_y =  limit_y;
+    else if (step_y < -limit_y) step_y = -limit_y;
+    v_y_profiled += step_y;
+
+    // Feed profiled target � not raw target � into PID
+    vx_ref = PID_Calculate(&pid_chassis_vel_x, v_x_profiled, vx);
+    vy_ref = PID_Calculate(&pid_chassis_vel_y, v_y_profiled, vy);
     switch (state_chassis) {
                 
         case CHASSIS_FOLLOW_GIMBAL:
-				
-					if (is_rotating == 0) {
-						// Forward/Backward
-						r_ang_vel_wheel_1_bwd_fwd       = ((float) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels;
-						r_ang_vel_wheel_2_bwd_fwd       = ((float) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels;
-						r_ang_vel_wheel_3_bwd_fwd       = ((float) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels;
-						r_ang_vel_wheel_4_bwd_fwd       = ((float) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels;
-						// Left/Right
-						r_ang_vel_wheel_1_left_right    = ((float) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels;
-						r_ang_vel_wheel_2_left_right    = ((float) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels;
-						r_ang_vel_wheel_3_left_right    = ((float) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels;
-						r_ang_vel_wheel_4_left_right    = ((float) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels;
-						// Align chassis to gimbal
-						r_ang_vel_wheels_chassis_yaw    = max(min(chassis.x[4], pi/2), -pi/2) * (2/pi) * max_r_ang_vel_wheels;
-						break;
-					}
-					
-					else if (is_rotating == 1 && ((DM_Yaw_Motor.Data.Angle_sum > (GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD + 1000)) || (DM_Yaw_Motor.Data.Angle_sum < (GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD)))) {
-					 // Forward/Backward
-            r_ang_vel_wheel_1_bwd_fwd       = ((float) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels * cos(- chassis.x[4] + pi/4);
-            r_ang_vel_wheel_2_bwd_fwd       = ((float) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels * sin(- chassis.x[4] + pi/4);
-            r_ang_vel_wheel_3_bwd_fwd       = ((float) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels * cos(- chassis.x[4] + pi/4);
-            r_ang_vel_wheel_4_bwd_fwd       = ((float) remote_commands_bwd_fwd / MAX_RC_TILT) * max_r_ang_vel_wheels * sin(- chassis.x[4] + pi/4);
-            // Left/Right
-            r_ang_vel_wheel_1_left_right    = ((float) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels * cos(+ chassis.x[4] + pi/4);
-            r_ang_vel_wheel_2_left_right    = ((float) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels * sin(+ chassis.x[4] + pi/4);
-            r_ang_vel_wheel_3_left_right    = ((float) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels * cos(+ chassis.x[4] + pi/4);
-            r_ang_vel_wheel_4_left_right    = ((float) remote_commands_left_right / MAX_RC_TILT) * max_r_ang_vel_wheels * sin(+ chassis.x[4] + pi/4);
-            // Chassis contiguous rotation
-            r_ang_vel_wheels_chassis_yaw    = 20;//max_r_ang_vel_wheels;
-						break;
-					}
-					
-					else {
-						is_rotating = 0;
-						break;
-					}
+
+            if (is_rotating == 0) {
+                // Forward/Backward
+                r_ang_vel_wheel_1_bwd_fwd    = vy_ref / radius_wheels;
+                r_ang_vel_wheel_2_bwd_fwd    = vy_ref / radius_wheels;
+                r_ang_vel_wheel_3_bwd_fwd    = vy_ref / radius_wheels;
+                r_ang_vel_wheel_4_bwd_fwd    = vy_ref / radius_wheels;
+                // Left/Right
+                r_ang_vel_wheel_1_left_right = vx_ref / radius_wheels;
+                r_ang_vel_wheel_2_left_right = vx_ref / radius_wheels;
+                r_ang_vel_wheel_3_left_right = vx_ref / radius_wheels;
+                r_ang_vel_wheel_4_left_right = vx_ref / radius_wheels;
+                // Align chassis to gimbal
+                r_ang_vel_wheels_chassis_yaw = max(min(chassis.x[4], pi/2), -pi/2) * (2.0f/pi) * max_r_ang_vel_wheels;
+                break;
+            }
+
+            else if (is_rotating == 1 && ((DM_Yaw_Motor.Data.Angle_sum > (GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD + 1000)) ||
+                                          (DM_Yaw_Motor.Data.Angle_sum < (GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD)))) {
+//                // Forward/Backward � field-oriented
+//                r_ang_vel_wheel_1_bwd_fwd    = vy_ref / radius_wheels * cos(- chassis.x[4] + pi/4);
+//                r_ang_vel_wheel_2_bwd_fwd    = vy_ref / radius_wheels * sin(- chassis.x[4] + pi/4);
+//                r_ang_vel_wheel_3_bwd_fwd    = vy_ref / radius_wheels * cos(- chassis.x[4] + pi/4);
+//                r_ang_vel_wheel_4_bwd_fwd    = vy_ref / radius_wheels * sin(- chassis.x[4] + pi/4);
+//                // Left/Right � field-oriented
+//                r_ang_vel_wheel_1_left_right = vx_ref / radius_wheels * cos(+ chassis.x[4] + pi/4);
+//                r_ang_vel_wheel_2_left_right = vx_ref / radius_wheels * sin(+ chassis.x[4] + pi/4);
+//                r_ang_vel_wheel_3_left_right = vx_ref / radius_wheels * cos(+ chassis.x[4] + pi/4);
+//                r_ang_vel_wheel_4_left_right = vx_ref / radius_wheels * sin(+ chassis.x[4] + pi/4);
+//                // Yaw correction while re-aligning
+//                r_ang_vel_wheels_chassis_yaw = 20.0f;
+                break;
+            }
+
+            else {
+                is_rotating = 0;
+                break;
+            }
         
         case CHASSIS_CONTIGUOUS_ROTATION:
             // Forward/Backward
@@ -212,41 +297,60 @@ void control_loop_chassis() {
     
 		//generation of the referce to send to the MIT motor
     chassis.r_x[0] = (+ r_ang_vel_wheel_1_bwd_fwd - r_ang_vel_wheel_1_left_right) + r_ang_vel_wheels_chassis_yaw;
-		chassis.r_x[1] = (+ r_ang_vel_wheel_2_bwd_fwd + r_ang_vel_wheel_2_left_right) + r_ang_vel_wheels_chassis_yaw;
-		chassis.r_x[2] = (- r_ang_vel_wheel_3_bwd_fwd + r_ang_vel_wheel_3_left_right) + r_ang_vel_wheels_chassis_yaw;
-		chassis.r_x[3] = (- r_ang_vel_wheel_4_bwd_fwd - r_ang_vel_wheel_4_left_right) + r_ang_vel_wheels_chassis_yaw;
-		
-		/*
-	  * Acceleration limiter: clamp the per-tick reference delta so that no wheel
-	  * is commanded to change speed faster than max_acceleration [rad/s�].
-	  * All four wheels are clamped independently; the saturation block that
-	  * follows will re-scale proportionally if any wheel still exceeds the
-	  * physical limit after ramping.
-	  */
-		if (is_rotating == 0){
-			float max_delta = max_acceleration * dt_chassis;
-			for (uint8_t i = 0; i < chassis.n; i++) {
-				float delta = chassis.r_x[i] - chassis.r_x_prev[i];
-				
-			if (fabsf(chassis.r_x[i]) > fabsf(chassis.r_x_prev[i])) {
-					if (delta >  max_delta) delta =  max_delta;
-					if (delta < -max_delta) delta = -max_delta;
-					chassis.r_x[i] = chassis.r_x_prev[i] + delta;
-					}
-			}
-		}
+    chassis.r_x[1] = (+ r_ang_vel_wheel_2_bwd_fwd + r_ang_vel_wheel_2_left_right) + r_ang_vel_wheels_chassis_yaw;
+    chassis.r_x[2] = (- r_ang_vel_wheel_3_bwd_fwd + r_ang_vel_wheel_3_left_right) + r_ang_vel_wheels_chassis_yaw;
+    chassis.r_x[3] = (- r_ang_vel_wheel_4_bwd_fwd - r_ang_vel_wheel_4_left_right) + r_ang_vel_wheels_chassis_yaw;
 
-		/*
-		Optimal saturation: if one wheel attempts to reach a reference value higher than the
-		physical limit of the wheel, all wheel references are scaled down by the same factor.
-		Otherwise, the robot would not follow the correct movement because the wheels would
-		reach velocities with proportions different from those imposed by the kinematic model,
-		resulting in an incorrect motion profile.
-		*/
-		max_reference = 0; //max speed reference
-		for (uint8_t i = 0; i < chassis.n; i++) {
-			float abs_val = fabsf(chassis.r_x[i]);
-			if (abs_val > max_reference) max_reference = abs_val;
+	/*
+ * Inter-wheel normalization: compare each wheel's actual/reference ratio
+ * to find which wheel is lagging relative to the others. Scale faster wheels
+ * down to match the slowest one, preserving kinematic proportions.
+ *
+ * Key difference from absolute scaling: only triggers when there is a
+ * meaningful SPREAD between wheels (max_ratio - min_ratio > threshold).
+ * If all wheels are equally behind their reference (normal during acceleration),
+ * no correction is applied.
+ */
+#define WHEEL_REF_DEADBAND  1.0f
+#define RATIO_SPREAD_THRESH 0.08f
+#define RATIO_LPF_ALPHA     0.05f  // lower = smoother, more lag. Tune between 0.02 and 0.1
+
+static float ratio_filtered[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+
+float ratio_raw[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+float min_ratio = 1.0f;
+float max_ratio = 0.0f;
+
+for (uint8_t i = 0; i < chassis.n; i++) {
+    if (fabsf(chassis.r_x[i]) > WHEEL_REF_DEADBAND &&
+        chassis.r_x[i] * chassis.x[i] > 0.0f) {
+        ratio_raw[i] = fabsf(chassis.x[i]) / fabsf(chassis.r_x[i]);
+    } else {
+        ratio_raw[i] = 1.0f;  // neutral when wheel is not active
+    }
+    // Low-pass filter
+    ratio_filtered[i] += RATIO_LPF_ALPHA * (ratio_raw[i] - ratio_filtered[i]);
+
+    if (ratio_filtered[i] < min_ratio) min_ratio = ratio_filtered[i];
+    if (ratio_filtered[i] > max_ratio) max_ratio = ratio_filtered[i];
+}
+
+if (max_ratio > 0.05f && (max_ratio - min_ratio) > RATIO_SPREAD_THRESH) {
+    for (uint8_t i = 0; i < chassis.n; i++) {
+        if (fabsf(chassis.r_x[i]) > WHEEL_REF_DEADBAND &&
+            chassis.r_x[i] * chassis.x[i] > 0.0f) {
+            chassis.r_x[i] *= (min_ratio / ratio_filtered[i]);
+        }
+    }
+}
+    /*
+     * Optimal saturation: if one wheel exceeds the physical speed limit, scale
+     * all wheels down by the same factor to preserve the correct motion profile.
+     */
+    max_reference = 0.0f;
+    for (uint8_t i = 0; i < chassis.n; i++) {
+        float abs_val = fabsf(chassis.r_x[i]);
+        if (abs_val > max_reference) max_reference = abs_val;
     }
 		if (max_reference > (float)(max_r_ang_vel_wheels)) {
 			for (uint8_t i = 0; i < chassis.n; i++) chassis.r_x[i] *= (44/max_reference);
@@ -262,4 +366,3 @@ void control_loop_chassis() {
 			chassis_power_control( chassis_power_limit_local , chassis.u);
 		#endif
 }
-
