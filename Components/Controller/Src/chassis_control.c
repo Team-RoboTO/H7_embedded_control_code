@@ -1,6 +1,6 @@
 /**
  * @file    chassis_control.c
- * @brief   Chassis control loop — reference generation for the 4-wheel drive.
+ * @brief   Chassis control loop ï¿½ reference generation for the 4-wheel drive.
  *
  * @details
  * This module computes per-wheel angular velocity references from operator or
@@ -8,15 +8,15 @@
  * via control_loop_chassis().
  *
  * +---------------------------------------------------------------------------+
- * ¦ Chassis state            ¦ Behaviour                                      ¦
- * +--------------------------+------------------------------------------------¦
- * ¦ FOLLOW_GIMBAL            ¦ Chassis aligns to gimbal yaw via a proportional¦
- * ¦                          ¦ correction on the yaw error. While is_rotating ¦
- * ¦                          ¦ is set, field-oriented decomposition is applied ¦
- * ¦                          ¦ until the head re-aligns, then it clears.      ¦
- * ¦ CONTIGUOUS_ROTATION      ¦ Full field-oriented movement with constant max  ¦
- * ¦                          ¦ yaw spin (chassis spins continuously). Sets    ¦
- * ¦                          ¦ is_rotating = 1 for the return-to-align logic. ¦
+ * ï¿½ Chassis state            ï¿½ Behaviour                                      ï¿½
+ * +--------------------------+------------------------------------------------ï¿½
+ * ï¿½ FOLLOW_GIMBAL            ï¿½ Chassis aligns to gimbal yaw via a proportionalï¿½
+ * ï¿½                          ï¿½ correction on the yaw error. While is_rotating ï¿½
+ * ï¿½                          ï¿½ is set, field-oriented decomposition is applied ï¿½
+ * ï¿½                          ï¿½ until the head re-aligns, then it clears.      ï¿½
+ * ï¿½ CONTIGUOUS_ROTATION      ï¿½ Full field-oriented movement with constant max  ï¿½
+ * ï¿½                          ï¿½ yaw spin (chassis spins continuously). Sets    ï¿½
+ * ï¿½                          ï¿½ is_rotating = 1 for the return-to-align logic. ï¿½
  * +---------------------------------------------------------------------------+
  *
  * Command sources (selected by state_remote_commands):
@@ -43,6 +43,9 @@
 #include "math_utils.h"
 #include "control_utils.h"
 #include "MiniPC.h"
+
+#include "rtt_log.h"
+#include "segger_rtt.h"
 
   /*************************/
  /*   CONTROLLED SYSTEM   */
@@ -93,7 +96,7 @@ static float MIT_t_ff  = 0.0f;      // range -15.0 - 15.0 [Nm]
 static float radius_wheels = 0.0825f;
 
 // Acceleration limiting
-float max_acceleration = 40.0f;  // [rad/s²] — tune this value
+float max_acceleration = 40.0f;  // [rad/sï¿½] ï¿½ tune this value
 static float dt_chassis = 0.001f; 
 
   /********************/
@@ -215,7 +218,7 @@ void control_loop_chassis() {
 		
 		/*
 	  * Acceleration limiter: clamp the per-tick reference delta so that no wheel
-	  * is commanded to change speed faster than max_acceleration [rad/s²].
+	  * is commanded to change speed faster than max_acceleration [rad/sï¿½].
 	  * All four wheels are clamped independently; the saturation block that
 	  * follows will re-scale proportionally if any wheel still exceeds the
 	  * physical limit after ramping.
@@ -249,6 +252,8 @@ void control_loop_chassis() {
 			for (uint8_t i = 0; i < chassis.n; i++) chassis.r_x[i] *= (44/max_reference);
 		}
 
+			float data[] = { vx_ref, vx, 0 };
+			RTT_Log(data, 3);
 		
 		// Competition Power Limit
 		#if IS_POWER_LIMIT_ENABLED
