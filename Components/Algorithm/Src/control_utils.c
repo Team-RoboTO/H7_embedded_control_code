@@ -101,16 +101,16 @@ float tf_resp(struct tf *tf, float u) {
   return y;
 }
 
-void slewRateControl(float *profiled_value, float *target_value, float max_accel, float max_decel, float dt) {
-    fp32 step  = *target_value - *profiled_value; 
-    fp32 limit = ((*target_value * *profiled_value < 0.0f) ||  
-                    (fabsf(*target_value) < fabsf(*profiled_value))) 
+void slewRateControl(float *profiled_value, float target_value, float max_accel, float max_decel, float dt) {
+    float step  = target_value - *profiled_value; 
+    float limit = ((target_value * *profiled_value < 0.0f) ||  
+                    (fabsf(target_value) < fabsf(*profiled_value))) 
                    ? max_decel * dt
                    : max_accel * dt; 
 
 	clamp(&step, -limit, limit); 
 
-    *profiled_value += step_x;
+    *profiled_value += step;
 
 	return;
 }

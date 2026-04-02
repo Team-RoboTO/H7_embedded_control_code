@@ -210,8 +210,8 @@ void control_loop_chassis() {
 
     //Velocity profiler: rate-limit the target before feeding the PID ---
 
-	slewRateControl(&v_x_profiled, &v_x_target, max_accel, max_decel, dt_chassis);
-	slewRateControl(&v_y_profiled, &v_y_target, max_accel, max_decel, dt_chassis);
+	slewRateControl(&v_x_profiled, v_x_target, max_accel, max_decel, dt_chassis);
+	slewRateControl(&v_y_profiled, v_y_target, max_accel, max_decel, dt_chassis);
 
 
     // Y axis
