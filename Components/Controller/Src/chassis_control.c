@@ -195,7 +195,7 @@ void control_loop_chassis() {
         chassis.r_x_prev[i] = chassis.r_x[i];
     }
 
-    // --- Forward kinematics: wheel angular velocities ? chassis linear velocities ---
+    //Forward kinematics: wheel angular velocities ? chassis linear velocities ---
     v1 = chassis.x[0] * radius_wheels;
     v2 = chassis.x[1] * radius_wheels;
     v3 = chassis.x[2] * radius_wheels;
@@ -208,17 +208,11 @@ void control_loop_chassis() {
     v_y_target = ((float) remote_commands_bwd_fwd    / MAX_RC_TILT) * 5.0f;
     v_x_target = ((float) remote_commands_left_right / MAX_RC_TILT) * 5.0f;
 
-    // --- Velocity profiler: rate-limit the target before feeding the PID ---
+    //Velocity profiler: rate-limit the target before feeding the PID ---
 
-    // X axis
-    fp32 step_x  = v_x_target - v_x_profiled;
-    fp32 limit_x = ((v_x_target * v_x_profiled < 0.0f) ||
-                    (fabsf(v_x_target) < fabsf(v_x_profiled)))
-                   ? max_decel * dt_chassis
-                   : max_accel * dt_chassis;
-    if      (step_x >  limit_x) step_x =  limit_x;
-    else if (step_x < -limit_x) step_x = -limit_x;
-    v_x_profiled += step_x;
+	slewRateControl(&v_x_profiled, &v_x_target, max_accel, max_decel, dt_chassis);
+	slewRateControl(&v_y_profiled, &v_y_target, max_accel, max_decel, dt_chassis);
+
 
     // Y axis
     fp32 step_y  = v_y_target - v_y_profiled;
