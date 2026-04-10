@@ -897,26 +897,16 @@
               <FileType>1</FileType>
               <FilePath>..\Components\Algorithm\Src\math_utils.c</FilePath>
             </File>
+            <File>
+              <FileName>mouse_keyboard_command.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Controller\Src\mouse_keyboard_command.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
           <GroupName>Components/Device</GroupName>
           <Files>
-            <File>
-              <FileName>Damiao_Motor.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Components\Controller\Src\Damiao_Motor.c</FilePath>
-            </File>
-            <File>
-              <FileName>Cubemars_Motor.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Components\Controller\Src\Cubemars_Motor.c</FilePath>
-            </File>
-            <File>
-              <FileName>DJI_Motor.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Components\Controller\Src\DJI_Motor.c</FilePath>
-            </File>
             <File>
               <FileName>Motor.c</FileName>
               <FileType>1</FileType>
@@ -961,6 +951,21 @@
               <FileName>rtt_log.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\Components\Device\Inc\rtt_log.h</FilePath>
+            </File>
+            <File>
+              <FileName>Cubemars_Motor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Device\Src\Cubemars_Motor.c</FilePath>
+            </File>
+            <File>
+              <FileName>Damiao_Motor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Device\Src\Damiao_Motor.c</FilePath>
+            </File>
+            <File>
+              <FileName>DJI_Motor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Device\Src\DJI_Motor.c</FilePath>
             </File>
           </Files>
         </Group>

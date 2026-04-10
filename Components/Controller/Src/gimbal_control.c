@@ -129,10 +129,10 @@ void control_loop_gimbal() {
                     break;
 
                 case COMMANDS_KEYBOARD_MOUSE:						
-                    remote_commands_yaw   = RC_info.Mouse.X*0.001;
-                    remote_commands_pitch = RC_info.Mouse.Y*0.001;
+                     remote_commands_yaw   = RC_info.Mouse.X*0.01;
+                    remote_commands_pitch = RC_info.Mouse.Y*0.01;
                     gimbal.r_x[0] += (remote_commands_yaw   / MAX_RC_TILT) * 15 * DEG_TO_RAD;
-                    gimbal.r_x[1]  = cm_p_des_origin + (remote_commands_pitch / MAX_RC_TILT) * 30 * DEG_TO_RAD;
+                    gimbal.r_x[1]  = cm_p_des_origin + (remote_commands_pitch / MAX_RC_TILT) * 30 * DEG_TO_RAD;              
                     break;
 
                 default:

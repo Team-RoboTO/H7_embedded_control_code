@@ -43,6 +43,7 @@
 #include "math_utils.h"
 #include "control_utils.h"
 #include "MiniPC.h"
+#include "mouse_keyboard_command.h"
 
   /*************************/
  /*   CONTROLLED SYSTEM   */
@@ -123,18 +124,18 @@ void control_loop_chassis() {
 							 remote_commands_left_right = left_right_cv*sqrt(2)*radius_wheels;
 					 
 						case COMMANDS_KEYBOARD_MOUSE:
-//                // Update commands from keyboard
-////                compute_weights_WASD_keys(dt_chassis);
-////                remote_commands_bwd_fwd_float     = MAX_RC_TILT * weight_fwd_key;
-////                remote_commands_bwd_fwd_float    -= MAX_RC_TILT * weight_bwd_key;
-////                remote_commands_left_right_float  = MAX_RC_TILT * weight_right_key;
-////                remote_commands_left_right_float -= MAX_RC_TILT * weight_left_key;
-//                saturate(&remote_commands_bwd_fwd_float,    MAX_RC_TILT);  // Value should never reach saturation, but keep it for safety
-//                saturate(&remote_commands_left_right_float, MAX_RC_TILT);  // Value should never reach saturation, but keep it for safety
-//                // Convert from float to int16
-//                remote_commands_bwd_fwd    = -(int16_t) remote_commands_bwd_fwd_float;
-//                remote_commands_left_right = -(int16_t) remote_commands_left_right_float;
-//                break;
+                // Update commands from keyboard
+                compute_weights_WASD_keys(dt_chassis);
+                remote_commands_bwd_fwd_float     = MAX_RC_TILT * weight_fwd_key;
+                remote_commands_bwd_fwd_float    -= MAX_RC_TILT * weight_bwd_key;
+                remote_commands_left_right_float  = MAX_RC_TILT * weight_right_key;
+                remote_commands_left_right_float -= MAX_RC_TILT * weight_left_key;
+                saturate(&remote_commands_bwd_fwd_float,    MAX_RC_TILT);  // Value should never reach saturation, but keep it for safety
+                saturate(&remote_commands_left_right_float, MAX_RC_TILT);  // Value should never reach saturation, but keep it for safety
+                // Convert from float to int16
+                remote_commands_bwd_fwd    = +(int16_t) remote_commands_bwd_fwd_float; 
+                remote_commands_left_right = +(int16_t) remote_commands_left_right_float; 
+                break;
 
             default:
                 remote_commands_bwd_fwd     = 0;
