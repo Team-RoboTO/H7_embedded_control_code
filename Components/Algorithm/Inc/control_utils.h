@@ -143,4 +143,36 @@ void tf_reset_io(struct tf *tf);
 ************************************************************************************************************************/
 float tf_resp(struct tf *tf, float u);
 
+/************************************************************************************************************************
+    NAME: clamp
+    
+    DESCRIPTION: constraints a value within a specific numerical range [lb, ub]
+************************************************************************************************************************/
+void clamp(float *value, float lb, float ub);
+
+/************************************************************************************************************************
+    NAME: slewRateControl
+    
+    DESCRIPTION: computes the profiled response of a velocity command to prevent wheel slippage
+                 by enforcing acceleration and deceleration limits
+
+    ARGUMENTS:
+    - profiled_value: pointer to the current state (i.e. v_profiled[k-1])
+    - target_value:   desired input velocity (i.e. v_target[k])
+    - max_accel:      maximum allowed acceleration [units/s^2]
+    - max_decel:      maximum allowed deceleration [units/s^2]
+    - dt:             delta time since last update [s]
+
+    The profiled output v_profiled[k] is computed by:
+    
+    1. error = v_target[k] - v_profiled[k-1]
+    2. limit = (decelerating or direction_change) ? (max_decel * dt) : (max_accel * dt)
+    3. step  = sat(error, -limit, limit)
+    4. v_profiled[k] = v_profiled[k-1] + step
+    
+    NOTE: deceleration is detected if |v_target| < |v_profiled| or if v_target * v_profiled < 0
+************************************************************************************************************************/
+void slewRateControl(float *profiled_value, float target_value, float max_accel, float max_decel, float dt);
+
+
 #endif

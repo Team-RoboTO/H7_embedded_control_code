@@ -171,7 +171,7 @@ void control_loop_gimbal() {
 //								gimbal.r_x[0] = gimbal.x[0] + yaw_interp;
 //								gimbal.r_x[1] = cm_p_des_origin + pitch_interp;
 //						} else {
-//								// No valid CV interval yet — hold current position
+//								// No valid CV interval yet ï¿½ hold current position
 //								gimbal.r_x[0] = gimbal.x[0];
 //								gimbal.r_x[1] = cm_p_des_origin;
 //						}
@@ -188,7 +188,7 @@ void control_loop_gimbal() {
 /*****************************/
 
 	gimbal.u[0] = PID_Calculate(&pid_yaw_pos, gimbal.r_x[0], gimbal.x[0]);
-	float data[] = { gimbal.r_x[0], gimbal.x[0], gimbal.u[0] };
-	RTT_Log(data, 3);
+//	float data[] = { gimbal.r_x[0], gimbal.x[0], gimbal.u[0] };
+//	RTT_Log(data, 3);
 
 }
