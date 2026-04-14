@@ -21,6 +21,7 @@ Image_Transmission_Info_TypeDef Image_Transmission_Info;
 VT13_Info_TypeDef VT13_Info;
 
 static int16_t bit8TObit16(uint8_t change_info[2]);
+static int16_t last_button_state[3] = {0};
 
 void Image_Transmission_Info_Update(uint8_t *Buff){
 
@@ -76,11 +77,29 @@ void VT13_Info_Update(uint8_t *Buff ,VT13_Info_TypeDef *VT13_Info){
 		    VT13_Info->RC.Channel[0] = ( (Buff[2]) | (Buff[3] << 8) )& 0x07FF;                           
         VT13_Info->RC.Channel[1] = ( (Buff[3] >> 3) | (Buff[4] << 5 ) ) & 0x07FF;                            
         VT13_Info->RC.Channel[2] = ( (Buff[4] >> 6) | (Buff[5] << 2 ) | (Buff[6] << 10) ) & 0x07FF;      
-        VT13_Info->RC.Channel[3] = ( (Buff[6] >> 1) | (Buff[7] << 7 ) ) & 0x07FF;                         
+        VT13_Info->RC.Channel[3] = ( (Buff[6] >> 1) | (Buff[7] << 7 ) ) & 0x07FF;  
+
+
 			  VT13_Info->RC.Switch     = (  Buff[7] >> 4 ) & 0x03;
-			  VT13_Info->RC.Stop       = (  Buff[7] >> 6 ) & 0x01;
-			  VT13_Info->RC.Left       = (  Buff[7] >> 7 ) & 0x01;
-			  VT13_Info->RC.Right      = (  Buff[8]  ) & 0x01;
+			 
+				// We want these three to be on/off buttons
+
+				if( (  Buff[7] >> 6 ) & 0x01  && last_button_state[0] == 0) {
+					VT13_Info->RC.Stop  = !VT13_Info->RC.Stop;
+				}
+				last_button_state[0] = (  Buff[7] >> 6 ) & 0x01 ;
+				
+				if( (  Buff[7] >> 7 ) & 0x01 && last_button_state[1] == 0) {
+					VT13_Info->RC.Left = !VT13_Info->RC.Left;
+				}
+			  last_button_state[1] = (  Buff[7] >> 7 ) & 0x01;
+				
+				if( (  Buff[8]  ) & 0x01 && last_button_state[2] == 0) {
+					 VT13_Info->RC.Right = ! VT13_Info->RC.Right ;
+				}
+				last_button_state[2] = (  Buff[8]  ) & 0x01;
+			 
+			
 			  VT13_Info->RC.Wheel      = ( (Buff[8] >> 1) | (Buff[9] << 7 ) ) & 0x07FF; 
 			  VT13_Info->RC.Trigger    = (  Buff[9] >> 4 ) & 0x01;
 			 
