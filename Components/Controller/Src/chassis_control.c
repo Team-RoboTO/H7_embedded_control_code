@@ -105,6 +105,7 @@ static float v1;
 static float v2;
 static float v3;
 static float v4;
+static float w;
 
 static float vx_ref;
 static float vy_ref;
@@ -204,6 +205,7 @@ void control_loop_chassis() {
 
     vx = (-v1 + v2 + v3 - v4) / (4.0f * 0.7f);
     vy = ( v1 + v2 - v3 - v4) / (4.0f * 0.7f);
+		w = ( v1 + v2 + v3 + v4) / (4.0f * 0.7f);
 
     // Scale RC input to m/s target
     v_y_target = ((float) remote_commands_bwd_fwd    / MAX_RC_TILT) * 5.0f;
@@ -360,4 +362,10 @@ if (max_ratio > 0.05f && (max_ratio - min_ratio) > RATIO_SPREAD_THRESH) {
 		
 			chassis_power_control( chassis_power_limit_local , chassis.u);
 		#endif
+}
+
+
+
+float get_chassis_rotation_speed(){
+	return w;
 }

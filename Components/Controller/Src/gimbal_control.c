@@ -64,6 +64,8 @@ static float time_stamp_cv_prev;
 static float yaw_command_from_cv_prev;
 static float pitch_command_from_cv_prev;
 
+static float k_ff_yaw = 3.0f;
+
 static uint8_t is_first_iter = true;
 
 float cm_p_des_origin = -18*DEG_TO_RAD;
@@ -187,7 +189,8 @@ void control_loop_gimbal() {
  /*   CONTROL LOOP EXECUTION  */
 /*****************************/
 
-	gimbal.u[0] = PID_Calculate(&pid_yaw_pos, gimbal.r_x[0], gimbal.x[0]);
+	float pid_yaw_out = PID_Calculate(&pid_yaw_pos, gimbal.r_x[0], gimbal.x[0]);
+		gimbal.u[0] = pid_yaw_out - ( k_ff_yaw * get_chassis_rotation_speed() );
 //	float data[] = { gimbal.r_x[0], gimbal.x[0], gimbal.u[0] };
 //	RTT_Log(data, 3);
 
