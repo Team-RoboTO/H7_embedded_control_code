@@ -96,18 +96,17 @@ void chassis_power_control(uint16_t limit, float *u){
 
 			// No real solution: impossible to reach the target power --> maintain the current value
 			if (delta < 0) {
-				t += 1;
 				continue; 
 			}
 			float new_output; //new output [A]
 			if (u[i] > 0) {  
 				// Positive torque: choose the positive root
-				new_output = (-b + sqrt(delta)) / 2  / torque_coefficient ;
+				new_output = (-b + sqrt(delta)) / 2 ;
 				u[i] = new_output;
 			}
 			else {
 				// Negative torque: choose the negative root
-				new_output = (-b - sqrt(delta)) / 2  / torque_coefficient;
+				new_output = (-b - sqrt(delta)) / 2 ;
 				u[i] = new_output;
 				
 			}
