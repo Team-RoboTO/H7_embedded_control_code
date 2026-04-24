@@ -66,12 +66,13 @@ static float pitch_command_from_cv_prev;
 
 static float k_ff_yaw = 3.0f;
 
-static uint8_t is_first_iter = true;
+static bool is_first_iter = true;
+static bool is_homing = true;
 
-float cm_p_des_origin = -18*DEG_TO_RAD;
+float scale_yaw = 0.5f;
+float scale_pitch = 0.015f;
 
-float scale_yaw = 0.02f;
-float scale_pitch = 0.04f;
+float pitch_zero;
 
 static LowPassFilter1p_Info_TypeDef lpf_pitch_cv;
 #define CV_PITCH_LPF_ALPHA 0.7f
@@ -98,6 +99,7 @@ void control_loop_gimbal() {
     // one-time initialization
     if (is_first_iter) {
         gimbal.r_x[0] = gimbal.x[0];
+			  gimbal.r_x[1] = CM_Pitch_Motor.Data.Position;
 			
 				// PID_INIT
 				PID_Init(&pid_yaw_pos, PID_POSITION, pid_yaw_pos_params);
@@ -111,9 +113,20 @@ void control_loop_gimbal() {
 				
 				// reset both PIDs on stop
 				pid_yaw_pos.PID_Calc_Clear(&pid_yaw_pos);
+			  gimbal.r_x[1] = CM_Pitch_Motor.Data.Position;
+			  is_homing = 1;
+			  is_first_iter = 1;
         return;
     }
-
+		
+		if (is_homing == 1) {
+			gimbal.r_x[1] -= 0.01 * 	DEG_TO_RAD;
+		  if (gimbal.x[1] >= 0) {
+				pitch_zero = gimbal.r_x[1];
+				is_homing = 0;
+			}
+		}
+			
 
     // setpoint generation: manual or auto-aim
     switch (state_gimbal) {
@@ -127,15 +140,19 @@ void control_loop_gimbal() {
                         if (remote_commands_yaw != 0){
 													 gimbal.r_x[0] += (remote_commands_yaw / MAX_RC_TILT) * 0.15f * DEG_TO_RAD;
 												}
-                        gimbal.r_x[1] = cm_p_des_origin + (remote_commands_pitch / MAX_RC_TILT) * 20 * DEG_TO_RAD;
+												if (is_homing == 0){
+													gimbal.r_x[1] = pitch_zero + (remote_commands_pitch / MAX_RC_TILT) * 20 * DEG_TO_RAD;
+													saturate_in_range(&gimbal.r_x[1], pitch_zero - 15*DEG_TO_RAD ,pitch_zero + 25*DEG_TO_RAD );
+												}
                     break;
 
                 case COMMANDS_KEYBOARD_MOUSE:						
                      remote_commands_yaw   = RC_info.Mouse.X*0.01;
                     remote_commands_pitch = RC_info.Mouse.Y*0.01;
                     gimbal.r_x[0] += (remote_commands_yaw   / MAX_RC_TILT) * 15 * DEG_TO_RAD;
-                    gimbal.r_x[1]  = cm_p_des_origin + (remote_commands_pitch / MAX_RC_TILT) * 30 * DEG_TO_RAD;              
-                    break;
+                    gimbal.r_x[1]  = pitch_zero + (remote_commands_pitch / MAX_RC_TILT) * 30 * DEG_TO_RAD;              
+                    saturate_in_range(&gimbal.r_x[1], pitch_zero - 15*DEG_TO_RAD ,pitch_zero + 25*DEG_TO_RAD );
+								break;
 
                 default:
                     break;
@@ -147,51 +164,38 @@ void control_loop_gimbal() {
 						pitch_command_from_cv_prev = pitch_command_from_cv;
 						time_stamp_cv_prev         = time_stamp_cv;
 
-						yaw_command_from_cv   = yaw_cv*scale_yaw;
-						pitch_command_from_cv = -pitch_cv*scale_pitch;
+						yaw_command_from_cv   = +yaw_cv*scale_yaw*DEG_TO_RAD;
+						pitch_command_from_cv = -pitch_cv*scale_pitch*DEG_TO_RAD;
 						time_stamp_cv         = time_cv;
 						
 						//pitch_cv_filtered = LowPassFilter1p_Update(&lpf_pitch_cv, pitch_command_from_cv);
 						
 						if (time_stamp_cv != time_stamp_cv_prev){
 							gimbal.r_x[0] = gimbal.x[0] + yaw_command_from_cv;
-							gimbal.r_x[1] = cm_p_des_origin + pitch_command_from_cv;
+							gimbal.r_x[1] += pitch_command_from_cv;
 //						// dt between last two CV frames (seconds)
-//						float cv_dt = time_stamp_cv - time_stamp_cv_prev;
-
+						float cv_dt = time_stamp_cv - time_stamp_cv_prev;
 //						if (cv_dt > 0.0f) {
-//								// Use a counter or a running timestamp here
-//								float t_now = HAL_GetTick();
-//								float alpha = (t_now - time_stamp_cv_prev) / cv_dt;
-//								alpha = fminf(fmaxf(alpha, 0.0f), 1.0f);
+//							float yaw_target_vel   = (yaw_command_from_cv - yaw_command_from_cv_prev) / cv_dt;
+//							float pitch_target_vel = (pitch_command_from_cv - pitch_command_from_cv_prev) / cv_dt;
 
-//								// Interpolate the relative command
-//								float yaw_interp   = yaw_command_from_cv_prev + alpha * (yaw_command_from_cv - yaw_command_from_cv_prev);
-//								float pitch_interp = pitch_command_from_cv_prev + alpha * (pitch_cv_filtered - pitch_command_from_cv_prev);
-
-//								// Convert relative ? absolute reference
-//								gimbal.r_x[0] = gimbal.x[0] + yaw_interp;
-//								gimbal.r_x[1] = cm_p_des_origin + pitch_interp;
-//						} else {
-//								// No valid CV interval yet � hold current position
-//								gimbal.r_x[0] = gimbal.x[0];
-//								gimbal.r_x[1] = cm_p_des_origin;
+//							// Lead the reference by one frame (feedforward)
+//							gimbal.r_x[0] += yaw_target_vel   * cv_dt;
+//							gimbal.r_x[1] += pitch_target_vel * cv_dt;
 //						}
-//						break;
-				
+
+				saturate_in_range(&gimbal.r_x[1], pitch_zero - 5*DEG_TO_RAD ,pitch_zero + 20*DEG_TO_RAD );
+				break;
 			}
         default:
             break;
     }
 
-	saturate_in_range(&gimbal.r_x[1],-0.5f,0.0f);
   /*****************************/
  /*   CONTROL LOOP EXECUTION  */
 /*****************************/
 
 	float pid_yaw_out = PID_Calculate(&pid_yaw_pos, gimbal.r_x[0], gimbal.x[0]);
-		gimbal.u[0] = pid_yaw_out - ( k_ff_yaw * get_chassis_rotation_speed() );
-//	float data[] = { gimbal.r_x[0], gimbal.x[0], gimbal.u[0] };
-//	RTT_Log(data, 3);
+	gimbal.u[0] = pid_yaw_out;//- ( k_ff_yaw * w );
 
 }

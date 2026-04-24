@@ -108,16 +108,9 @@ void slewRateControl(float *profiled_value, float target_value, float max_accel,
                    ? max_decel * dt
                    : max_accel * dt; 
 
-	clamp(&step, -limit, limit); 
+	  saturate(&step, limit); 
 
     *profiled_value += step;
 
 	return;
-}
-
-void clamp(float *value, float lb, float ub) {
-	if (*value < lb)
-		*value = lb;
-	if (*value > ub)
-		*value = ub;
 }

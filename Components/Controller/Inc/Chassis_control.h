@@ -18,6 +18,7 @@ extern float MIT_kd;
 #define GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD -0.124877453f
 
 void control_loop_chassis(void);
-float get_chassis_rotation_speed();
+
+extern float w;
 
 #endif

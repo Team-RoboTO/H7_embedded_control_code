@@ -133,8 +133,9 @@ int main(void)
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
   MCU_Init();
-
-	SEGGER_SYSVIEW_Conf();
+	
+	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);   // OUT1 ON
+	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_14, GPIO_PIN_SET);   // OUT2 ON
 	
 	//EventRecorderInitialize(EventRecordAll, 1U);
 	//EventRecorderStart();
