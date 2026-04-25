@@ -69,13 +69,16 @@ static float k_ff_yaw = 3.0f;
 static bool is_first_iter = true;
 static bool is_homing = true;
 
-float scale_yaw = 0.5f;
-float scale_pitch = 0.015f;
-
 float pitch_zero;
 
+float lim_ang_pitch = 0.02f;
+float lim_ang_yaw = 0.03f;
+
 static LowPassFilter1p_Info_TypeDef lpf_pitch_cv;
-#define CV_PITCH_LPF_ALPHA 0.7f
+#define CV_PITCH_LPF_ALPHA 0.65f
+
+static LowPassFilter1p_Info_TypeDef lpf_yaw_cv;
+#define CV_YAW_LPF_ALPHA 0.8f
 
 float pitch_cv_filtered = 0;
 
@@ -104,6 +107,7 @@ void control_loop_gimbal() {
 				// PID_INIT
 				PID_Init(&pid_yaw_pos, PID_POSITION, pid_yaw_pos_params);
 				LowPassFilter1p_Init(&lpf_pitch_cv, CV_PITCH_LPF_ALPHA);
+				LowPassFilter1p_Init(&lpf_yaw_cv, CV_YAW_LPF_ALPHA);
 			
         is_first_iter = false;
     }
@@ -164,29 +168,59 @@ void control_loop_gimbal() {
 						pitch_command_from_cv_prev = pitch_command_from_cv;
 						time_stamp_cv_prev         = time_stamp_cv;
 
-						yaw_command_from_cv   = +yaw_cv*scale_yaw*DEG_TO_RAD;
-						pitch_command_from_cv = -pitch_cv*scale_pitch*DEG_TO_RAD;
+						yaw_command_from_cv   = -yaw_cv;
+						pitch_command_from_cv = pitch_cv;
 						time_stamp_cv         = time_cv;
+				     
+			      if (pitch_command_from_cv == 0) pitch_command_from_cv = pitch_command_from_cv_prev;
+						if (yaw_command_from_cv == 0) yaw_command_from_cv = yaw_command_from_cv_prev;
 						
-						//pitch_cv_filtered = LowPassFilter1p_Update(&lpf_pitch_cv, pitch_command_from_cv);
-						
-						if (time_stamp_cv != time_stamp_cv_prev){
-							gimbal.r_x[0] = gimbal.x[0] + yaw_command_from_cv;
-							gimbal.r_x[1] += pitch_command_from_cv;
+						if (time_stamp_cv != time_stamp_cv_prev) {
+							
+							//gimbal.r_x[0] = yaw_command_from_cv;
+//							gimbal.r_x[1] = -pitch_command_from_cv;
 //						// dt between last two CV frames (seconds)
-						float cv_dt = time_stamp_cv - time_stamp_cv_prev;
-//						if (cv_dt > 0.0f) {
+//						  float cv_dt = time_stamp_cv - time_stamp_cv_prev;
 //							float yaw_target_vel   = (yaw_command_from_cv - yaw_command_from_cv_prev) / cv_dt;
 //							float pitch_target_vel = (pitch_command_from_cv - pitch_command_from_cv_prev) / cv_dt;
 
 //							// Lead the reference by one frame (feedforward)
 //							gimbal.r_x[0] += yaw_target_vel   * cv_dt;
 //							gimbal.r_x[1] += pitch_target_vel * cv_dt;
-//						}
-
-				saturate_in_range(&gimbal.r_x[1], pitch_zero - 5*DEG_TO_RAD ,pitch_zero + 20*DEG_TO_RAD );
-				break;
-			}
+						}
+													// Standard delta: New Target - Previous Value
+							float limit_pitch = lim_ang_pitch * DEG_TO_RAD;
+							float delta_pitch = pitch_command_from_cv - pitch_command_from_cv_prev; 
+						
+							float limit_yaw = lim_ang_yaw * DEG_TO_RAD;
+						  float delta_yaw = yaw_command_from_cv - yaw_command_from_cv_prev; 
+						  
+							// Clamp the command pitch
+								if (delta_pitch >= limit_pitch) {
+										pitch_command_from_cv = pitch_command_from_cv_prev + limit_pitch;
+										gimbal.r_x[1] = -pitch_command_from_cv;
+								} else if (delta_pitch < -limit_pitch) {
+										pitch_command_from_cv = pitch_command_from_cv_prev - limit_pitch;
+										gimbal.r_x[1] = -pitch_command_from_cv;
+								} 
+							
+							// Clamp the command yaw
+							if (delta_yaw >= limit_yaw) {
+									yaw_command_from_cv = yaw_command_from_cv_prev + limit_yaw;
+									gimbal.r_x[0] = -yaw_command_from_cv;
+							} else if (delta_yaw < -limit_yaw) {
+									yaw_command_from_cv = yaw_command_from_cv_prev - limit_yaw;
+									gimbal.r_x[0] = -yaw_command_from_cv;
+							}
+							
+							
+							//else gimbal.r_x[1] = -pitch_command_from_cv;
+							saturate_in_range(&gimbal.r_x[1], pitch_zero - 5*DEG_TO_RAD ,pitch_zero + 20*DEG_TO_RAD );
+							
+							gimbal.r_x[0] = LowPassFilter1p_Update(&lpf_yaw_cv, gimbal.r_x[0]);
+							gimbal.r_x[1] = LowPassFilter1p_Update(&lpf_pitch_cv, gimbal.r_x[1]);
+							
+						break;
         default:
             break;
     }
@@ -196,6 +230,6 @@ void control_loop_gimbal() {
 /*****************************/
 
 	float pid_yaw_out = PID_Calculate(&pid_yaw_pos, gimbal.r_x[0], gimbal.x[0]);
-	gimbal.u[0] = pid_yaw_out;//- ( k_ff_yaw * w );
+	gimbal.u[0] = pid_yaw_out - ( k_ff_yaw * w );
 
 }

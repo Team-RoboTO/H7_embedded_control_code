@@ -17,6 +17,8 @@
 #include "usbd_cdc_if.h"
 #include "INS_Task.h"
 #include "Referee_System.h"
+#include "gimbal_control.h"
+#include "Cubemars_Motor.h"
 #include <string.h>
 
 fp32 random_value = 0;
@@ -58,15 +60,17 @@ fp32 fake_data[10] = {0};
 // 
 	
 	
-		Tx_data[0] = (fp32)(Referee_System_Info.robot_status.robot_id > 100);            /* color: 0.0=RED, 1.0=BLUE           */  
-		Tx_data[1] = fake_data[1];         /* battle mode: 1.0 if in battle      */
-    Tx_data[2] = fake_data[2];                 /* HP: uint16_t cast to fp32          */
+//		Tx_data[0] = (fp32)(Referee_System_Info.robot_status.robot_id > 100);            /* color: 0.0=RED, 1.0=BLUE           */  
+//		Tx_data[1] = fake_data[1];         /* battle mode: 1.0 if in battle      */
+    Tx_data[0] = gimbal.x[0];    /* float, degrees */
+    Tx_data[1] = CM_Pitch_Motor.Data.Position*45.0f/25.0f;  /* float, degrees */
+	  Tx_data[2] = fake_data[2];                 /* HP: uint16_t cast to fp32          */
     Tx_data[3] = fake_data[3];  /* resupply zone: bit 19              */
     Tx_data[4] = fake_data[4];  /* central highland: bits 5-6 (0/1/2) */
  
     /* --- IMU data from INS_Task --- */
-    Tx_data[5] = INS_Info.Yaw_Angle;    /* float, degrees */
-    Tx_data[6] = INS_Info.Pitch_Angle;  /* float, degrees */
+    Tx_data[5] = INS_Info.Yaw_TolAngle ;  /* float, degrees */
+    Tx_data[6] = CM_Pitch_Motor.Data.Position;  /* float, degrees */
     Tx_data[7] = INS_Info.Roll_Angle;   /* float, degrees */
  
     /* --- Chassis velocities (TODO: replace when chassis task is ready) --- */

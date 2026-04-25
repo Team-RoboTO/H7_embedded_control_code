@@ -5,6 +5,7 @@
 #include "math_utils.h"
 #include <stdlib.h>
 #include "DJI_Motor.h"
+#include "MiniPC.h"
 
   /**************/
  /*   STATES   */
@@ -195,8 +196,22 @@ uint8_t _state_machine_shoot_wheels_keyboard_mouse() {
 
 uint8_t _state_machine_shoot_wheels_autonomus() {
 
-    // TODO: implement autonomous shoot wheels logic
-    return SHOOT_WHEELS_STOP;  // safe default
+    float now_s = HAL_GetTick() * 1e-3f;
+
+    if (shoot_flag_cv) {
+        // Wheel active — keep/start spinning
+        shoot_wheels_spin.timestamp_last_shoot_command = now_s;
+        return SHOOT_WHEELS_SPIN;
+    }
+    else if (now_s - shoot_wheels_spin.timestamp_last_shoot_command
+             >= shoot_wheels_spin.time_without_shoot_commands_before_stopping_shoot_wheels) {
+        // Timeout expired — stop wheels
+        return SHOOT_WHEELS_STOP;
+    }
+    else {
+        // Within timeout window — keep current state (spin-down delay)
+        return state_shoot_wheels;
+    }
 }
 
   /*******************/
@@ -264,6 +279,19 @@ uint8_t _state_machine_rev_keyboard_mouse() {
 
 uint8_t _state_machine_rev_autonomus() {
 
-    // TODO: implement autonomous rev logic
-    return REV_STOP;  // safe default
+    // --- Jam detection: if motor is stalled for too long, trigger unstuck ---
+    if (abs(DJI_Rev_Motor.Data.Current) < 6000)
+        rev_spin.time_rev_locked = HAL_GetTick();  // reset stall timer (raw ms ticks)
+
+    if (HAL_GetTick() - rev_spin.time_rev_locked > 300)  // 300 ms stall threshold
+        return REV_UNSTUCK;
+
+    // --- Normal rev control via wheel axis ---
+    else if (shoot_flag_cv && rev_spin.timestamp_last_shoot_command > 0.2f) {
+        rev_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3f;
+        return REV_SINGLE_SHOOTING;
+    }
+    else {
+        return REV_STOP;
+    }
 }

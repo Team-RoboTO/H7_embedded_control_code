@@ -39,18 +39,18 @@ static float pid_shoot_wheel_left_params[PID_PARAMETER_NUM]  = {0.1f, 0.0f, 0.0f
 static float pid_shoot_wheel_right_params[PID_PARAMETER_NUM] = {0.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10.0f};
 
 // REV position PID (outer loop): KP is overwritten at runtime per shooting mode
-static float pid_rev_pos_params[PID_PARAMETER_NUM] = {27.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10000.0f};
+static float pid_rev_pos_params[PID_PARAMETER_NUM] = {27.0f, 5.0f, 0.0f, 0.0f, 0.0f, 1.0f, 10000.0f};
 
 // REV velocity PID (inner loop)
-static float pid_rev_vel_params[PID_PARAMETER_NUM] = {7.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 8.0f};
+static float pid_rev_vel_params[PID_PARAMETER_NUM] = {7.0f,  1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 8.0f};
 
   /*************************/
  /*   CONTROL VARIABLES   */
 /*************************/
 
-float r_shoot_wheels_ang_vel                       = 400;  // [rad/s]
+float r_shoot_wheels_ang_vel                       = 600;  // [rad/s]
 static uint8_t need_to_set_rev_ang_pos_reference   = true;
-static float rev_shooting_frequency                = 20;  // Bullets per second [Hz]
+static float rev_shooting_frequency                = 10;  // Bullets per second [Hz]
 
 static uint8_t is_first_iter                       = true;
 bool unstuck_rev_enabled                           = 0;
