@@ -1,10 +1,11 @@
 #include "INA228.h"
-#include "string.h"
+#include <string.h>
 
-// NOTE: hi2c2 must be defined elsewhere (e.g. main.c / ioc)
+// I2C handle - must be defined elsewhere (main.c / CubeMX)
 extern I2C_HandleTypeDef hi2c2;
 
-// Helper: read 2 bytes (MSB first) from register (16-bit registers)
+/* ---------- Low-level register helpers ---------- */
+
 static HAL_StatusTypeDef INA228_ReadReg16(uint8_t reg, uint16_t *out)
 {
     uint8_t buf[2];
@@ -15,7 +16,6 @@ static HAL_StatusTypeDef INA228_ReadReg16(uint8_t reg, uint16_t *out)
     return HAL_OK;
 }
 
-// Helper: write 2 bytes (MSB first) to register (16-bit registers)
 static HAL_StatusTypeDef INA228_WriteReg16(uint8_t reg, uint16_t value)
 {
     uint8_t buf[2];
@@ -25,7 +25,6 @@ static HAL_StatusTypeDef INA228_WriteReg16(uint8_t reg, uint16_t value)
                              I2C_MEMADD_SIZE_8BIT, buf, 2, HAL_MAX_DELAY);
 }
 
-// Helper: read 3 bytes (MSB first) from register (24-bit registers)
 static HAL_StatusTypeDef INA228_ReadReg24(uint8_t reg, uint32_t *out)
 {
     uint8_t buf[3];
@@ -36,9 +35,10 @@ static HAL_StatusTypeDef INA228_ReadReg24(uint8_t reg, uint32_t *out)
     return HAL_OK;
 }
 
+/* ---------- Public API ---------- */
+
 uint8_t INA228_IsConnected(void)
 {
-    // 3 trials, 100 ms timeout each
     return (HAL_I2C_IsDeviceReady(&hi2c2, INA228_I2C_ADDR, 3, 100) == HAL_OK) ? 1 : 0;
 }
 
@@ -46,77 +46,87 @@ uint8_t INA228_Init(void)
 {
     if (!INA228_IsConnected()) return 1;
 
-    // 1. CONFIG Register (Default)
+    // 1. CONFIG register: reset then default
+    //    Bit 15 = 1 triggers a software reset; wait briefly then write defaults
+    if (INA228_WriteReg16(INA228_REG_CONFIG, 0x8000) != HAL_OK) return 2;
+    HAL_Delay(2);  // allow reset to complete
+
     if (INA228_WriteReg16(INA228_REG_CONFIG, 0x0000) != HAL_OK) return 2;
 
-    // 2. ADC_CONFIG Register - TUNE YOUR AVERAGE HERE
-    uint16_t mode    = 0xB;  // Continuous Shunt, Bus, Temp
-    uint16_t vbus_ct = 0x3;  // VBUS conversion time = 1052us
-    uint16_t vsh_ct  = 0x3;  // Shunt conversion time = 1052us
-    uint16_t vt_ct   = 0x3;  // Temp conversion time = 1052us
-    
-    // CHANGE THIS VARIABLE TO TUNE THE AVERAGE (MEDIA):
-    uint16_t avg     = 0x3;  // 0x3 = 64 samples average
-    
-    // Combine them into a single 16-bit word
-    uint16_t adcConfigValue = (mode << 12) | (vbus_ct << 9) | (vsh_ct << 6) | (vt_ct << 3) | avg;
+    // 2. ADC_CONFIG register
+    uint16_t mode    = 0xB;  // Continuous: shunt + bus + temp
+    uint16_t vbus_ct = 0x3;  // VBUS conversion time  = 1052 us
+    uint16_t vsh_ct  = 0x3;  // Shunt conversion time = 1052 us
+    uint16_t vt_ct   = 0x3;  // Temp conversion time  = 1052 us
+    uint16_t avg     = 0x3;  // 64-sample averaging
 
-    if (INA228_WriteReg16(INA228_REG_ADC_CONFIG, adcConfigValue) != HAL_OK) return 3;
+    uint16_t adcCfg = (mode << 12) | (vbus_ct << 9) | (vsh_ct << 6) | (vt_ct << 3) | avg;
+    if (INA228_WriteReg16(INA228_REG_ADC_CONFIG, adcCfg) != HAL_OK) return 3;
 
-    // 3. Write Calibration
-    uint16_t calValue = INA228_CAL_VALUE;
-    if (INA228_WriteReg16(INA228_REG_SHUNT_CAL, calValue) != HAL_OK) return 4;
+    // 3. Calibration register
+    if (INA228_WriteReg16(INA228_REG_SHUNT_CAL, INA228_CAL_VALUE) != HAL_OK) return 4;
 
-    return 0; // OK
+    return 0;  // success
 }
 
-float INA228_ReadBusVoltage(void)
+fp32 INA228_ReadBusVoltage(void)
 {
     uint32_t raw24 = 0;
     if (INA228_ReadReg24(INA228_REG_VBUS, &raw24) != HAL_OK) return -1.0f;
-    
-    // VBUS is a 20-bit unsigned value, shifted by 4 bits (data in bits 23:4)
+
+    // 20-bit unsigned, bits [23:4]
     uint32_t val20 = raw24 >> 4;
-    return ((float)val20) * INA228_VBUS_LSB;
+    return ((fp32)val20) * INA228_VBUS_LSB;
 }
 
-float INA228_ReadShuntVoltage(void)
+fp32 INA228_ReadShuntVoltage(void)
 {
     uint32_t raw24 = 0;
     if (INA228_ReadReg24(INA228_REG_VSHUNT, &raw24) != HAL_OK) return -1.0f;
-    
-    // VSHUNT is a 20-bit signed two's complement value (data in bits 23:4)
-    int32_t val20 = raw24 >> 4;
-    
-    // Sign extend from the 20th bit (bit 19)
-    if (val20 & 0x080000) {
-        val20 |= 0xFFF00000;
-    }
-    
-    return ((float)val20) * INA228_VSHUNT_LSB;
+
+    // 20-bit signed two's complement, bits [23:4]
+    int32_t val20 = (int32_t)(raw24 >> 4);
+    if (val20 & 0x80000)
+        val20 |= (int32_t)0xFFF00000;
+
+    return ((fp32)val20) * INA228_VSHUNT_LSB;
 }
 
-float INA228_ReadCurrent(void)
+fp32 INA228_ReadCurrent(void)
 {
     uint32_t raw24 = 0;
     if (INA228_ReadReg24(INA228_REG_CURRENT, &raw24) != HAL_OK) return -1.0f;
-    
-    // CURRENT is a 20-bit signed two's complement value (data in bits 23:4)
-    int32_t val20 = raw24 >> 4;
-    
-    // Sign extend from the 20th bit (bit 19)
-    if (val20 & 0x080000) {
-        val20 |= 0xFFF00000;
-    }
-    
-    return ((float)val20) * INA228_CURRENT_LSB;
+
+    // 20-bit signed two's complement, bits [23:4]
+    int32_t val20 = (int32_t)(raw24 >> 4);
+    if (val20 & 0x80000)
+        val20 |= (int32_t)0xFFF00000;
+
+    return ((fp32)val20) * INA228_CURRENT_LSB;
 }
 
-float INA228_ReadPower(void)
+fp32 INA228_ReadPower(void)
 {
     uint32_t raw24 = 0;
     if (INA228_ReadReg24(INA228_REG_POWER, &raw24) != HAL_OK) return -1.0f;
-    
-    // POWER is a 24-bit unsigned value, uses all bits [23:0], no shifting needed.
-    return ((float)raw24) * INA228_POWER_LSB;
+
+    // 24-bit unsigned, all bits used
+    return ((fp32)raw24) * INA228_POWER_LSB;
+}
+
+fp32 INA228_ReadDieTemp(void)
+{
+    uint16_t raw16 = 0;
+    if (INA228_ReadReg16(INA228_REG_DIETEMP, &raw16) != HAL_OK) return -999.0f;
+
+    // DIETEMP: 16-bit signed, bits [15:4] hold the temperature, LSB = 7.8125 mC
+    int16_t val12 = (int16_t)(raw16) >> 4;
+    return ((fp32)val12) * 0.0078125f;
+}
+
+uint16_t INA228_ReadID(void)
+{
+    uint16_t id = 0;
+    INA228_ReadReg16(INA228_REG_ID, &id);
+    return id;  // expect 0x2280 for INA228
 }

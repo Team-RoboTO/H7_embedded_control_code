@@ -23,6 +23,7 @@
 #include "bdma.h"
 #include "dma.h"
 #include "fdcan.h"
+#include "i2c.h"
 #include "spi.h"
 #include "tim.h"
 #include "usart.h"
@@ -131,6 +132,7 @@ int main(void)
   MX_FDCAN3_Init();
   MX_ADC3_Init();
   MX_ADC1_Init();
+  MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
   MCU_Init();
 	
