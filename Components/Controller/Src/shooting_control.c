@@ -25,6 +25,20 @@ controlled_system_t shoot_wheels_and_rev = {
     .r_x_prev   = {0},
 };
 
+controlled_system_t lidar_lifter = {
+    .n          = 1,
+    .m          = 2,
+    .p          = 1,
+    .x          = {0},
+    .x_prev     = {0},
+    .u          = {0},
+    .u_prev     = {0},
+    .ud         = {0},
+    .ud_prev    = {0},
+    .r_x        = {0},
+    .r_x_prev   = {0},
+};
+
   /*******************/
  /*   CONTROLLERS   */
 /*******************/
@@ -33,6 +47,8 @@ static PID_Info_TypeDef pid_shoot_wheel_left;
 static PID_Info_TypeDef pid_shoot_wheel_right;
 static PID_Info_TypeDef pid_rev_pos;
 static PID_Info_TypeDef pid_rev_vel;
+static PID_Info_TypeDef pid_ll_pos;
+static PID_Info_TypeDef pid_ll_vel;
 
 // Shoot wheel velocity PIDs: KP, KI, KD, Alpha, Deadband, LimitIntegral, LimitOutput
 static float pid_shoot_wheel_left_params[PID_PARAMETER_NUM]  = {0.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10.0f};
@@ -43,6 +59,12 @@ static float pid_rev_pos_params[PID_PARAMETER_NUM] = {27.0f, 5.0f, 0.0f, 0.0f, 0
 
 // REV velocity PID (inner loop)
 static float pid_rev_vel_params[PID_PARAMETER_NUM] = {7.0f,  1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 8.0f};
+
+// LL position PID (outer loop): KP is overwritten at runtime per shooting mode
+static float pid_ll_pos_params[PID_PARAMETER_NUM] = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 10000.0f}; // TODO: tune
+
+// LL velocity PID (inner loop)
+static float pid_ll_vel_params[PID_PARAMETER_NUM] = {0.0f,  0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 8.0f}; // TODO: tune
 
   /*************************/
  /*   CONTROL VARIABLES   */
@@ -63,9 +85,10 @@ void control_loop_shooting(void)
 {
     _control_loop_shoot_wheels();
     _control_loop_rev();
+		_control_loop_lidar_lifter();
 
     is_first_iter = false;
-		DJI_M3508_M2006_TxMessage(&FDCAN1_TxFrame, shoot_wheels_and_rev.ud[0], shoot_wheels_and_rev.ud[1], shoot_wheels_and_rev.ud[2],0);
+		DJI_M3508_M2006_TxMessage(&FDCAN1_TxFrame, shoot_wheels_and_rev.ud[0], shoot_wheels_and_rev.ud[1], shoot_wheels_and_rev.ud[2], lidar_lifter.ud[0]);
 }
 
   /*********************************/
@@ -218,6 +241,61 @@ void _control_loop_rev(void)
     shoot_wheels_and_rev.u[2] = PID_Calculate(&pid_rev_vel, shoot_wheels_and_rev.r_x[3], shoot_wheels_and_rev.x[3]);
 		
 	  shoot_wheels_and_rev.ud[2] = shoot_wheels_and_rev.u[2]*DJI_Motor_ADC[DJI_M2006]; //M2006_ADC_CONVERTION;
-		
+	
+}
 
+
+static float lidar_home_position = -1;
+#define LIDAR_CURRENT_TRESHOLD 5000
+static float CALIBRATION_SPEED =  0.2; // rad/s
+
+void _control_loop_lidar_lifter(void)
+{
+			if (is_first_iter == 1) {
+			PID_Init(&pid_ll_pos,  PID_POSITION, pid_ll_pos_params);
+			PID_Init(&pid_ll_vel, PID_POSITION, pid_ll_vel_params);
+			}
+			
+			lidar_lifter.x[0] = (float) DJI_Lidar_Motor.Data.Angle_sum;           // REV angular position [rad]
+			lidar_lifter.x[1] = (float) DJI_Lidar_Motor.Data.Velocity_rads;
+			
+			float DJI_Lidar_current = (float) DJI_Lidar_Motor.Data.Current;
+
+				
+			if( lidar_home_position < 0 ){
+				if( DJI_Lidar_Motor.Data.Current > LIDAR_CURRENT_TRESHOLD ){
+					lidar_home_position = DJI_Lidar_Motor.Data.Angle_sum;
+					lidar_lifter.r_x[0] = lidar_home_position; // Set home as base position
+					lidar_lifter.r_x[1] = 0;
+										
+				} else {
+					// Calcola pid con un incremento di 0.2 radianti al secondo
+					lidar_lifter.r_x[1] = CALIBRATION_SPEED;
+				}
+				return;
+			}
+			
+			switch (state_lidar_lifter) {
+				case LIDAR_UP:
+					lidar_lifter.r_x[0] = lidar_home_position; // to be modified
+					break;
+					
+				case LIDAR_DOWN:
+					lidar_lifter.r_x[0] = lidar_home_position;
+					break;
+			}
+			
+			// --- OUTER LOOP: Position Control ---
+			// Output is the desired REV velocity setpoint
+			lidar_lifter.u[0] = PID_Calculate(&pid_rev_pos, lidar_lifter.r_x[0], lidar_lifter.x[0]);
+
+			// --- INNER LOOP: Velocity Control ---
+			// Output is the motor current command
+			lidar_lifter.u[1] = PID_Calculate(&pid_rev_vel, lidar_lifter.u[0], lidar_lifter.x[1]);
+			lidar_lifter.ud[0] = lidar_lifter.u[0]*DJI_Motor_ADC[DJI_M2006]; //M2006_ADC_CONVERTION;
+		
+		return;
+		
+	
+		
 }

@@ -65,6 +65,7 @@ extern DJI_Motor_Info_Typedef DJI_Yaw_Motor;
 extern DJI_Motor_Info_Typedef DJI_Chassis_Motor[4];
 extern DJI_Motor_Info_Typedef DJI_Shooting_Motor[2];
 extern DJI_Motor_Info_Typedef DJI_Rev_Motor;
+extern DJI_Motor_Info_Typedef DJI_Lidar_Motor;
 
 // Extern Functions
 extern void DJI_Motor_Info_Update(uint32_t *Identifier, uint8_t *Rx_Buf, DJI_Motor_Info_Typedef *DJI_Motor);

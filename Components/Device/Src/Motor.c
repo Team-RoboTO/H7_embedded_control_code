@@ -275,3 +275,15 @@ DJI_Motor_Info_Typedef DJI_Rev_Motor = {
         .RxIdentifier = 0x203,
     },
 };
+
+//------------------------------------------------------------------------------
+/**
+ * @brief Lidar lifter motor. DJI M2006.
+ */
+DJI_Motor_Info_Typedef DJI_Lidar_Motor = {
+    .Type = DJI_M2006,
+    .FDCANFrame = {
+        .TxIdentifier = 0x200,
+        .RxIdentifier = 0x204,
+    },
+};

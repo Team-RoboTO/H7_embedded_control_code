@@ -19,5 +19,6 @@ extern controlled_system_t std_circ_rev;
 void control_loop_shooting(void);
 void _control_loop_shoot_wheels(void);
 void _control_loop_rev(void);
+void _control_loop_lidar_lifter(void);
 
 #endif

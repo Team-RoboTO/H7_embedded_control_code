@@ -301,7 +301,11 @@ static void FDCAN1_RxFifo0RxHandler(uint32_t *Identifier, uint8_t Data[8])
         case 0x203:
             DJI_Motor_Info_Update(Identifier, Data, &DJI_Rev_Motor);
             break;
-
+				
+				case 0x204:
+				    DJI_Motor_Info_Update(Identifier, Data, &DJI_Lidar_Motor);
+            break;
+				
         case 0x205:
             DJI_Motor_Info_Update(Identifier, Data, &DJI_Yaw_Motor);
             break;

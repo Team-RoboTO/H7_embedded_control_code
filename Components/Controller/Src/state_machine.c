@@ -16,6 +16,7 @@ uint8_t state_chassis          = CHASSIS_FOLLOW_GIMBAL;
 uint8_t state_gimbal           = GIMBAL_MANUAL_AIM;
 uint8_t state_shoot_wheels     = SHOOT_WHEELS_STOP;
 uint8_t state_rev              = REV_STOP;
+uint8_t state_lidar_lifter     = DOWN;
 
   /********************************/
  /*   SHOOT WHEELS SPIN STRUCT   */
@@ -278,6 +279,25 @@ uint8_t _state_machine_rev_keyboard_mouse() {
 }
 
 uint8_t _state_machine_rev_autonomus() {
+
+    // --- Jam detection: if motor is stalled for too long, trigger unstuck ---
+    if (abs(DJI_Rev_Motor.Data.Current) < 6000)
+        rev_spin.time_rev_locked = HAL_GetTick();  // reset stall timer (raw ms ticks)
+
+    if (HAL_GetTick() - rev_spin.time_rev_locked > 300)  // 300 ms stall threshold
+        return REV_UNSTUCK;
+
+    // --- Normal rev control via wheel axis ---
+    else if (shoot_flag_cv && rev_spin.timestamp_last_shoot_command > 0.2f) {
+        rev_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3f;
+        return REV_SINGLE_SHOOTING;
+    }
+    else {
+        return REV_STOP;
+    }
+}
+
+uint8_t _state_machine_lidar_lifter() {
 
     // --- Jam detection: if motor is stalled for too long, trigger unstuck ---
     if (abs(DJI_Rev_Motor.Data.Current) < 6000)
