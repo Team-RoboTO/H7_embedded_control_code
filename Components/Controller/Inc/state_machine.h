@@ -99,6 +99,7 @@ uint8_t _state_machine_rev();
 uint8_t _state_machine_rev_remote_controller();
 uint8_t _state_machine_rev_keyboard_mouse();
 uint8_t _state_machine_rev_autonomus();
+uint8_t _state_machine_lidar_lifter();
 
 #endif
 

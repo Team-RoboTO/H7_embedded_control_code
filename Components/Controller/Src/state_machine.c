@@ -53,6 +53,7 @@ void robot_states_update_state_machine() {
     state_gimbal          = _state_machine_gimbal();
     state_shoot_wheels    = _state_machine_shoot_wheels();
     state_rev             = _state_machine_rev();
+		state_lidar_lifter 		= _state_machine_lidar_lifter();
 }
 
   /******************************/
@@ -298,20 +299,6 @@ uint8_t _state_machine_rev_autonomus() {
 }
 
 uint8_t _state_machine_lidar_lifter() {
-
-    // --- Jam detection: if motor is stalled for too long, trigger unstuck ---
-    if (abs(DJI_Rev_Motor.Data.Current) < 6000)
-        rev_spin.time_rev_locked = HAL_GetTick();  // reset stall timer (raw ms ticks)
-
-    if (HAL_GetTick() - rev_spin.time_rev_locked > 300)  // 300 ms stall threshold
-        return REV_UNSTUCK;
-
-    // --- Normal rev control via wheel axis ---
-    else if (shoot_flag_cv && rev_spin.timestamp_last_shoot_command > 0.2f) {
-        rev_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3f;
-        return REV_SINGLE_SHOOTING;
-    }
-    else {
-        return REV_STOP;
-    }
+		if( RC_info.RC.Stop == 1) return LIDAR_UP;
+		else return LIDAR_DOWN;
 }
