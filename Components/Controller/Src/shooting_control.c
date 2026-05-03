@@ -48,7 +48,7 @@ static float pid_rev_vel_params[PID_PARAMETER_NUM] = {7.0f,  1.0f, 0.0f, 0.0f, 0
  /*   CONTROL VARIABLES   */
 /*************************/
 
-float r_shoot_wheels_ang_vel                       = 600;  // [rad/s]
+float r_shoot_wheels_ang_vel                       = 660;  // [rad/s]
 static uint8_t need_to_set_rev_ang_pos_reference   = true;
 static float rev_shooting_frequency                = 10;  // Bullets per second [Hz]
 

@@ -36,11 +36,11 @@ volatile float    can_task_freq_hz = 0.0f;
 static uint32_t   can_task_freq_start_ms = 0;
 static uint32_t   can_task_freq_iters = 0;
 
-float KD_yaw = 0.8f;
+float KD_yaw = 0.8f;//0.8f;
 
-float KD_pitch = 1.5f;
+float KD_pitch = 1.0f;
 
-float KP_pitch = 30.0f;
+float KP_pitch = 20.0f;
 
 void CAN_Task(void const * argument)
 {
@@ -67,8 +67,14 @@ void CAN_Task(void const * argument)
 
         /* One-time init */
         if (is_init) {
+					
 						CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Save_Zero_Position);
             osDelay(30);
+					
+					  // remove the comment for set the zero of the yaw
+//						DM_Motor_Command(&FDCAN2_TxFrame, &DM_Yaw_Motor, Motor_Save_Zero_Position);
+//            osDelay(30);
+					  
             is_init = 0;
         }
 

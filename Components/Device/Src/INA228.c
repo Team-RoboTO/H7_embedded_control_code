@@ -1,6 +1,8 @@
 #include "INA228.h"
 #include <string.h>
 
+float err = 0;
+
 // I2C handle - must be defined elsewhere (main.c / CubeMX)
 extern I2C_HandleTypeDef hi2c2;
 
@@ -10,7 +12,7 @@ static HAL_StatusTypeDef INA228_ReadReg16(uint8_t reg, uint16_t *out)
 {
     uint8_t buf[2];
     HAL_StatusTypeDef st = HAL_I2C_Mem_Read(&hi2c2, INA228_I2C_ADDR, reg,
-                                            I2C_MEMADD_SIZE_8BIT, buf, 2, HAL_MAX_DELAY);
+                                            I2C_MEMADD_SIZE_8BIT, buf, 2, 2);
     if (st != HAL_OK) return st;
     *out = ((uint16_t)buf[0] << 8) | buf[1];
     return HAL_OK;
@@ -22,14 +24,14 @@ static HAL_StatusTypeDef INA228_WriteReg16(uint8_t reg, uint16_t value)
     buf[0] = (value >> 8) & 0xFF;
     buf[1] = value & 0xFF;
     return HAL_I2C_Mem_Write(&hi2c2, INA228_I2C_ADDR, reg,
-                             I2C_MEMADD_SIZE_8BIT, buf, 2, HAL_MAX_DELAY);
+                             I2C_MEMADD_SIZE_8BIT, buf, 2, 2);
 }
 
 static HAL_StatusTypeDef INA228_ReadReg24(uint8_t reg, uint32_t *out)
 {
     uint8_t buf[3];
     HAL_StatusTypeDef st = HAL_I2C_Mem_Read(&hi2c2, INA228_I2C_ADDR, reg,
-                                            I2C_MEMADD_SIZE_8BIT, buf, 3, HAL_MAX_DELAY);
+                                            I2C_MEMADD_SIZE_8BIT, buf, 3, 2);
     if (st != HAL_OK) return st;
     *out = ((uint32_t)buf[0] << 16) | ((uint32_t)buf[1] << 8) | buf[2];
     return HAL_OK;
@@ -108,9 +110,17 @@ fp32 INA228_ReadCurrent(void)
 fp32 INA228_ReadPower(void)
 {
     uint32_t raw24 = 0;
-    if (INA228_ReadReg24(INA228_REG_POWER, &raw24) != HAL_OK) return -1.0f;
-
-    // 24-bit unsigned, all bits used
+    HAL_StatusTypeDef result = INA228_ReadReg24(INA228_REG_POWER, &raw24);
+    
+    if (result != HAL_OK) {
+        // What error is it exactly?
+        err = HAL_I2C_GetError(&hi2c2);
+        // Put a breakpoint here and check `err`:
+        // HAL_I2C_ERROR_TIMEOUT  = 0x20  ? still a timeout issue
+        // HAL_I2C_ERROR_AF       = 0x04  ? bus locked, slave not ACKing  
+        // HAL_I2C_ERROR_BERR     = 0x01  ? electrical noise/corruption
+        return -1.0f;
+    }
     return ((fp32)raw24) * INA228_POWER_LSB;
 }
 

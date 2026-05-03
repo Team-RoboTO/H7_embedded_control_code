@@ -302,10 +302,6 @@ static void FDCAN1_RxFifo0RxHandler(uint32_t *Identifier, uint8_t Data[8])
             DJI_Motor_Info_Update(Identifier, Data, &DJI_Rev_Motor);
             break;
 
-        case 0x205:
-            DJI_Motor_Info_Update(Identifier, Data, &DJI_Yaw_Motor);
-            break;
-
         default:
             break;
     }
@@ -354,19 +350,19 @@ static void FDCAN2_RxFifo1RxHandler(FDCAN_RxHeaderTypeDef *RxHeader, uint8_t Dat
         case 0x01:
             DM_Motor_Info_Update(&id, Data, &DM_Yaw_Motor);
             break;
-        case 0x0000007B:
+        case 0x00000079:
             CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[0]);
             break;
 
-        case 0x00000078:
+        case 0x0000007A:
             CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[1]);
             break;
 
-        case 0x00000079:
+        case 0x0000007B:
             CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[2]);
             break;
 
-        case 0x0000007A:
+        case 0x00000078:
             CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[3]);
             break;
 

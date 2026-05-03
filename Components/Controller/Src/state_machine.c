@@ -24,7 +24,7 @@ uint8_t state_rev              = REV_STOP;
 #if IS_MATCH_MODE_ENABLED
     #define TIME_SHOOTING_WHEELS  60.0f  // [s]
 #else
-    #define TIME_SHOOTING_WHEELS  3.0f   // [s]
+    #define TIME_SHOOTING_WHEELS  60.0f   // [s]
 #endif
 
 shoot_wheels_spin_t shoot_wheels_spin = {

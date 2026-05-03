@@ -18,118 +18,6 @@
 #include "Cubemars_Motor.h"
 
 /* ===========================================================================
- *  LEGACY / REFERENCE DEFINITIONS (original robot config)
- * =========================================================================== */
-
-/**
- * @brief Yaw motor (original). DJI GM6020.
- */
-DJI_Motor_Info_Typedef DJI_Yaw_Motor =
-{
-    .Type = DJI_GM6020,
-    .FDCANFrame = {
-        .TxIdentifier = 0x1ff,
-        .RxIdentifier = 0x205,
-    },
-};
-
-//------------------------------------------------------------------------------
-/**
- * @brief Chassis motors (original). 4 x DJI M3508.
- */
-DJI_Motor_Info_Typedef DJI_Chassis_Motor[4] = {
-    [0] = {
-        .Type = DJI_M3508,
-        .FDCANFrame = {
-            .TxIdentifier = 0x200,
-            .RxIdentifier = 0x201,
-        },
-    },
-    [1] = {
-        .Type = DJI_M3508,
-        .FDCANFrame = {
-            .TxIdentifier = 0x200,
-            .RxIdentifier = 0x202,
-        },
-    },
-    [2] = {
-        .Type = DJI_M3508,
-        .FDCANFrame = {
-            .TxIdentifier = 0x200,
-            .RxIdentifier = 0x203,
-        },
-    },
-    [3] = {
-        .Type = DJI_M3508,
-        .FDCANFrame = {
-            .TxIdentifier = 0x200,
-            .RxIdentifier = 0x204,
-        },
-    },
-};
-
-//------------------------------------------------------------------------------
-/**
- * @brief Joint motors (original). 4 x DaMiao DM-8009, MIT mode.
- */
-DM_Motor_Info_Typedef DM_8009_Motor[4] = {
-    [0] = {
-        .Type = DM_MOTOR_8009,
-        .Control_Mode = MIT,
-        .Param_Range = {
-            .P_MAX = 3.141593f,
-            .V_MAX = 45.0f,
-            .T_MAX = 54.0f,
-        },
-        .FDCANFrame = {
-            .TxIdentifier = 0x11,
-            .RxIdentifier = 0x01,
-        },
-    },
-    [1] = {
-        .Type = DM_MOTOR_8009,
-        .Control_Mode = MIT,
-        .Param_Range = {
-            .P_MAX = 3.141593f,
-            .V_MAX = 45.0f,
-            .T_MAX = 54.0f,
-        },
-        .FDCANFrame = {
-            .TxIdentifier = 0x12,
-            .RxIdentifier = 0x02,
-        },
-    },
-    [2] = {
-        .Type = DM_MOTOR_8009,
-        .Control_Mode = MIT,
-        .Param_Range = {
-            .P_MAX = 3.141593f,
-            .V_MAX = 45.0f,
-            .T_MAX = 54.0f,
-        },
-        .FDCANFrame = {
-            .TxIdentifier = 0x13,
-            .RxIdentifier = 0x03,
-        },
-    },
-    [3] = {
-        .Type = DM_MOTOR_8009,
-        .Control_Mode = MIT,
-        .Param_Range = {
-            .P_MAX = 3.141593f,
-            .V_MAX = 45.0f,
-            .T_MAX = 54.0f,
-        },
-        .FDCANFrame = {
-            .TxIdentifier = 0x14,
-            .RxIdentifier = 0x04,
-        },
-    },
-};
-
-DM_Motor_Control_Info_Typedef DM_Motor_Contorl_Info[4] = {0};
-
-/* ===========================================================================
  *  NEW ROBOT DEFINITIONS
  *  Chassis:  4 x CubeMars AK40-10        (MIT mode)
  *  Yaw:      1 x DaMiao   DM-J6006-2EC   (MIT mode)
@@ -147,8 +35,8 @@ CM_Motor_Info_Typedef CM_Chassis_Motor[4] = {
         .Type = CM_AK40_10,
         .Control_Mode = CM_MIT_MODE,
         .FDCANFrame = {
-            .TxIdentifier = 123,
-            .RxIdentifier = 0x0000007B,
+            .TxIdentifier = 121,
+            .RxIdentifier = 0x00000079,
         },
         .Param_Range = {
             .P_MAX  = 12.5f,
@@ -162,8 +50,8 @@ CM_Motor_Info_Typedef CM_Chassis_Motor[4] = {
         .Type = CM_AK40_10,
         .Control_Mode = CM_MIT_MODE,
         .FDCANFrame = {
-            .TxIdentifier = 120,
-            .RxIdentifier = 0x00000078,
+            .TxIdentifier = 122,
+            .RxIdentifier = 0x0000007A,
         },
         .Param_Range = {
             .P_MAX  = 12.5f,
@@ -177,8 +65,8 @@ CM_Motor_Info_Typedef CM_Chassis_Motor[4] = {
         .Type = CM_AK40_10,
         .Control_Mode = CM_MIT_MODE,
         .FDCANFrame = {
-            .TxIdentifier = 121,
-            .RxIdentifier = 0x00000079,
+            .TxIdentifier = 123,
+            .RxIdentifier = 0x0000007B,
         },
         .Param_Range = {
             .P_MAX  = 12.5f,
@@ -192,8 +80,8 @@ CM_Motor_Info_Typedef CM_Chassis_Motor[4] = {
         .Type = CM_AK40_10,
         .Control_Mode = CM_MIT_MODE,
         .FDCANFrame = {
-            .TxIdentifier = 122,
-            .RxIdentifier = 0x0000007A,
+            .TxIdentifier = 120,
+            .RxIdentifier = 0x00000078,
         },
         .Param_Range = {
             .P_MAX  = 12.5f,

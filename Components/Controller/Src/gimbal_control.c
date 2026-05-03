@@ -64,7 +64,7 @@ static float time_stamp_cv_prev;
 static float yaw_command_from_cv_prev;
 static float pitch_command_from_cv_prev;
 
-static float k_ff_yaw = 3.0f;
+static float k_ff_yaw = 0.3f;
 
 static bool is_first_iter = true;
 static bool is_homing = true;

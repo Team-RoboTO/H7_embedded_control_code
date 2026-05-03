@@ -15,7 +15,7 @@ extern float MIT_kd;
   /********************/
  /*   CONTROL LOOP   */
 /********************/
-#define GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD -0.124877453f
+#define GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD 0.0f
 
 void control_loop_chassis(void);
 

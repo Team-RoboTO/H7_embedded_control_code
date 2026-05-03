@@ -4,6 +4,10 @@
 #include "arm_math.h"
 #include "robot_config.h"
 #include "cubemars_motor.h"
+#include "rtt_log.h"
+#include "segger_rtt.h"
+
+#include "INA228.h"
 
 /**
  * @brief Power model coefficients for different chassis types
@@ -15,10 +19,11 @@
  * - a: constant losses (iron losses, constant friction)
  */
 
+float values[3];
 
-float k1 = 338.2128;      // Coefficient for losses due to square of torque [W/Nm²]
-float k2 = 1.3252e-05;    // Coefficient for losses due to square of velocity [W·s²/rad²] (higher for sentry)
-float p0 = 4.081f;        // Constant losses [W]
+float k1 = 0;//338.2128;      // Coefficient for losses due to square of torque [W/Nm²]
+float k2 = 0;//1.3252e-05;    // Coefficient for losses due to square of velocity [W·s²/rad²] (higher for sentry)
+float p0 = 1.85f;             // Constant losses [W]
 
 /**
  * @brief Chassis power control algorithm
@@ -36,7 +41,7 @@ float p0 = 4.081f;        // Constant losses [W]
  * * @param u: Array of 4 motor control currents [A]
  */
  
-void chassis_power_control(uint16_t limit, float *u){
+void chassis_power_control(uint16_t limit, float *r_x){
 	
 	float chassis_power_limit = limit;  // [W] - Maximum power limit from the referee system
 	
@@ -46,6 +51,7 @@ void chassis_power_control(uint16_t limit, float *u){
 	float scaled_give_power[4];       // [W]  - Scaled power for each motor after limiting
 	float power_scale_factor = 0;            //  Power limiting scale factor
 
+	
 		/************************/
 	 /*   POWER ESTIMATION   */
 	/************************/
@@ -54,10 +60,10 @@ void chassis_power_control(uint16_t limit, float *u){
 		
 		// P = Mechanical Power + Torque Losses + Velocity Losses + Constant Losses
 		estimated_give_power[i] = 
-			CM_Chassis_Motor[i].Data.Torque * CM_Chassis_Motor[i].Data.Velocity/9.55                          // Mechanical Power: P_mech = τ*ω [W]
-				+ k2 * CM_Chassis_Motor[i].Data.Velocity * CM_Chassis_Motor[i].Data.Velocity/9.55/9.55          // Velocity Losses: k2*ω² [W]
-        + k1 * CM_Chassis_Motor[i].Data.Torque * CM_Chassis_Motor[i].Data.Torque                        // Torque Losses: k1*τ² [W]
-        + p0 ;                                                                                          // Constant Losses [W]
+			CM_Chassis_Motor[i].Data.Torque * CM_Chassis_Motor[i].Data.Velocity                                       // Mechanical Power: P_mech = τ*ω [W]
+				+ k2 * r_x[i] * r_x[i]                                                       // Velocity Losses: k2*ω² [W]
+        + k1 * CM_Chassis_Motor[i].Data.Torque * CM_Chassis_Motor[i].Data.Torque     // Torque Losses: k1*τ² [W]
+        + p0 ;                                                                       // Constant Losses [W]
 		
 		if ( estimated_give_power[i] < 0) {  
 			// If power is negative, the motor is acting as a generator
@@ -68,6 +74,13 @@ void chassis_power_control(uint16_t limit, float *u){
 			estimated_total_power += estimated_give_power[i];  // [W]
 		}
 	}
+	
+
+//	values[0] = HAL_GetTick();
+//	values[1] = estimated_total_power;
+//	values[2] = INA228_ReadPower();
+//	//values[2] = 0;
+//	RTT_Log(values, 3);
 	
 		/***************************/
 	 /*   POWER LIMIT CONTROL   */
@@ -83,33 +96,37 @@ void chassis_power_control(uint16_t limit, float *u){
 	  * P_scaled = k1*τ² + ω*τ + k2*ω² + p0
 	  * * Quadratic equation: A*τ² + B*τ + C = 0
 	  */
+		// wT +p0+ scaled power = 0     w = (scaled_power +po)/T
 		for (uint8_t i = 0; i < 4; i++) {
 			scaled_give_power[i] = estimated_give_power[i] * power_scale_factor;
 			if (scaled_give_power[i] < 0) {
 				// Negative power: motor is regenerating, do not limit
 				continue;
 			}
-			// Coefficients of the quadratic equation normalized by k1
-      float b = CM_Chassis_Motor[i].Data.Velocity/9.55/k1;
-			float c = k2 * CM_Chassis_Motor[i].Data.Velocity * CM_Chassis_Motor[i].Data.Velocity/(k1*9.55*9.55) - scaled_give_power[i]/k1 + p0/k1;
-			float delta = b * b - 4 * c;
+			
+			//r_x[i] = (scaled_give_power[i] + p0)/CM_Chassis_Motor[i].Data.Torque;
+			
+//			// Coefficients of the quadratic equation normalized by k1
+//      float b = CM_Chassis_Motor[i].Data.Velocity;//k1;
+//			float c = k2 * CM_Chassis_Motor[i].Data.Velocity * CM_Chassis_Motor[i].Data.Velocity/(k1*9.55*9.55) - scaled_give_power[i]/k1 + p0/k1;
+//			float delta = b * b - 4 * c;
 
-			// No real solution: impossible to reach the target power --> maintain the current value
-			if (delta < 0) {
-				continue; 
-			}
-			float new_output; //new output [A]
-			if (u[i] > 0) {  
-				// Positive torque: choose the positive root
-				new_output = (-b + sqrt(delta)) / 2 ;
-				u[i] = new_output;
-			}
-			else {
-				// Negative torque: choose the negative root
-				new_output = (-b - sqrt(delta)) / 2 ;
-				u[i] = new_output;
-				
-			}
+//			// No real solution: impossible to reach the target power --> maintain the current value
+//			if (delta < 0) {
+//				continue; 
+//			}
+//			float new_output; //new output [A]
+//			if (r_x[i] > 0) {  
+//				// Positive torque: choose the positive root
+//				new_output = (-b + sqrt(delta)) / 2 ;
+//				r_x[i] = new_output;
+//			}
+//			else {
+//				// Negative torque: choose the negative root
+//				new_output = (-b - sqrt(delta)) / 2 ;
+//				r_x[i] = new_output;
+//				
+//			}
 		}
 	}
 }
