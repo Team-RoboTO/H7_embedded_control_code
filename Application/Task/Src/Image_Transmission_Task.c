@@ -10,7 +10,7 @@ void Image_Transmission_Task(void const * argument)
     
     for(;;)
     {
-        uint8_t dummy_data[30] = {0};
+        //uint8_t dummy_data[30] = {0};
         // Robot_Data_to_Custom_(dummy_data); // Commentato per evitare conflitti di banda con la UI
         vTaskDelay(xPeriod); // Wait 100ms (as defined by xPeriod)
     }
