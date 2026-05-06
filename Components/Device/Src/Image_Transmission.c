@@ -14,6 +14,7 @@
 #include "CRC.h"
 #include "usart.h"
 #include "remote_control.h"
+#include "UI_Task.h"
 
 __attribute__((section (".AXI_SRAM"))) uint8_t Image_Trans_MultiRx_Buff[2][39];
 
@@ -136,7 +137,8 @@ void Robot_Data_to_Custom_(uint8_t *Data){
 		
 		}
     
-		HAL_UART_Transmit_DMA(&huart1,Image_Transmission_Info.robot_custom_data.data,30);
+        send_custom_ref_data(Image_Transmission_Info.robot_custom_data.data, 30);
+//		HAL_UART_Transmit_DMA(&huart1,Image_Transmission_Info.robot_custom_data.data,30);
 }
 
 /**

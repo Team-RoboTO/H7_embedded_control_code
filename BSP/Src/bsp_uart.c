@@ -26,7 +26,7 @@ static void USART_RxDMA_MultiBuffer_Init(UART_HandleTypeDef *, uint32_t *, uint3
 
 PLL2_ClocksTypeDef PLL2_ClockFreq;
 
-#define USART1_RX_Switch  1  //Referee_System 0  Image_Transmission 1
+#define USART1_RX_Switch  0  //Referee_System 0  Image_Transmission 1
 /**
   * @brief  Configures the USART.
   * @param  None
@@ -53,8 +53,8 @@ void BSP_USART_Init(void){
 	
 	#endif
 	
-	//UART5 Init (SBUS remote control)
-	 USART_RxDMA_MultiBuffer_Init(&huart5,(uint32_t *)SBUS_MultiRx_Buf[0],(uint32_t *)SBUS_MultiRx_Buf[1],SBUS_RX_BUF_NUM);
+	//UART7 Init (SBUS remote control)
+	 USART_RxDMA_MultiBuffer_Init(&huart7,(uint32_t *)SBUS_MultiRx_Buf[0],(uint32_t *)SBUS_MultiRx_Buf[1],SBUS_RX_BUF_NUM);
 
 }
 
@@ -70,7 +70,9 @@ void BSP_USART_Init(void){
   */
 static void USART_RxDMA_MultiBuffer_Init(UART_HandleTypeDef *huart, uint32_t *DstAddress, uint32_t *SecondMemAddress, uint32_t DataLength){
 
- huart->ReceptionType = HAL_UART_RECEPTION_TOIDLE;
+  huart->ReceptionType = HAL_UART_RECEPTION_TOIDLE;
+  huart->RxState       = HAL_UART_STATE_BUSY_RX; // Manually set state so HAL ISR calls the callback
+
 
  huart->RxXferSize    = DataLength * 2;
 
@@ -97,7 +99,12 @@ static void USART_RxDMA_MultiBuffer_Init(UART_HandleTypeDef *huart, uint32_t *Ds
   /* Enable double memory buffer */
   SET_BIT(((DMA_Stream_TypeDef  *)huart->hdmarx->Instance)->CR, DMA_SxCR_DBM);
 
-  /* Enable DMA */
+  /* Clear DMA flags before enabling */
+  __HAL_DMA_CLEAR_FLAG(huart->hdmarx, __HAL_DMA_GET_TC_FLAG_INDEX(huart->hdmarx));
+  __HAL_DMA_CLEAR_FLAG(huart->hdmarx, __HAL_DMA_GET_HT_FLAG_INDEX(huart->hdmarx));
+  __HAL_DMA_CLEAR_FLAG(huart->hdmarx, __HAL_DMA_GET_TE_FLAG_INDEX(huart->hdmarx));
+  __HAL_DMA_CLEAR_FLAG(huart->hdmarx, __HAL_DMA_GET_FE_FLAG_INDEX(huart->hdmarx));
+
   __HAL_DMA_ENABLE(huart->hdmarx);	
 	
 }
@@ -133,7 +140,7 @@ static void USER_USART1_RxHandler(UART_HandleTypeDef *huart,uint16_t Size){
 					}
 					
 					/* Reset the receive count */
-				  __HAL_DMA_SET_COUNTER(huart->hdmarx,IMAGE_TRANS_RX_LENGTH*2);
+				  __HAL_DMA_SET_COUNTER(huart->hdmarx,IMAGE_TRANS_RX_LENGTH);
 
 			}
 			/* Current memory buffer used is Memory 1 */
@@ -150,7 +157,7 @@ static void USER_USART1_RxHandler(UART_HandleTypeDef *huart,uint16_t Size){
 						Image_Transmission_Info_Update(Image_Trans_MultiRx_Buff[1]);
 					}
 				  /* Reset the receive count */
-					__HAL_DMA_SET_COUNTER(huart->hdmarx,IMAGE_TRANS_RX_LENGTH*2);
+					__HAL_DMA_SET_COUNTER(huart->hdmarx,IMAGE_TRANS_RX_LENGTH);
 			}
 #else
   
@@ -165,7 +172,7 @@ static void USER_USART1_RxHandler(UART_HandleTypeDef *huart,uint16_t Size){
 						Referee_System_Frame_Update(Referee_System_Info_MultiRx_Buf[0]);
 						memset(Referee_System_Info_MultiRx_Buf[0],0,REFEREE_RXFRAME_LENGTH);
 					}
-					__HAL_DMA_SET_COUNTER(huart->hdmarx,REFEREE_RXFRAME_LENGTH*2);
+					__HAL_DMA_SET_COUNTER(huart->hdmarx,REFEREE_RXFRAME_LENGTH);
 			}
 			/* Current memory buffer used is Memory 1 */
 			else{
@@ -180,7 +187,7 @@ static void USER_USART1_RxHandler(UART_HandleTypeDef *huart,uint16_t Size){
 						memset(Referee_System_Info_MultiRx_Buf[1],0,REFEREE_RXFRAME_LENGTH);
 
 					}
-					__HAL_DMA_SET_COUNTER(huart->hdmarx,REFEREE_RXFRAME_LENGTH*2);
+					__HAL_DMA_SET_COUNTER(huart->hdmarx,REFEREE_RXFRAME_LENGTH);
 
 			}
  

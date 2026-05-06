@@ -433,63 +433,6 @@ void UART5_IRQHandler(void)
 {
   /* USER CODE BEGIN UART5_IRQn 0 */
 
-  if (__HAL_UART_GET_FLAG(&huart5, UART_FLAG_IDLE))
-  {
-      /* Clear IDLE flag by reading SR then DR (or use clear flag macro) */
-      __HAL_UART_CLEAR_IDLEFLAG(&huart5);
-      
-      /* Check if IDLE interrupt is actually enabled */
-      if ((huart5.Instance->CR1 & USART_CR1_IDLEIE) != 0U)
-      {
-          /* Calculate received size */
-          uint16_t remain = __HAL_DMA_GET_COUNTER(huart5.hdmarx);
-          uint16_t size = SBUS_RX_BUF_NUM * 2 - remain;
-
-          /* Disable DMA and WAIT for it to actually stop */
-          __HAL_DMA_DISABLE(huart5.hdmarx);
-          while (((DMA_Stream_TypeDef *)huart5.hdmarx->Instance)->CR & DMA_SxCR_EN);
-
-          /* Current memory buffer used is Memory 0 */
-          if ((((DMA_Stream_TypeDef *)huart5.hdmarx->Instance)->CR & DMA_SxCR_CT) == RESET)
-          {
-              /* Switch to Memory 1 */
-              ((DMA_Stream_TypeDef *)huart5.hdmarx->Instance)->CR |= DMA_SxCR_CT;
-
-              /* Reset counter */
-              ((DMA_Stream_TypeDef *)huart5.hdmarx->Instance)->NDTR = SBUS_RX_BUF_NUM * 2;
-
-              /* Re-enable DMA before processing (so next frame can start arriving) */
-              __HAL_DMA_ENABLE(huart5.hdmarx);
-
-              if (size == SBUS_RX_BUF_NUM)
-              {
-                  SCB_InvalidateDCache_by_Addr((uint32_t *)SBUS_MultiRx_Buf[0], 32);
-                  SBUS_TO_RC(SBUS_MultiRx_Buf[0], &NDJ6_info);
-              }
-          }
-          /* Current memory buffer used is Memory 1 */
-          else
-          {
-              /* Switch to Memory 0 */
-              ((DMA_Stream_TypeDef *)huart5.hdmarx->Instance)->CR &= ~(DMA_SxCR_CT);
-
-              /* Reset counter */
-              ((DMA_Stream_TypeDef *)huart5.hdmarx->Instance)->NDTR = SBUS_RX_BUF_NUM * 2;
-
-              /* Re-enable DMA before processing */
-              __HAL_DMA_ENABLE(huart5.hdmarx);
-
-              if (size == SBUS_RX_BUF_NUM)
-              {
-                  SCB_InvalidateDCache_by_Addr((uint32_t *)SBUS_MultiRx_Buf[1], 32);
-                  SBUS_TO_RC(SBUS_MultiRx_Buf[1], &NDJ6_info);
-              }
-          }
-
-          return;
-      }
-  }
-
   /* USER CODE END UART5_IRQn 0 */
   HAL_UART_IRQHandler(&huart5);
   /* USER CODE BEGIN UART5_IRQn 1 */
@@ -614,6 +557,63 @@ void OTG_HS_IRQHandler(void)
 void UART7_IRQHandler(void)
 {
   /* USER CODE BEGIN UART7_IRQn 0 */
+
+  if (__HAL_UART_GET_FLAG(&huart7, UART_FLAG_IDLE))
+  {
+      /* Clear IDLE flag by reading SR then DR (or use clear flag macro) */
+      __HAL_UART_CLEAR_IDLEFLAG(&huart7);
+      
+      /* Check if IDLE interrupt is actually enabled */
+      if ((huart7.Instance->CR1 & USART_CR1_IDLEIE) != 0U)
+      {
+          /* Calculate received size */
+          uint16_t remain = __HAL_DMA_GET_COUNTER(huart7.hdmarx);
+          uint16_t size = SBUS_RX_BUF_NUM - remain;
+
+          /* Disable DMA and WAIT for it to actually stop */
+          __HAL_DMA_DISABLE(huart7.hdmarx);
+          while (((DMA_Stream_TypeDef *)huart7.hdmarx->Instance)->CR & DMA_SxCR_EN);
+
+          /* Current memory buffer used is Memory 0 */
+          if ((((DMA_Stream_TypeDef *)huart7.hdmarx->Instance)->CR & DMA_SxCR_CT) == RESET)
+          {
+              /* Switch to Memory 1 */
+              ((DMA_Stream_TypeDef *)huart7.hdmarx->Instance)->CR |= DMA_SxCR_CT;
+
+              /* Reset counter */
+              ((DMA_Stream_TypeDef *)huart7.hdmarx->Instance)->NDTR = SBUS_RX_BUF_NUM;
+
+              /* Re-enable DMA before processing (so next frame can start arriving) */
+              __HAL_DMA_ENABLE(huart7.hdmarx);
+
+              if (size == SBUS_RX_BUF_NUM)
+              {
+                  SCB_InvalidateDCache_by_Addr((uint32_t *)SBUS_MultiRx_Buf[0], 32);
+                  SBUS_TO_RC(SBUS_MultiRx_Buf[0], &NDJ6_info);
+              }
+          }
+          /* Current memory buffer used is Memory 1 */
+          else
+          {
+              /* Switch to Memory 0 */
+              ((DMA_Stream_TypeDef *)huart7.hdmarx->Instance)->CR &= ~(DMA_SxCR_CT);
+
+              /* Reset counter */
+              ((DMA_Stream_TypeDef *)huart7.hdmarx->Instance)->NDTR = SBUS_RX_BUF_NUM;
+
+              /* Re-enable DMA before processing */
+              __HAL_DMA_ENABLE(huart7.hdmarx);
+
+              if (size == SBUS_RX_BUF_NUM)
+              {
+                  SCB_InvalidateDCache_by_Addr((uint32_t *)SBUS_MultiRx_Buf[1], 32);
+                  SBUS_TO_RC(SBUS_MultiRx_Buf[1], &NDJ6_info);
+              }
+          }
+
+          return;
+      }
+  }
 
   /* USER CODE END UART7_IRQn 0 */
   HAL_UART_IRQHandler(&huart7);

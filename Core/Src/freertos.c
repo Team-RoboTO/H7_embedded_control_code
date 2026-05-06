@@ -70,6 +70,10 @@ osThreadId Start_Image_Transmission_TaskHandle;
 uint32_t Start_Image_Transmission_TaskBuffer[ 2048 ];
 osStaticThreadDef_t Start_Image_Transmission_TaskControlBlock;
 
+osThreadId Start_UI_TaskHandle;
+uint32_t Start_UI_TaskBuffer[ 2048 ];
+osStaticThreadDef_t Start_UI_TaskControlBlock;
+
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 
@@ -82,6 +86,7 @@ void Gimbal_Task(void const * argument);
 void USB_MiniPC_Task(void const * argument);
 void Shooting_Task(void const * argument);
 void Image_Transmission_Task(void const * argument);
+extern void UI_Task(void const * argument);
 
 extern void MX_USB_DEVICE_Init(void);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
@@ -156,6 +161,10 @@ void MX_FREERTOS_Init(void) {
   /* definition and creation of Start_Image_Transmission_Task */
   osThreadStaticDef(Start_Image_Transmission_Task, Image_Transmission_Task, osPriorityLow, 0, 2048, Start_Image_Transmission_TaskBuffer, &Start_Image_Transmission_TaskControlBlock);
   Start_Image_Transmission_TaskHandle = osThreadCreate(osThread(Start_Image_Transmission_Task), NULL);
+
+  /* definition and creation of UI_Task */
+  osThreadStaticDef(Start_UI_Task, UI_Task, osPriorityLow, 0, 2048, Start_UI_TaskBuffer, &Start_UI_TaskControlBlock);
+  Start_UI_TaskHandle = osThreadCreate(osThread(Start_UI_Task), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
