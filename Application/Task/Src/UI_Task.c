@@ -1,3 +1,40 @@
+/**
+ * @file UI_Task.c
+ * @brief Gestione dell'interfaccia grafica (HUD) per il pilota.
+ * 
+ * Descrizione degli elementi grafici visualizzati (Referee System):
+ * --------------------------------------------------------------
+ * 1. SPIN (Rotazione Chassis):
+ *    - "ON" (Verde): Modalità "Spin" attiva (il robot ruota su se stesso).
+ *    - "OFF" (Arancio): Chassis segue il gimbal normalmente.
+ *    - Bordo: Un arco circolare che ruota insieme al telaio del robot.
+ * 
+ * 2. GEAR (Marcia/Velocità):
+ *    - Indica il moltiplicatore di velocità attuale (es. GEAR 1, GEAR 2).
+ * 
+ * 3. AIM (Aimbot):
+ *    - "AIM ON": Auto-aim attivato (segue il target tramite computer vision).
+ *    - "AIM OFF": Mira manuale.
+ * 
+ * 4. CAP (Supercap):
+ *    - Visualizza lo stato di carica del supercondensatore.
+ *    - Arco radiale: Carica rimanente (Verde > soglia, Arancio < soglia).
+ *    - "CAP ON/OFF": Stato di scarica del modulo di potenza.
+ * 
+ * 5. CROSSHAIR (Mirino):
+ *    - Mirino stile Sniper con compensatore di caduta (tick verticali).
+ *    - Cerchio centrale per la mira rapida.
+ * 
+ * 6. PITCH (Inclinazione):
+ *    - Scala laterale che indica l'angolo di inclinazione della testa del robot.
+ *    - Include limiti fisici e indicatore di posizione corrente.
+ * 
+ * 7. STATUS ALARMS:
+ *    - "RUOTAAA!": Avviso visivo quando il robot è fermo (bersaglio facile).
+ *    - MOTOR FAULT: Elenco motori in errore (es: FR, FL, BL, BR, YAW, PITCH).
+ *    - FEEDER: Stato caricatore (JAMMED se bloccato, OVERHEAT se surriscaldato).
+ */
+
 #include "UI_Task.h"
 #include "usart.h"
 #include "cmsis_os.h"
