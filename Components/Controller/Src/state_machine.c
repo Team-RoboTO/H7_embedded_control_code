@@ -7,6 +7,9 @@
 #include "DJI_Motor.h"
 #include "MiniPC.h"
 
+extern int g_spinspin_mode;
+static uint16_t last_shift_state = 0;
+
   /**************/
  /*   STATES   */
 /**************/
@@ -99,8 +102,14 @@ uint8_t _state_machine_chassis_remote_controller() {
 
 uint8_t _state_machine_chassis_keyboard_mouse() {
 
-    if (RC_info.Key.Set.SHIFT) return CHASSIS_CONTIGUOUS_ROTATION;
-    else                       return CHASSIS_FOLLOW_GIMBAL;
+    // Toggle logic for Shift key (rising edge detection)
+    if (RC_info.Key.Set.SHIFT && !last_shift_state) {
+        g_spinspin_mode = !g_spinspin_mode;
+    }
+    last_shift_state = RC_info.Key.Set.SHIFT;
+
+    if (g_spinspin_mode) return CHASSIS_CONTIGUOUS_ROTATION;
+    else                 return CHASSIS_FOLLOW_GIMBAL;
 }
 
 uint8_t _state_machine_chassis_autonomus() {
