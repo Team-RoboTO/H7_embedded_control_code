@@ -42,6 +42,7 @@ float KD_pitch = 1.0f;
 
 float KP_pitch = 20.0f;
 
+extern FDCAN_HandleTypeDef hfdcan2;
 void CAN_Task(void const * argument)
 {
     /* Keep the task loop at 1ms (1000Hz) so our split halves result in 500Hz */
@@ -149,7 +150,16 @@ void CAN_Task(void const * argument)
 				#if !IS_LIDAR_LIFTER_ENABLED
 						// set current to 0
 				#endif
-
+				
+				if (hfdcan2.Instance->PSR & FDCAN_PSR_BO)
+				{
+						FDCAN2_Reset();
+						osDelay(20);
+						is_first_iter = 1;
+						osDelay(20);
+				}
+			
         vTaskDelay(xPeriod); // Wait 1ms
     }
 }
+
