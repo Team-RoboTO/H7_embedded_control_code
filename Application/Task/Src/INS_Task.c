@@ -25,7 +25,8 @@
 //#include "segger_rtt.h"
 #include "math_utils.h"
 //#include "EventRecorder.h"
-
+#include "usart.h"
+#include "stdio.h"
 
 
 /**
@@ -100,6 +101,16 @@ static inline uint32_t float_to_u32(float f) {
   * @retval None
   */
 /* USER CODE END Header_INS_Task */
+
+// Variabile globale - metti in cima al file
+volatile uint8_t uart7_dma_ready = 1;
+
+// Callback di completamento DMA - aggiungila nel file
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
+    if (huart->Instance == UART7) {
+        uart7_dma_ready = 1;
+    }
+}
 void INS_Task(void const * argument)
 {
   /* USER CODE BEGIN INS_Task */
@@ -108,7 +119,7 @@ void INS_Task(void const * argument)
 
 	/* Initializes the INS_Task. */
 	INS_Task_Init();
-	
+		uint8_t tx_buf[] = "HELLO\n";
   /* Infinite loop */
   for(;;)
   {
@@ -154,6 +165,21 @@ void INS_Task(void const * argument)
     INS_Info.Pitch_Gyro = INS_Info.Gyro[IMU_GYRO_INDEX_PITCH]*RAD_TO_DEG;
     INS_Info.Yaw_Gyro   = INS_Info.Gyro[IMU_GYRO_INDEX_YAW]*RAD_TO_DEG;
     INS_Info.Roll_Gyro  = INS_Info.Gyro[IMU_GYRO_INDEX_ROLL]*RAD_TO_DEG;
+		
+char tx_buf[128]; 
+
+/* 2. Formattazione della stringa (Sostituisci il tuo blocco con questo) */
+int len = sprintf(tx_buf, "$YAW:%.2f,PITCH:%.2f,ROLL:%.2f,TS:%lu\r\n",
+                  INS_Info.Yaw_Angle,
+                  INS_Info.Pitch_Angle,
+                  INS_Info.Roll_Angle,
+                  (unsigned long)HAL_GetTick());
+
+/* 3. Trasmissione UART (Una sola chiamata, usando la lunghezza reale 'len') */
+if (len > 0) {
+    HAL_UART_Transmit(&huart7, (uint8_t*)tx_buf, (uint16_t)len, 100);
+}
+
 		
 		if(INS_Task_SysTick%5 == 0)
 		{
