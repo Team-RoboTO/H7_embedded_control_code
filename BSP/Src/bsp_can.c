@@ -274,7 +274,7 @@ void USER_FDCAN_AddMessageToTxFifoQ(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame){
 }
 
 /**
-  * @brief  FDCAN1 RX handler — DJI motors (shooting wheels + rev + yaw GM6020).
+  * @brief  FDCAN1 RX handler ï¿½ DJI motors (shooting wheels + rev + yaw GM6020).
   *         Dispatches to the single matching motor based on ID.
   *
   *         RX IDs:  0x201 = shoot left, 0x202 = shoot right,
@@ -301,6 +301,14 @@ static void FDCAN1_RxFifo0RxHandler(uint32_t *Identifier, uint8_t Data[8])
         case 0x203:
             DJI_Motor_Info_Update(Identifier, Data, &DJI_Rev_Motor);
             break;
+				
+				case 0x204:
+				    DJI_Motor_Info_Update(Identifier, Data, &DJI_Lidar_Motor);
+            break;
+				
+        case 0x205:
+            DJI_Motor_Info_Update(Identifier, Data, &DJI_Yaw_Motor);
+            break;
 
         default:
             break;
@@ -308,7 +316,7 @@ static void FDCAN1_RxFifo0RxHandler(uint32_t *Identifier, uint8_t Data[8])
 }
 
 /**
-  * @brief  FDCAN3 RX handler — currently unused.
+  * @brief  FDCAN3 RX handler ï¿½ currently unused.
   * @param  Identifier: Received identifier.
   * @param  Data: 8-byte CAN data buffer.
   * @retval None
@@ -320,7 +328,7 @@ static void FDCAN3_RxFifo0RxHandler(uint32_t *Identifier, uint8_t Data[8])
 }
 
 /**
-  * @brief  FDCAN2 RX handler — DM yaw + CM pitch + CM chassis[4].
+  * @brief  FDCAN2 RX handler ï¿½ DM yaw + CM pitch + CM chassis[4].
   *         Dispatches to the single matching motor based on ID and frame type.
   *
   *         Standard ID frames:
@@ -341,7 +349,7 @@ static void FDCAN2_RxFifo1RxHandler(FDCAN_RxHeaderTypeDef *RxHeader, uint8_t Dat
 	
     fifo_number_1 = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan2);
 
-    /* Standard ID — DM yaw or CM chassis */
+    /* Standard ID ï¿½ DM yaw or CM chassis */
     switch (id)
     {
         case 0x00000002:
@@ -372,7 +380,7 @@ static void FDCAN2_RxFifo1RxHandler(FDCAN_RxHeaderTypeDef *RxHeader, uint8_t Dat
 }
 
 /**
-  * @brief  Rx FIFO 0 callback — drains ALL pending messages from the FIFO.
+  * @brief  Rx FIFO 0 callback ï¿½ drains ALL pending messages from the FIFO.
   *
   *         The "new message" interrupt fires once per arrival, but if several
   *         frames land between ISR entry and the read, only one would be
@@ -416,7 +424,7 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 }
 	
 /**
-  * @brief  Rx FIFO 1 callback — drains ALL pending messages from the FIFO.
+  * @brief  Rx FIFO 1 callback ï¿½ drains ALL pending messages from the FIFO.
   *
   *         Same drain-loop strategy as FIFO 0 above.  This is the critical
   *         fix for FDCAN2 where 4 CubeMars chassis + DM yaw + CM pitch can

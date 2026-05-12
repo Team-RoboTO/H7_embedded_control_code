@@ -16,6 +16,7 @@ uint8_t state_chassis          = CHASSIS_FOLLOW_GIMBAL;
 uint8_t state_gimbal           = GIMBAL_MANUAL_AIM;
 uint8_t state_shoot_wheels     = SHOOT_WHEELS_STOP;
 uint8_t state_rev              = REV_STOP;
+uint8_t state_lidar_lifter     = DOWN;
 
   /********************************/
  /*   SHOOT WHEELS SPIN STRUCT   */
@@ -52,6 +53,7 @@ void robot_states_update_state_machine() {
     state_gimbal          = _state_machine_gimbal();
     state_shoot_wheels    = _state_machine_shoot_wheels();
     state_rev             = _state_machine_rev();
+		state_lidar_lifter 		= _state_machine_lidar_lifter();
 }
 
   /******************************/
@@ -294,4 +296,9 @@ uint8_t _state_machine_rev_autonomus() {
     else {
         return REV_STOP;
     }
+}
+
+uint8_t _state_machine_lidar_lifter() {
+		if( RC_info.RC.Stop == 1) return LIDAR_UP;
+		else return LIDAR_DOWN;
 }

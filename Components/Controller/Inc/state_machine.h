@@ -32,6 +32,10 @@
 #define REV_MULTIPLE_SHOOTING           2
 #define REV_UNSTUCK                     3
 
+// Lidar lifter
+#define LIDAR_DOWN											0
+#define LIDAR_UP 												1 
+
 // State variables
 extern uint8_t state_remote_commands;
 extern uint8_t state_chassis;
@@ -43,6 +47,7 @@ extern uint8_t state_chassis_prev;
 extern uint8_t state_gimbal_prev;
 extern uint8_t state_shoot_wheels_prev;
 extern uint8_t state_rev_prev;
+extern uint8_t state_lidar_lifter;
 
   /********************************/
  /*   SHOOT WHEELS SPIN STRUCT   */
@@ -94,6 +99,7 @@ uint8_t _state_machine_rev();
 uint8_t _state_machine_rev_remote_controller();
 uint8_t _state_machine_rev_keyboard_mouse();
 uint8_t _state_machine_rev_autonomus();
+uint8_t _state_machine_lidar_lifter();
 
 #endif
 

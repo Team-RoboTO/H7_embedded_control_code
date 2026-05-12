@@ -145,6 +145,10 @@ void CAN_Task(void const * argument)
             shoot_wheels_and_rev.ud[0] = 0;
             shoot_wheels_and_rev.ud[1] = 0;
         #endif
+				
+				#if !IS_LIDAR_LIFTER_ENABLED
+						// set current to 0
+				#endif
 
         vTaskDelay(xPeriod); // Wait 1ms
     }
