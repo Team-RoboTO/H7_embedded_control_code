@@ -24,7 +24,7 @@
 #include "chassis_control.h"
 #include "gimbal_control.h"
 
-static uint8_t is_first_iter = 1;
+uint8_t is_first_iter_can = 1;
 static uint8_t is_init = 1;
 
 extern controlled_system_t shoot_wheels_and_rev;
@@ -93,9 +93,9 @@ void CAN_Task(void const * argument)
             DM_Motor_Command(&FDCAN2_TxFrame, &DM_Yaw_Motor, Motor_Disable);
             osDelay(30);
 
-            is_first_iter = 1;
+            is_first_iter_can = 1;
         }
-        else if (is_first_iter == 1) {
+        else if (is_first_iter_can == 1) {
             CM_Motor_Command(&FDCAN2_TxFrame, &CM_Chassis_Motor[0], CM_Motor_Enable);
             osDelay(30);
             CM_Motor_Command(&FDCAN2_TxFrame, &CM_Chassis_Motor[1], CM_Motor_Enable);
@@ -108,7 +108,7 @@ void CAN_Task(void const * argument)
             osDelay(30);
 						CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Enable);
 
-            is_first_iter = 0;
+            is_first_iter_can= 0;
         }
 
         /* --- TIME SLICING: Send half the messages at a time --- */

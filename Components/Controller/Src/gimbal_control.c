@@ -92,7 +92,7 @@ void control_loop_gimbal() {
         gimbal.x_prev[i] = gimbal.x[i];
     }
     gimbal.x[0] = INS_Info.Yaw_TolAngle * DEG_TO_RAD;     // yaw position  [rad]
-    gimbal.x[1] = INS_Info.Roll_Angle * DEG_TO_RAD;   // pitch position [rad]
+    gimbal.x[1] = INS_Info.Roll_Angle * DEG_TO_RAD;   // pitch position [rad] (IMU is likely rotated 90deg)
 
     // update reference history
     for (uint8_t i = 0; i < 2; i++) {
@@ -151,10 +151,14 @@ void control_loop_gimbal() {
                     break;
 
                 case COMMANDS_KEYBOARD_MOUSE:						
-                     remote_commands_yaw   = RC_info.Mouse.X*0.01;
-                    remote_commands_pitch = RC_info.Mouse.Y*0.01;
-                    gimbal.r_x[0] += (remote_commands_yaw   / MAX_RC_TILT) * 15 * DEG_TO_RAD;
-                    gimbal.r_x[1]  = pitch_zero + (remote_commands_pitch / MAX_RC_TILT) * 30 * DEG_TO_RAD;              
+                     remote_commands_yaw   = RC_info.Mouse.X;
+                    remote_commands_pitch = RC_info.Mouse.Y;
+                    
+                    // Mouse movement should be accumulated (delta)
+                    // Mouse movement (sensitivity drastically reduced for 1ms loop)
+                    gimbal.r_x[0] += (remote_commands_yaw * 0.00001f);
+                    gimbal.r_x[1] -= (remote_commands_pitch * 0.00001f); // Inverted Y for standard mouse feel
+                    
                     saturate_in_range(&gimbal.r_x[1], pitch_zero - 15*DEG_TO_RAD ,pitch_zero + 25*DEG_TO_RAD );
 								break;
 

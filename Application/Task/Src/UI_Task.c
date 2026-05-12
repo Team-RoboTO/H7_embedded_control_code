@@ -45,6 +45,8 @@
 #include "remote_control.h"
 #include "Damiao_Motor.h"
 #include "Cubemars_Motor.h"
+#include "Chassis_control.h"
+#include "INS_Task.h"
 
 extern Referee_System_Info_TypeDef Referee_System_Info;
 static uint16_t g_client_id = 0;
@@ -65,7 +67,7 @@ enum feeder_state_e feeder_state = FEEDER_STANDBY;
 int prev_feeder_state = 0;
 int feeder_state_enabled = 0;
 
-int g_spinspin_mode = 0;
+
 int prev_spinspin = 0;
 int prev_spin_warning = 0;
 int supercap_dash = 0;
@@ -95,6 +97,7 @@ extern NDJ6_Info_Typedef NDJ6_info;
 // Using the user's motor structs
 extern DM_Motor_Info_Typedef DM_Yaw_Motor;
 extern CM_Motor_Info_Typedef CM_Pitch_Motor;
+extern INS_Info_Typedef INS_Info; 
 
 void map_robot_id(uint16_t robot_id){
 	switch (robot_id) {
@@ -121,7 +124,7 @@ volatile uint32_t ui_tx_count = 0;
 // Mutex for safe UART transmission across multiple tasks
 osSemaphoreId ui_send_sem;
 // DMA buffer MUST be in AXI_SRAM and non-cacheable for H7
-__attribute__((section (".AXI_SRAM"))) static uint8_t ui_tx_dma_buffer[1024];
+__attribute__((section (".AXI_SRAM"), aligned(32))) static uint8_t ui_tx_dma_buffer[1024];
 
 
 void ref_send(uint8_t* tx_buffer, uint16_t tx_len){
@@ -150,6 +153,9 @@ void ref_send(uint8_t* tx_buffer, uint16_t tx_len){
 	
 	// Copy to stable, DMA-accessible memory (AXI_SRAM)
 	memcpy(ui_tx_dma_buffer, tx_buffer, tx_len + 2);
+	
+	// Clean D-Cache for the buffer to ensure DMA sees the fresh data on H7
+	SCB_CleanDCache_by_Addr((uint32_t*)ui_tx_dma_buffer, tx_len + 2);
 	
 	// Increment counter for debugging (Watch window)
 	ui_tx_count++;
@@ -324,7 +330,7 @@ void draw_spin_char(uint8_t modify, uint32_t x_coords) {
 	uint8_t char_len = 0;
 	char char_buffer[30];
 	memset(char_buffer, 0, 30);
-	char_len = g_spinspin_mode ?
+	char_len = is_rotating ?
 			snprintf((char*) char_buffer, 30, "ON") :
 			snprintf((char*) char_buffer, 30, "OFF");
 
@@ -332,7 +338,7 @@ void draw_spin_char(uint8_t modify, uint32_t x_coords) {
 
 	graphic_data_struct_t* graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
 
-	graphic_data->color = g_spinspin_mode ? GRAPHIC_COLOUR_GREEN : GRAPHIC_COLOUR_ORANGE;
+	graphic_data->color = is_rotating ? GRAPHIC_COLOUR_GREEN : GRAPHIC_COLOUR_ORANGE;
 	graphic_data->graphic_name[0] = 'C';
 	graphic_data->graphic_name[1] = 'H';
 	graphic_data->graphic_name[2] = 'A';
@@ -388,7 +394,7 @@ void draw_spin_warning(uint8_t operation) {
 }
 
 void check_spin_warning() {
-    int current_warning = !g_spinspin_mode; // Sempre attivo se non gira
+    int current_warning = !is_rotating; // Sempre attivo se non gira
 
     // Se lo stato è cambiato (da off a on, o da on a off)
     if (current_warning != prev_spin_warning) {
@@ -403,7 +409,7 @@ void check_spin_warning() {
 
 uint16_t draw_spin_border(uint8_t* tx_buffer, uint8_t modify, uint32_t x_coords) {
 	graphic_data_struct_t* graphic_data = (graphic_data_struct_t *)(tx_buffer);
-	graphic_data->color = g_spinspin_mode ? GRAPHIC_COLOUR_GREEN : GRAPHIC_COLOUR_ORANGE;
+	graphic_data->color = is_rotating ? GRAPHIC_COLOUR_GREEN : GRAPHIC_COLOUR_ORANGE;
 	graphic_data->graphic_name[0] = 'B';
 	graphic_data->graphic_name[1] = 'O';
 	graphic_data->graphic_name[2] = 'R';
@@ -430,51 +436,52 @@ uint16_t draw_spin_border(uint8_t* tx_buffer, uint8_t modify, uint32_t x_coords)
 	return sizeof(graphic_data_struct_t);
 }
 
-uint16_t draw_balancing_status(uint8_t* tx_buffer, uint8_t modify){
-	uint8_t curr_pos = 0;
-	float pitch_remote = ((float) NDJ6_info.rc.ch[1] / 660) * PITCH_INVERT * REMOTE_PITCH_SPEED * PI;
-	float yaw_remote = ((float) NDJ6_info.rc.ch[2] / 660) * YAW_INVERT * REMOTE_YAW_SPEED * PI;
-    
-	uint32_t pivot_chassis_x = sin( pitch_remote ) * 180 + 1710; 
-	uint32_t pivot_chassis_y = cos( pitch_remote ) * 180 + 540;
+uint16_t draw_bullet_bar(uint8_t* tx_buffer, uint8_t modify){
+	uint16_t curr_pos = 0;
+    uint16_t bullets = Referee_System_Info.projectile_allowance.projectile_allowance_17mm;
+    uint32_t max_bullets = 500;
+    uint32_t max_h = 350; 
+    uint32_t bar_x_base = 1890;
+
+    if (bullets > max_bullets) bullets = max_bullets; 
+
+    uint32_t bar_height = (bullets * max_h) / max_bullets;
+    uint8_t color = GRAPHIC_COLOUR_GREEN;
+    if (bullets < 50) color = GRAPHIC_COLOUR_PURPLISH_RED;
+    else if (bullets < 150) color = GRAPHIC_COLOUR_YELLOW;
 
 	graphic_data_struct_t* graphic_data = (graphic_data_struct_t *)(tx_buffer);
-	graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
 	graphic_data->graphic_name[0] = 'B';
-	graphic_data->graphic_name[1] = 'S';
-	graphic_data->graphic_name[2] = 'L';
+	graphic_data->graphic_name[1] = 'B';
+	graphic_data->graphic_name[2] = 'O'; 
 	graphic_data->layer = 3;
 	graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-	graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
-	graphic_data->color = 1; //yellow
-	graphic_data->width = PITCH_BOUNDARY_WIDTH;
-	graphic_data->start_x = 1710;
-	graphic_data->start_y = 540;
-	graphic_data->details_d = pivot_chassis_x;
-	graphic_data->details_e = pivot_chassis_y;
+	graphic_data->graphic_type = GRAPHIC_TYPE_RECTANGLE;
+	graphic_data->color = GRAPHIC_COLOUR_WHITE;
+	graphic_data->width = 3; // Thicker border
+	graphic_data->start_x = bar_x_base - 15;
+	graphic_data->start_y = 350;
+	graphic_data->details_d = bar_x_base + 15;
+	graphic_data->details_e = 350 + max_h;
 	curr_pos += sizeof(graphic_data_struct_t);
     
-	uint32_t chassis_left_x = pivot_chassis_x - cos( yaw_remote ) * 105;
-	uint32_t chassis_left_y = pivot_chassis_y - sin( yaw_remote ) * 105;
-	uint32_t chassis_right_x = pivot_chassis_x + cos( yaw_remote) * 105;
-	uint32_t chassis_right_y = pivot_chassis_y + sin( yaw_remote ) * 105;
-	
     graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
 	graphic_data->graphic_name[0] = 'B';
-	graphic_data->graphic_name[1] = 'S';
-	graphic_data->graphic_name[2] = 'C';
+	graphic_data->graphic_name[1] = 'B';
+	graphic_data->graphic_name[2] = 'L'; 
 	graphic_data->layer = 3;
 	graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-	graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
-	graphic_data->color = 1; //yellow
-	graphic_data->width = PITCH_BOUNDARY_WIDTH;
-	graphic_data->start_x = chassis_left_x;
-	graphic_data->start_y = chassis_left_y;
-	graphic_data->details_d = chassis_right_x;
-	graphic_data->details_e = chassis_right_y;
+	graphic_data->graphic_type = GRAPHIC_TYPE_LINE; 
+	graphic_data->color = color;
+	graphic_data->width = 20; // Thicker bar
+	graphic_data->start_x = bar_x_base;
+	graphic_data->start_y = 351;
+	graphic_data->details_d = bar_x_base;
+	graphic_data->details_e = 351 + bar_height;
 	curr_pos += sizeof(graphic_data_struct_t);
+    
 
-	return (sizeof(graphic_data_struct_t)*2);
+	return curr_pos;
 }
 
 void draw_aimbot(uint8_t modify, uint32_t x_coords) {
@@ -588,103 +595,179 @@ void draw_crosshair(uint8_t modify) {
     uint32_t curr_pos = 0;
     graphic_data_struct_t* graphic_data;
 
-    // 1. Sniper Crosshair Main Lines and Circle
+    // --- PACKET 1: Main Framework (5 Graphics) ---
     curr_pos = draw_graphic_header(tx_buffer, 5);
     
-    // Left Line
+    // Left Wing Bracket (Thick)
     graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-    graphic_data->graphic_name[0] = 'H'; graphic_data->graphic_name[1] = '_'; graphic_data->graphic_name[2] = 'L';
+    graphic_data->graphic_name[0] = 'W'; graphic_data->graphic_name[1] = 'L'; graphic_data->graphic_name[2] = 'B';
+    graphic_data->layer = 0;
+    graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
+    graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
+    graphic_data->color = GRAPHIC_COLOUR_CYAN;
+    graphic_data->width = 5;
+    graphic_data->start_x = CENTER_X - 180; graphic_data->start_y = CENTER_Y - 30;
+    graphic_data->details_d = CENTER_X - 180; graphic_data->details_e = CENTER_Y + 30;
+    curr_pos += sizeof(graphic_data_struct_t);
+
+    // Right Wing Bracket (Thick)
+    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
+    graphic_data->graphic_name[0] = 'W'; graphic_data->graphic_name[1] = 'R'; graphic_data->graphic_name[2] = 'B';
+    graphic_data->layer = 0;
+    graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
+    graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
+    graphic_data->color = GRAPHIC_COLOUR_CYAN;
+    graphic_data->width = 5;
+    graphic_data->start_x = CENTER_X + 180; graphic_data->start_y = CENTER_Y - 30;
+    graphic_data->details_d = CENTER_X + 180; graphic_data->details_e = CENTER_Y + 30;
+    curr_pos += sizeof(graphic_data_struct_t);
+
+    // Main Horizontal Axis (Thick)
+    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
+    graphic_data->graphic_name[0] = 'H'; graphic_data->graphic_name[1] = 'O'; graphic_data->graphic_name[2] = 'R';
     graphic_data->layer = 0;
     graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
     graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
     graphic_data->color = CROSSHAIR_COLOR;
-    graphic_data->width = 2;
-    graphic_data->start_x = CENTER_X - 150;
-    graphic_data->start_y = CENTER_Y;
-    graphic_data->details_d = CENTER_X - 20;
-    graphic_data->details_e = CENTER_Y;
+    graphic_data->width = 4;
+    graphic_data->start_x = CENTER_X - 160; graphic_data->start_y = CENTER_Y;
+    graphic_data->details_d = CENTER_X + 160; graphic_data->details_e = CENTER_Y;
     curr_pos += sizeof(graphic_data_struct_t);
 
-    // Right Line
+    // Vertical Top Mast
     graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-    graphic_data->graphic_name[0] = 'H'; graphic_data->graphic_name[1] = '_'; graphic_data->graphic_name[2] = 'R';
+    graphic_data->graphic_name[0] = 'V'; graphic_data->graphic_name[1] = 'E'; graphic_data->graphic_name[2] = 'T';
     graphic_data->layer = 0;
     graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
     graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
     graphic_data->color = CROSSHAIR_COLOR;
-    graphic_data->width = 2;
-    graphic_data->start_x = CENTER_X + 20;
-    graphic_data->start_y = CENTER_Y;
-    graphic_data->details_d = CENTER_X + 150;
-    graphic_data->details_e = CENTER_Y;
+    graphic_data->width = 4;
+    graphic_data->start_x = CENTER_X; graphic_data->start_y = CENTER_Y + 40;
+    graphic_data->details_d = CENTER_X; graphic_data->details_e = CENTER_Y + 140;
     curr_pos += sizeof(graphic_data_struct_t);
 
-    // Top Line
+    // Center Diamond
     graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-    graphic_data->graphic_name[0] = 'V'; graphic_data->graphic_name[1] = '_'; graphic_data->graphic_name[2] = 'T';
+    graphic_data->graphic_name[0] = 'D'; graphic_data->graphic_name[1] = 'I'; graphic_data->graphic_name[2] = 'A';
     graphic_data->layer = 0;
     graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-    graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
-    graphic_data->color = CROSSHAIR_COLOR;
-    graphic_data->width = 2;
-    graphic_data->start_x = CENTER_X;
-    graphic_data->start_y = CENTER_Y + 20;
-    graphic_data->details_d = CENTER_X;
-    graphic_data->details_e = CENTER_Y + 150;
-    curr_pos += sizeof(graphic_data_struct_t);
-
-    // Bottom Line
-    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-    graphic_data->graphic_name[0] = 'V'; graphic_data->graphic_name[1] = '_'; graphic_data->graphic_name[2] = 'B';
-    graphic_data->layer = 0;
-    graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-    graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
-    graphic_data->color = CROSSHAIR_COLOR;
-    graphic_data->width = 2;
-    graphic_data->start_x = CENTER_X;
-    graphic_data->start_y = CENTER_Y - 20;
-    graphic_data->details_d = CENTER_X;
-    graphic_data->details_e = CENTER_Y - 200;
-    curr_pos += sizeof(graphic_data_struct_t);
-
-    // Center Circle
-    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-    graphic_data->graphic_name[0] = 'C'; graphic_data->graphic_name[1] = 'I'; graphic_data->graphic_name[2] = 'R';
-    graphic_data->layer = 0;
-    graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-    graphic_data->graphic_type = GRAPHIC_TYPE_CIRCLE;
-    graphic_data->color = CROSSHAIR_COLOR;
-    graphic_data->width = 2;
-    graphic_data->start_x = CENTER_X;
-    graphic_data->start_y = CENTER_Y;
-    graphic_data->details_c = 60; // Radius
+    graphic_data->graphic_type = GRAPHIC_TYPE_RECTANGLE;
+    graphic_data->color = GRAPHIC_COLOUR_ORANGE;
+    graphic_data->width = 3;
+    graphic_data->start_x = CENTER_X - 6; graphic_data->start_y = CENTER_Y - 6;
+    graphic_data->details_d = CENTER_X + 6; graphic_data->details_e = CENTER_Y + 6;
     curr_pos += sizeof(graphic_data_struct_t);
 
     ref_send(tx_buffer, curr_pos);
     osDelay(REF_DELAY);
 
-    // 2. Drop Compensator Ticks
+    // --- PACKET 2: Track Lines & Corner Brackets (7 Graphics) ---
+    curr_pos = draw_graphic_header(tx_buffer, 7);
+    
+    // Left Track (Converging perspective)
+    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
+    graphic_data->graphic_name[0] = 'T'; graphic_data->graphic_name[1] = 'R'; graphic_data->graphic_name[2] = 'L';
+    graphic_data->layer = 0;
+    graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
+    graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
+    graphic_data->color = GRAPHIC_COLOUR_GREEN;
+    graphic_data->width = 3;
+    graphic_data->start_x = CENTER_X - 40; graphic_data->start_y = CENTER_Y - 80; // Ends near center
+    graphic_data->details_d = CENTER_X - 350; graphic_data->details_e = CENTER_Y - 540; // Starts wide at bottom
+    curr_pos += sizeof(graphic_data_struct_t);
+
+    // Right Track (Converging perspective)
+    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
+    graphic_data->graphic_name[0] = 'T'; graphic_data->graphic_name[1] = 'R'; graphic_data->graphic_name[2] = 'R';
+    graphic_data->layer = 0;
+    graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
+    graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
+    graphic_data->color = GRAPHIC_COLOUR_GREEN;
+    graphic_data->width = 3;
+    graphic_data->start_x = CENTER_X + 40; graphic_data->start_y = CENTER_Y - 80; // Ends near center
+    graphic_data->details_d = CENTER_X + 350; graphic_data->details_e = CENTER_Y - 540; // Starts wide at bottom
+    curr_pos += sizeof(graphic_data_struct_t);
+
+    // Bottom Perspective Bar
+    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
+    graphic_data->graphic_name[0] = 'B'; graphic_data->graphic_name[1] = 'P'; graphic_data->graphic_name[2] = 'B';
+    graphic_data->layer = 0;
+    graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
+    graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
+    graphic_data->color = GRAPHIC_COLOUR_GREEN;
+    graphic_data->width = 2;
+    graphic_data->start_x = CENTER_X - 130; graphic_data->start_y = CENTER_Y - 500;
+    graphic_data->details_d = CENTER_X + 130; graphic_data->details_e = CENTER_Y - 500;
+    curr_pos += sizeof(graphic_data_struct_t);
+
+    // Corner Brackets
+    uint32_t cd = 110; uint32_t cl = 35;
+    
+    // CTL
+    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
+    graphic_data->graphic_name[0] = 'C'; graphic_data->graphic_name[1] = 'T'; graphic_data->graphic_name[2] = 'L';
+    graphic_data->layer = 0;
+    graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
+    graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
+    graphic_data->color = GRAPHIC_COLOUR_CYAN;
+    graphic_data->width = 2;
+    graphic_data->start_x = CENTER_X - cd; graphic_data->start_y = CENTER_Y + cd;
+    graphic_data->details_d = CENTER_X - cd + cl; graphic_data->details_e = CENTER_Y + cd - cl;
+    curr_pos += sizeof(graphic_data_struct_t);
+
+    // CTR
+    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
+    graphic_data->graphic_name[0] = 'C'; graphic_data->graphic_name[1] = 'T'; graphic_data->graphic_name[2] = 'R';
+    graphic_data->layer = 0;
+    graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
+    graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
+    graphic_data->color = GRAPHIC_COLOUR_CYAN;
+    graphic_data->width = 2;
+    graphic_data->start_x = CENTER_X + cd; graphic_data->start_y = CENTER_Y + cd;
+    graphic_data->details_d = CENTER_X + cd - cl; graphic_data->details_e = CENTER_Y + cd - cl;
+    curr_pos += sizeof(graphic_data_struct_t);
+
+    // CBL
+    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
+    graphic_data->graphic_name[0] = 'C'; graphic_data->graphic_name[1] = 'B'; graphic_data->graphic_name[2] = 'L';
+    graphic_data->layer = 0;
+    graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
+    graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
+    graphic_data->color = GRAPHIC_COLOUR_CYAN;
+    graphic_data->width = 2;
+    graphic_data->start_x = CENTER_X - cd; graphic_data->start_y = CENTER_Y - cd;
+    graphic_data->details_d = CENTER_X - cd + cl; graphic_data->details_e = CENTER_Y - cd + cl;
+    curr_pos += sizeof(graphic_data_struct_t);
+
+    // CBR
+    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
+    graphic_data->graphic_name[0] = 'C'; graphic_data->graphic_name[1] = 'B'; graphic_data->graphic_name[2] = 'R';
+    graphic_data->layer = 0;
+    graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
+    graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
+    graphic_data->color = GRAPHIC_COLOUR_CYAN;
+    graphic_data->width = 2;
+    graphic_data->start_x = CENTER_X + cd; graphic_data->start_y = CENTER_Y - cd;
+    graphic_data->details_d = CENTER_X + cd - cl; graphic_data->details_e = CENTER_Y - cd + cl;
+    curr_pos += sizeof(graphic_data_struct_t);
+
+    ref_send(tx_buffer, curr_pos);
+    osDelay(REF_DELAY);
+
+    // --- PACKET 3: Drop Compensator Ticks (7 Graphics) ---
     curr_pos = draw_graphic_header(tx_buffer, 7);
     for (int i = 0; i < 7; i++) {
         int y_offset = (i + 1) * SCALE_TICK_STEP;
         graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-        
-        graphic_data->graphic_name[0] = 'T';
-        graphic_data->graphic_name[1] = 'K';
-        graphic_data->graphic_name[2] = 'A' + i;
+        graphic_data->graphic_name[0] = 'T'; graphic_data->graphic_name[1] = 'K'; graphic_data->graphic_name[2] = 'A' + i;
         graphic_data->layer = 0;
         graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
         graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
         graphic_data->color = CROSSHAIR_COLOR;
         graphic_data->width = 1;
-        
         int tick_w = 10 + (i * 2);
-        
-        graphic_data->start_x = CENTER_X - (tick_w / 2);
-        graphic_data->start_y = CENTER_Y - y_offset; 
-        graphic_data->details_d = CENTER_X + (tick_w / 2);
-        graphic_data->details_e = CENTER_Y - y_offset;
-        
+        graphic_data->start_x = CENTER_X - (tick_w / 2); graphic_data->start_y = CENTER_Y - y_offset; 
+        graphic_data->details_d = CENTER_X + (tick_w / 2); graphic_data->details_e = CENTER_Y - y_offset;
         curr_pos += sizeof(graphic_data_struct_t);
     }
     ref_send(tx_buffer, curr_pos);
@@ -835,8 +918,8 @@ void draw_pitch_limits(uint8_t modify) {
 	uint32_t curr_pos = 0;
 	graphic_data_struct_t* graphic_data;
 
-	float max_ang_pos = -PITCH_INVERT * CM_Pitch_Motor.Param_Range.P_MAX * ANGLE_LIMIT / graphic_edge;
-	float min_ang_pos = -PITCH_INVERT * -CM_Pitch_Motor.Param_Range.P_MAX * ANGLE_LIMIT / graphic_edge;
+	float max_ang_pos = -PITCH_INVERT * INS_Info.Roll_Angle * ANGLE_LIMIT / graphic_edge;
+	float min_ang_pos = -PITCH_INVERT * -INS_Info.Roll_Angle * ANGLE_LIMIT / graphic_edge;
 
 	uint32_t xpos[2] = {
 			HUD_MAX_X/2 + (int)(RADIAL_DIAMETER*cos(max_ang_pos * 0.0174533)),
@@ -873,7 +956,8 @@ void draw_pitch_limits(uint8_t modify) {
 uint16_t draw_curr_pitch(uint8_t* tx_buffer, uint8_t modify) {
 	graphic_data_struct_t* graphic_data = (graphic_data_struct_t *)(tx_buffer);
 
-	float curr_ang_pos = -PITCH_INVERT * CM_Pitch_Motor.Data.Angle * ANGLE_LIMIT / graphic_edge;
+    // Set scale to 1:6 (Angle / 6) to match the new HUD requirement
+	float curr_ang_pos = -PITCH_INVERT * INS_Info.Roll_Angle * (ANGLE_LIMIT / 120.0f);
 	uint32_t xpos = HUD_MAX_X/2 + (int)(RADIAL_DIAMETER*cos(curr_ang_pos * 0.0174533));
 	uint32_t ypos = HUD_MAX_Y/2 + (int)(RADIAL_DIAMETER*sin(curr_ang_pos * 0.0174533));
 
@@ -1180,16 +1264,13 @@ void draw_dynamic(uint8_t modify) {
 	case 3:
 	case 4:
 	case 5:
-        // CORREZIONE: Imposta direttamente a 5 e calcola l'header in modo corretto.
-        // Essendo ora dynamic_graphics = 5 (impostato sopra), il for loop non agirà
-        // e inserirà giustamente solo i 5 elementi generati sotto senza sforare il buffer allocato.
 		curr_pos = draw_graphic_header(tx_buffer, 5);
-		for (int i = 0; i < 5 - dynamic_graphics; i++) curr_pos += draw_empty(tx_buffer + curr_pos);
+		for (int i = 0; i < 5 - 5; i++) curr_pos += draw_empty(tx_buffer + curr_pos);
 		break;
 	case 6:
 	case 7:
 		curr_pos = draw_graphic_header(tx_buffer, 7);
-		for (int i = 0; i < 7 - dynamic_graphics; i++) curr_pos += draw_empty(tx_buffer + curr_pos);
+		for (int i = 0; i < 7 - 5; i++) curr_pos += draw_empty(tx_buffer + curr_pos);
 		break;
 	}
 
@@ -1197,7 +1278,7 @@ void draw_dynamic(uint8_t modify) {
 	curr_pos += draw_spin_border(tx_buffer + curr_pos, modify, spin_coords);
 	curr_pos += draw_supercap(tx_buffer + curr_pos, modify);
 	curr_pos += draw_curr_pitch(tx_buffer + curr_pos, modify);
-	curr_pos += draw_balancing_status(tx_buffer + curr_pos, modify);
+	curr_pos += draw_bullet_bar(tx_buffer + curr_pos, modify);
 
 	if (curr_pos) {
 		ref_send(tx_buffer, curr_pos);
@@ -1206,26 +1287,28 @@ void draw_dynamic(uint8_t modify) {
 }
 
 void draw_char(uint8_t modify) {
-    // CORREZIONE: Divisi aimbot e supercap_dash e chiamati correttamente.
+    static uint32_t refresh_counter = 0;
+    bool force_update = (refresh_counter++ % 50 == 0); // Periodic refresh every ~5 seconds
+
 	if (modify) {
-		if (prev_spinspin != g_spinspin_mode) {
-			prev_spinspin = g_spinspin_mode;
+		if (prev_spinspin != is_rotating || force_update) {
+			prev_spinspin = is_rotating;
 			draw_spin_char(modify, spin_coords);
 		}
-		if (prev_aimbot != aimbot_mode) {
+		if (prev_aimbot != aimbot_mode || force_update) {
 			prev_aimbot = aimbot_mode;
 			draw_aimbot(modify, aimbot_coords);
 		}
-		if (prev_supercap_dash != supercap_dash) {
+		if (prev_supercap_dash != supercap_dash || force_update) {
 			prev_supercap_dash = supercap_dash;
 			draw_supercap_text(modify, supercap_coords);
 		}
-		if (prev_gear != gear_speed_curr_gear) {
+		if (prev_gear != gear_speed_curr_gear || force_update) {
 			prev_gear = gear_speed_curr_gear;
 			draw_gearing(modify, gear_coords);
 		}
 	} else {
-		prev_spinspin = g_spinspin_mode;
+		prev_spinspin = is_rotating;
 		draw_spin_char(modify, spin_coords);
 		prev_aimbot = aimbot_mode;
 		draw_aimbot(modify, aimbot_coords);
@@ -1272,21 +1355,38 @@ void UI_Task(void const * argument) {
 			
 			osDelay(500); // Attendi che il client sia pronto
 			clear_hud();
-			draw_dynamic(0); // 0 = ADD
-			draw_char(0);    // 0 = ADD
-			draw_static();
+            
+            // Send multiple ADD packets for redundancy (Referee Client is unreliable)
+            for (int i = 0; i < 3; i++) {
+			    draw_dynamic(0); // 0 = ADD
+			    draw_char(0);    // 0 = ADD
+			    draw_static();
+                osDelay(200);
+            }
+            
 			osDelay(1000); // Dai tempo di caricare tutto prima dei MODIFY
-		} else {
-			// Update mapping normally
+		} else if (current_robot_id != 0) {
+			// Update mapping and states normally
 			map_robot_id(current_robot_id);
+            
+            // Update UI states from sensors/referee
+            charging_state = (uint8_t)(Referee_System_Info.power_heat_data.buffer_energy);
+            if (charging_state <= 60) charging_state = (uint8_t)((float)charging_state * 1.66f);
+            else if (charging_state > 100) charging_state = 100;
+            
+            supercap_dash = RC_info.Key.Set.C;
+            aimbot_mode = (RC_info.Mouse.Press_R);
+            // is_rotating is updated by state_machine toggle logic
 		}
 		
-		draw_dynamic(1);
-		draw_char(1);
-		
-		motor_fault();
-		dfeeder_state();
-		check_spin_warning();
+        if (current_robot_id != 0) {
+		    draw_dynamic(1);
+		    draw_char(1);
+		    
+		    motor_fault();
+		    dfeeder_state();
+		    check_spin_warning();
+        }
 		
         osDelay(100); 
 	}

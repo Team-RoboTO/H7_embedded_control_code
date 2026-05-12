@@ -11,10 +11,12 @@
 /* USER CODE END Header */
 
 #include "Image_Transmission.h"
+#include "remote_control.h"
+#include "Referee_System.h"
 #include "CRC.h"
 #include "usart.h"
-#include "remote_control.h"
-#include "UI_Task.h"
+
+extern VT13_Info_TypeDef RC_info;
 
 __attribute__((section (".AXI_SRAM"))) uint8_t Image_Trans_MultiRx_Buff[2][39];
 
@@ -24,51 +26,62 @@ VT13_Info_TypeDef VT13_Info;
 static int16_t bit8TObit16(uint8_t change_info[2]);
 static int16_t last_button_state[3] = {0};
 
-void Image_Transmission_Info_Update(uint8_t *Buff){
+void Image_Transmission_Info_Update(uint8_t *Buff, uint16_t Size){
 
-	Image_Transmission_Info.Index = 0;
-	Image_Transmission_Info.DataLength = 0;
-	/*Check the header frame */
- 
-	if(Buff[0] == 0xA5){
-	
-	  if(Verify_CRC8_Check_Sum(&Buff[0],5) == true){
-		
-		  Image_Transmission_Info.DataLength = (uint16_t)(Buff[Image_Transmission_Info.Index+2]<<8 | Buff[Image_Transmission_Info.Index+1]) + FrameHeader_Length + CMDID_Length + CRC16_Length;
-		 
-			if(Verify_CRC16_Check_Sum(&Buff[Image_Transmission_Info.Index],Image_Transmission_Info.DataLength) == true){
+	uint16_t i = 0;
+	while (i < Size - 5) // Minimum header + some data
+	{
+		if(Buff[i] == 0xA5)
+		{
+			if(Verify_CRC8_Check_Sum(&Buff[i], 5) == true)
+			{
+				uint16_t data_len = (uint16_t)(Buff[i+2]<<8 | Buff[i+1]);
+				uint16_t frame_len = data_len + FrameHeader_Length + CMDID_Length + CRC16_Length;
 				
-			 #ifdef CUSTOM_ROBOT_DATA_ID
-				
-				if(Image_Transmission_Info.DataLength == 39){ 
-					 for(uint8_t i = 0; i< 30; i++){
-						 Image_Transmission_Info.custom_robot_data.data[i] = Buff[Image_Transmission_Info.Index + FrameHeader_Length + CMDID_Length + i];
-					 }			
+				if(i + frame_len <= Size && Verify_CRC16_Check_Sum(&Buff[i], frame_len) == true)
+				{
+					uint16_t cmd_id = (uint16_t)(Buff[i+6]<<8 | Buff[i+5]);
+					
+					#ifdef REMOTE_CONTROL_ID
+					if(cmd_id == REMOTE_CONTROL_ID && data_len == 12) // 0x0304 is usually 12 bytes of data
+					{
+						Image_Transmission_Info.remote_control.mouse_x = bit8TObit16(&Buff[i + FrameHeader_Length + CMDID_Length]);
+						Image_Transmission_Info.remote_control.mouse_y = bit8TObit16(&Buff[i + FrameHeader_Length + CMDID_Length + 2]);
+						Image_Transmission_Info.remote_control.mouse_z = bit8TObit16(&Buff[i + FrameHeader_Length + CMDID_Length + 4]);
+						Image_Transmission_Info.remote_control.left_button_down  = Buff[i + FrameHeader_Length + CMDID_Length + 6];
+						Image_Transmission_Info.remote_control.right_button_down = Buff[i + FrameHeader_Length + CMDID_Length + 7];
+						Image_Transmission_Info.remote_control.Key.keyboard_value = bit8TObit16(&Buff[i + FrameHeader_Length + CMDID_Length + 8]);
+						
+						// Synchronize to RC_info for control tasks
+						RC_info.Mouse.X = Image_Transmission_Info.remote_control.mouse_x;
+						RC_info.Mouse.Y = Image_Transmission_Info.remote_control.mouse_y;
+						RC_info.Mouse.Z = Image_Transmission_Info.remote_control.mouse_z;
+						RC_info.Mouse.Press_L = Image_Transmission_Info.remote_control.left_button_down;
+						RC_info.Mouse.Press_R = Image_Transmission_Info.remote_control.right_button_down;
+						RC_info.Key.V = Image_Transmission_Info.remote_control.Key.keyboard_value;
+					}
+					#endif
+					
+					i += frame_len;
+					continue;
 				}
-			 #endif
-			
-			 #ifdef REMOTE_CONTROL_ID
-				
-				if(Image_Transmission_Info.DataLength == 21){					 
-					 Image_Transmission_Info.remote_control.mouse_x = bit8TObit16(&Buff[Image_Transmission_Info.Index + FrameHeader_Length + CMDID_Length]);
-					 Image_Transmission_Info.remote_control.mouse_y = bit8TObit16(&Buff[Image_Transmission_Info.Index + FrameHeader_Length + CMDID_Length + 2]);
-					 Image_Transmission_Info.remote_control.mouse_z = bit8TObit16(&Buff[Image_Transmission_Info.Index + FrameHeader_Length + CMDID_Length + 4]);
-           Image_Transmission_Info.remote_control.left_button_down  = Buff[Image_Transmission_Info.Index + FrameHeader_Length + CMDID_Length + 6];
-				   Image_Transmission_Info.remote_control.right_button_down = Buff[Image_Transmission_Info.Index + FrameHeader_Length + CMDID_Length + 7];
-					 Image_Transmission_Info.remote_control.Key.keyboard_value = bit8TObit16(&Buff[Image_Transmission_Info.Index + FrameHeader_Length + CMDID_Length + 8]);
+			}
+		}
+		else if(Buff[i] == 0xA9)
+		{
+			if(i + 21 <= Size && Buff[i+1] == 0x53)
+			{
+				if(Verify_CRC16_Check_Sum(&Buff[i], 21) == true)
+				{
+					VT13_Info_Update(&Buff[i], &VT13_Info);
+					i += 21;
+					continue;
 				}
-			 #endif
 			}
 		}
 		
-	}else if(Buff[0] == 0xA9){
-	
-	     if(Buff[1] == 0x53){
-			 
-				  VT13_Info_Update(Buff,&VT13_Info);
-			 
-			 }
-		}
+		i++;
+	}
 }
 
 void VT13_Info_Update(uint8_t *Buff ,VT13_Info_TypeDef *VT13_Info){
@@ -137,8 +150,7 @@ void Robot_Data_to_Custom_(uint8_t *Data){
 		
 		}
     
-        send_custom_ref_data(Image_Transmission_Info.robot_custom_data.data, 30);
-//		HAL_UART_Transmit_DMA(&huart1,Image_Transmission_Info.robot_custom_data.data,30);
+		HAL_UART_Transmit_DMA(&huart7,Image_Transmission_Info.robot_custom_data.data,30);
 }
 
 /**

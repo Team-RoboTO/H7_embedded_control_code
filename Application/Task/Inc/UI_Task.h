@@ -177,7 +177,7 @@ void draw_feeder_state(uint8_t modify);
 void delete_feeder_state(void);
 void dfeeder_state(void);
 
-uint16_t draw_balancing_status(uint8_t* tx_buffer, uint8_t modify);
+uint16_t draw_bullet_bar(uint8_t* tx_buffer, uint8_t modify);
 void draw_spin_char(uint8_t modify, uint32_t x_coords);
 uint16_t draw_spin_border(uint8_t* tx_buffer, uint8_t modify, uint32_t x_coords);
 

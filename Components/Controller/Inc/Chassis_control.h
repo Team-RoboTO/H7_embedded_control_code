@@ -11,6 +11,7 @@
 
 extern controlled_system_MIT_t chassis;
 extern float MIT_kd;
+extern uint8_t is_rotating;
 
   /********************/
  /*   CONTROL LOOP   */

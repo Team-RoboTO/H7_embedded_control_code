@@ -163,7 +163,7 @@ extern uint8_t Image_Trans_MultiRx_Buff[2][39];
 extern VT13_Info_TypeDef VT13_Info;
 extern Image_Transmission_Info_TypeDef Image_Transmission_Info;
 extern void Robot_Data_to_Custom_(uint8_t *Data);
-extern void Image_Transmission_Info_Update(uint8_t *Buff);
+extern void Image_Transmission_Info_Update(uint8_t *Buff, uint16_t Size);
 extern void VT13_Info_Update(uint8_t *Data ,VT13_Info_TypeDef *VT13_Info);
 
 #endif

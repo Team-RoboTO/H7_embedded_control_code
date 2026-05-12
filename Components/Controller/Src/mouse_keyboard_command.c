@@ -4,6 +4,7 @@
 #include "stm32h7xx_hal.h"
 #include "control_utils.h"
 #include "robot_config.h"
+#include "CRC.h"
 //#include "control_std_circ_chassis.h"
 
   /**************************/

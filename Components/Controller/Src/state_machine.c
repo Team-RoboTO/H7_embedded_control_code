@@ -5,10 +5,6 @@
 #include "math_utils.h"
 #include <stdlib.h>
 #include "DJI_Motor.h"
-#include "MiniPC.h"
-
-extern int g_spinspin_mode;
-static uint16_t last_shift_state = 0;
 
   /**************/
  /*   STATES   */
@@ -27,7 +23,7 @@ uint8_t state_rev              = REV_STOP;
 #if IS_MATCH_MODE_ENABLED
     #define TIME_SHOOTING_WHEELS  60.0f  // [s]
 #else
-    #define TIME_SHOOTING_WHEELS  60.0f   // [s]
+    #define TIME_SHOOTING_WHEELS  3.0f   // [s]
 #endif
 
 shoot_wheels_spin_t shoot_wheels_spin = {
@@ -62,6 +58,12 @@ void robot_states_update_state_machine() {
 /******************************/
 
 uint8_t _state_machine_remote_commands() {
+
+    // Software override: if KBM activity is detected, exit STOP mode automatically
+    if (RC_info.Key.V != 0 || RC_info.Mouse.X != 0 || RC_info.Mouse.Y != 0)
+    {
+        return COMMANDS_KEYBOARD_MOUSE;
+    }
 
     switch (RC_info.RC.Switch) {
 
@@ -102,14 +104,8 @@ uint8_t _state_machine_chassis_remote_controller() {
 
 uint8_t _state_machine_chassis_keyboard_mouse() {
 
-    // Toggle logic for Shift key (rising edge detection)
-    if (RC_info.Key.Set.SHIFT && !last_shift_state) {
-        g_spinspin_mode = !g_spinspin_mode;
-    }
-    last_shift_state = RC_info.Key.Set.SHIFT;
-
-    if (g_spinspin_mode) return CHASSIS_CONTIGUOUS_ROTATION;
-    else                 return CHASSIS_FOLLOW_GIMBAL;
+    if (RC_info.Key.Set.SHIFT) return CHASSIS_CONTIGUOUS_ROTATION;
+    else                       return CHASSIS_FOLLOW_GIMBAL;
 }
 
 uint8_t _state_machine_chassis_autonomus() {
@@ -205,22 +201,8 @@ uint8_t _state_machine_shoot_wheels_keyboard_mouse() {
 
 uint8_t _state_machine_shoot_wheels_autonomus() {
 
-    float now_s = HAL_GetTick() * 1e-3f;
-
-    if (shoot_flag_cv) {
-        // Wheel active — keep/start spinning
-        shoot_wheels_spin.timestamp_last_shoot_command = now_s;
-        return SHOOT_WHEELS_SPIN;
-    }
-    else if (now_s - shoot_wheels_spin.timestamp_last_shoot_command
-             >= shoot_wheels_spin.time_without_shoot_commands_before_stopping_shoot_wheels) {
-        // Timeout expired — stop wheels
-        return SHOOT_WHEELS_STOP;
-    }
-    else {
-        // Within timeout window — keep current state (spin-down delay)
-        return state_shoot_wheels;
-    }
+    // TODO: implement autonomous shoot wheels logic
+    return SHOOT_WHEELS_STOP;  // safe default
 }
 
   /*******************/
@@ -288,19 +270,6 @@ uint8_t _state_machine_rev_keyboard_mouse() {
 
 uint8_t _state_machine_rev_autonomus() {
 
-    // --- Jam detection: if motor is stalled for too long, trigger unstuck ---
-    if (abs(DJI_Rev_Motor.Data.Current) < 6000)
-        rev_spin.time_rev_locked = HAL_GetTick();  // reset stall timer (raw ms ticks)
-
-    if (HAL_GetTick() - rev_spin.time_rev_locked > 300)  // 300 ms stall threshold
-        return REV_UNSTUCK;
-
-    // --- Normal rev control via wheel axis ---
-    else if (shoot_flag_cv && rev_spin.timestamp_last_shoot_command > 0.2f) {
-        rev_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3f;
-        return REV_SINGLE_SHOOTING;
-    }
-    else {
-        return REV_STOP;
-    }
+    // TODO: implement autonomous rev logic
+    return REV_STOP;  // safe default
 }
