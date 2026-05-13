@@ -274,7 +274,7 @@ void USER_FDCAN_AddMessageToTxFifoQ(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame){
 }
 
 /**
-  * @brief  FDCAN1 RX handler — DJI motors (shooting wheels + rev + yaw GM6020).
+  * @brief  FDCAN1 RX handler ï¿½ DJI motors (shooting wheels + rev + yaw GM6020).
   *         Dispatches to the single matching motor based on ID.
   *
   *         RX IDs:  0x201 = shoot left, 0x202 = shoot right,
@@ -301,6 +301,10 @@ static void FDCAN1_RxFifo0RxHandler(uint32_t *Identifier, uint8_t Data[8])
         case 0x203:
             DJI_Motor_Info_Update(Identifier, Data, &DJI_Rev_Motor);
             break;
+				
+				case 0x204:
+				    DJI_Motor_Info_Update(Identifier, Data, &DJI_Lidar_Motor);
+            break;
 
         default:
             break;
@@ -308,7 +312,7 @@ static void FDCAN1_RxFifo0RxHandler(uint32_t *Identifier, uint8_t Data[8])
 }
 
 /**
-  * @brief  FDCAN3 RX handler — currently unused.
+  * @brief  FDCAN3 RX handler ï¿½ currently unused.
   * @param  Identifier: Received identifier.
   * @param  Data: 8-byte CAN data buffer.
   * @retval None
@@ -320,7 +324,7 @@ static void FDCAN3_RxFifo0RxHandler(uint32_t *Identifier, uint8_t Data[8])
 }
 
 /**
-  * @brief  FDCAN2 RX handler — DM yaw + CM pitch + CM chassis[4].
+  * @brief  FDCAN2 RX handler ï¿½ DM yaw + CM pitch + CM chassis[4].
   *         Dispatches to the single matching motor based on ID and frame type.
   *
   *         Standard ID frames:
@@ -341,7 +345,7 @@ static void FDCAN2_RxFifo1RxHandler(FDCAN_RxHeaderTypeDef *RxHeader, uint8_t Dat
 	
     fifo_number_1 = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan2);
 
-    /* Standard ID — DM yaw or CM chassis */
+    /* Standard ID ï¿½ DM yaw or CM chassis */
     switch (id)
     {
         case 0x00000002:
@@ -372,7 +376,7 @@ static void FDCAN2_RxFifo1RxHandler(FDCAN_RxHeaderTypeDef *RxHeader, uint8_t Dat
 }
 
 /**
-  * @brief  Rx FIFO 0 callback — drains ALL pending messages from the FIFO.
+  * @brief  Rx FIFO 0 callback ï¿½ drains ALL pending messages from the FIFO.
   *
   *         The "new message" interrupt fires once per arrival, but if several
   *         frames land between ISR entry and the read, only one would be
@@ -416,7 +420,7 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 }
 	
 /**
-  * @brief  Rx FIFO 1 callback — drains ALL pending messages from the FIFO.
+  * @brief  Rx FIFO 1 callback ï¿½ drains ALL pending messages from the FIFO.
   *
   *         Same drain-loop strategy as FIFO 0 above.  This is the critical
   *         fix for FDCAN2 where 4 CubeMars chassis + DM yaw + CM pitch can
@@ -443,4 +447,96 @@ void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo1ITs)
 			                         FDCAN_RxFIFO1Frame.Data);
 		}
 	}
+}
+
+
+void FDCAN2_Reset(void)
+{
+    /* Step 1 â€” Deinit (internally calls Stop, clears bus-off state) */
+    HAL_FDCAN_DeInit(&hfdcan2);
+
+    /* Step 2 â€” Re-apply full init config with ExtFiltersNbr fix */
+    hfdcan2.Instance                  = FDCAN2;
+    hfdcan2.Init.FrameFormat          = FDCAN_FRAME_FD_BRS;
+    hfdcan2.Init.Mode                 = FDCAN_MODE_NORMAL;
+    hfdcan2.Init.AutoRetransmission   = ENABLE;
+    hfdcan2.Init.TransmitPause        = DISABLE;
+    hfdcan2.Init.ProtocolException    = ENABLE;
+    hfdcan2.Init.NominalPrescaler     = 5;
+    hfdcan2.Init.NominalSyncJumpWidth = 5;
+    hfdcan2.Init.NominalTimeSeg1      = 14;
+    hfdcan2.Init.NominalTimeSeg2      = 5;
+    hfdcan2.Init.DataPrescaler        = 1;
+    hfdcan2.Init.DataSyncJumpWidth    = 5;
+    hfdcan2.Init.DataTimeSeg1         = 14;
+    hfdcan2.Init.DataTimeSeg2         = 5;
+    hfdcan2.Init.MessageRAMOffset     = 853;
+    hfdcan2.Init.StdFiltersNbr        = 1;
+    hfdcan2.Init.ExtFiltersNbr        = 1;  /* Fixed: was 0 in CubeMX */
+    hfdcan2.Init.RxFifo0ElmtsNbr     = 0;
+    hfdcan2.Init.RxFifo0ElmtSize     = FDCAN_DATA_BYTES_8;
+    hfdcan2.Init.RxFifo1ElmtsNbr     = 8;
+    hfdcan2.Init.RxFifo1ElmtSize     = FDCAN_DATA_BYTES_8;
+    hfdcan2.Init.RxBuffersNbr        = 0;
+    hfdcan2.Init.RxBufferSize        = FDCAN_DATA_BYTES_8;
+    hfdcan2.Init.TxEventsNbr         = 0;
+    hfdcan2.Init.TxBuffersNbr        = 0;
+    hfdcan2.Init.TxFifoQueueElmtsNbr = 8;
+    hfdcan2.Init.TxFifoQueueMode     = FDCAN_TX_FIFO_OPERATION;
+    hfdcan2.Init.TxElmtSize          = FDCAN_DATA_BYTES_8;
+
+    if (HAL_FDCAN_Init(&hfdcan2) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    /* Step 3 â€” Re-apply filters */
+    FDCAN_FilterTypeDef f;
+
+    /* Standard ID filter â†’ FIFO1 */
+    f.IdType       = FDCAN_STANDARD_ID;
+    f.FilterIndex  = 0;
+    f.FilterType   = FDCAN_FILTER_MASK;
+    f.FilterConfig = FDCAN_FILTER_TO_RXFIFO1;
+    f.FilterID1    = 0x00000000;
+    f.FilterID2    = 0x00000000;
+    if (HAL_FDCAN_ConfigFilter(&hfdcan2, &f) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    /* Extended ID filter â†’ FIFO1 */
+    f.IdType       = FDCAN_EXTENDED_ID;
+    f.FilterIndex  = 0;
+    f.FilterType   = FDCAN_FILTER_MASK;
+    f.FilterConfig = FDCAN_FILTER_TO_RXFIFO1;
+    f.FilterID1    = 0x00000000;
+    f.FilterID2    = 0x00000000;
+    if (HAL_FDCAN_ConfigFilter(&hfdcan2, &f) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    /* Step 4 â€” Global filter: accept all non-matching into FIFO1 */
+    if (HAL_FDCAN_ConfigGlobalFilter(&hfdcan2,
+            FDCAN_ACCEPT_IN_RX_FIFO1,
+            FDCAN_ACCEPT_IN_RX_FIFO1,
+            FDCAN_FILTER_REMOTE,
+            FDCAN_FILTER_REMOTE) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    /* Step 5 â€” Re-enable RX interrupt */
+    if (HAL_FDCAN_ActivateNotification(&hfdcan2,
+            FDCAN_IT_RX_FIFO1_NEW_MESSAGE, 0) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    /* Step 6 â€” Start */
+    if (HAL_FDCAN_Start(&hfdcan2) != HAL_OK)
+    {
+        Error_Handler();
+    }
 }

@@ -15,6 +15,7 @@ uint8_t state_chassis          = CHASSIS_FOLLOW_GIMBAL;
 uint8_t state_gimbal           = GIMBAL_MANUAL_AIM;
 uint8_t state_shoot_wheels     = SHOOT_WHEELS_STOP;
 uint8_t state_rev              = REV_STOP;
+uint8_t state_lidar_lifter     = DOWN;
 
   /********************************/
  /*   SHOOT WHEELS SPIN STRUCT   */
@@ -51,6 +52,7 @@ void robot_states_update_state_machine() {
     state_gimbal          = _state_machine_gimbal();
     state_shoot_wheels    = _state_machine_shoot_wheels();
     state_rev             = _state_machine_rev();
+		state_lidar_lifter 		= _state_machine_lidar_lifter();
 }
 
   /******************************/
@@ -124,7 +126,7 @@ uint8_t _state_machine_gimbal() {
         case COMMANDS_REMOTE_CONTROLLER: return _state_machine_gimbal_remote_controller();
         case COMMANDS_KEYBOARD_MOUSE:    return _state_machine_gimbal_keyboard_mouse();
         case COMMANDS_AUTONOMUS:         return _state_machine_gimbal_autonomus();
-        default:                         return state_gimbal;  // hold current state — was wrongly returning state_chassis
+        default:                         return state_gimbal;  // hold current state ï¿½ was wrongly returning state_chassis
     }
 }
 
@@ -164,17 +166,17 @@ uint8_t _state_machine_shoot_wheels_remote_controller() {
     float now_s = HAL_GetTick() * 1e-3f;
 
     if (abs(RC_info.RC.Wheel) >= shoot_wheels_spin.threshold_rc_wheel_released) {
-        // Wheel active — keep/start spinning
+        // Wheel active ï¿½ keep/start spinning
         shoot_wheels_spin.timestamp_last_shoot_command = now_s;
         return SHOOT_WHEELS_SPIN;
     }
     else if (now_s - shoot_wheels_spin.timestamp_last_shoot_command
              >= shoot_wheels_spin.time_without_shoot_commands_before_stopping_shoot_wheels) {
-        // Timeout expired — stop wheels
+        // Timeout expired ï¿½ stop wheels
         return SHOOT_WHEELS_STOP;
     }
     else {
-        // Within timeout window — keep current state (spin-down delay)
+        // Within timeout window ï¿½ keep current state (spin-down delay)
         return state_shoot_wheels;
     }
 }
@@ -184,17 +186,17 @@ uint8_t _state_machine_shoot_wheels_keyboard_mouse() {
     float now_s = HAL_GetTick() * 1e-3f;
 
     if (RC_info.Mouse.Press_L || RC_info.Mouse.Press_R) {
-        // Any mouse button pressed — keep/start spinning
+        // Any mouse button pressed ï¿½ keep/start spinning
         shoot_wheels_spin.timestamp_last_shoot_command = now_s;
         return SHOOT_WHEELS_SPIN;
     }
     else if (now_s - shoot_wheels_spin.timestamp_last_shoot_command
              >= shoot_wheels_spin.time_without_shoot_commands_before_stopping_shoot_wheels) {
-        // Timeout expired — stop wheels
+        // Timeout expired ï¿½ stop wheels
         return SHOOT_WHEELS_STOP;
     }
     else {
-        // Within timeout window — keep current state (spin-down delay)
+        // Within timeout window ï¿½ keep current state (spin-down delay)
         return state_shoot_wheels;
     }
 }
@@ -252,7 +254,7 @@ uint8_t _state_machine_rev_keyboard_mouse() {
     if (RC_info.Mouse.Press_L) {
 
         if (rev_spin.timestamp_last_shoot_command == 0.0f) {
-            // Rising edge: button just pressed — record timestamp
+            // Rising edge: button just pressed ï¿½ record timestamp
             rev_spin.timestamp_last_shoot_command = now_s;
         }
 
@@ -262,7 +264,7 @@ uint8_t _state_machine_rev_keyboard_mouse() {
         }
     }
     else {
-        // Button released — reset timestamp for next press
+        // Button released ï¿½ reset timestamp for next press
         rev_spin.timestamp_last_shoot_command = 0.0f;
         return REV_STOP;
     }
@@ -270,6 +272,24 @@ uint8_t _state_machine_rev_keyboard_mouse() {
 
 uint8_t _state_machine_rev_autonomus() {
 
-    // TODO: implement autonomous rev logic
-    return REV_STOP;  // safe default
+    // --- Jam detection: if motor is stalled for too long, trigger unstuck ---
+    if (abs(DJI_Rev_Motor.Data.Current) < 6000)
+        rev_spin.time_rev_locked = HAL_GetTick();  // reset stall timer (raw ms ticks)
+
+    if (HAL_GetTick() - rev_spin.time_rev_locked > 300)  // 300 ms stall threshold
+        return REV_UNSTUCK;
+
+    // --- Normal rev control via wheel axis ---
+    else if (shoot_flag_cv && rev_spin.timestamp_last_shoot_command > 0.2f) {
+        rev_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3f;
+        return REV_SINGLE_SHOOTING;
+    }
+    else {
+        return REV_STOP;
+    }
+}
+
+uint8_t _state_machine_lidar_lifter() {
+		if( RC_info.RC.Stop == 1) return LIDAR_UP;
+		else return LIDAR_DOWN;
 }
