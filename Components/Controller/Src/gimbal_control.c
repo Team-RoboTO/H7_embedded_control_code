@@ -72,7 +72,7 @@ static bool is_homing = true;
 float pitch_zero;
 
 float lim_ang_pitch = 0.02f;
-float lim_ang_yaw = 0.03f;
+float lim_ang_yaw = 0.05f;
 
 static LowPassFilter1p_Info_TypeDef lpf_pitch_cv;
 #define CV_PITCH_LPF_ALPHA 0.65f
@@ -206,7 +206,11 @@ void control_loop_gimbal() {
 								} else if (delta_pitch < -limit_pitch) {
 										pitch_command_from_cv = pitch_command_from_cv_prev - limit_pitch;
 										gimbal.r_x[1] = -pitch_command_from_cv;
-								} 
+								} else {
+									pitch_command_from_cv = pitch_command_from_cv_prev + delta_pitch;
+									gimbal.r_x[1] = -pitch_command_from_cv;
+								}
+									
 							
 							// Clamp the command yaw
 							if (delta_yaw >= limit_yaw) {
@@ -215,7 +219,11 @@ void control_loop_gimbal() {
 							} else if (delta_yaw < -limit_yaw) {
 									yaw_command_from_cv = yaw_command_from_cv_prev - limit_yaw;
 									gimbal.r_x[0] = -yaw_command_from_cv;
+							} else {
+								yaw_command_from_cv = yaw_command_from_cv_prev + delta_yaw;
+								gimbal.r_x[0] = -yaw_command_from_cv;
 							}
+								
 							
 							
 							//else gimbal.r_x[1] = -pitch_command_from_cv;

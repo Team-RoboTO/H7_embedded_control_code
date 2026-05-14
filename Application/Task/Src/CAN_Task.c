@@ -155,7 +155,7 @@ void CAN_Task(void const * argument)
 				{
 						FDCAN2_Reset();
 						osDelay(20);
-						is_first_iter = 1;
+						is_first_iter_can = 1;
 						osDelay(20);
 				}
 			

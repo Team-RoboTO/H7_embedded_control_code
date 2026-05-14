@@ -5,7 +5,7 @@
 #include "math_utils.h"
 #include <stdlib.h>
 #include "DJI_Motor.h"
-
+#include "Minipc.h"
   /**************/
  /*   STATES   */
 /**************/
@@ -203,8 +203,22 @@ uint8_t _state_machine_shoot_wheels_keyboard_mouse() {
 
 uint8_t _state_machine_shoot_wheels_autonomus() {
 
-    // TODO: implement autonomous shoot wheels logic
-    return SHOOT_WHEELS_STOP;  // safe default
+    float now_s = HAL_GetTick() * 1e-3f;
+
+    if (shoot_flag_cv) {
+        // Wheel active � keep/start spinning
+        shoot_wheels_spin.timestamp_last_shoot_command = now_s;
+        return SHOOT_WHEELS_SPIN;
+    }
+    else if (now_s - shoot_wheels_spin.timestamp_last_shoot_command
+             >= shoot_wheels_spin.time_without_shoot_commands_before_stopping_shoot_wheels) {
+        // Timeout expired � stop wheels
+        return SHOOT_WHEELS_STOP;
+    }
+    else {
+        // Within timeout window � keep current state (spin-down delay)
+        return state_shoot_wheels;
+    }
 }
 
   /*******************/
