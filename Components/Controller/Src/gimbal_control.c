@@ -71,8 +71,8 @@ static bool is_homing = true;
 
 float pitch_zero;
 
-float lim_ang_pitch = 0.02f;
-float lim_ang_yaw = 0.05f;
+float limit_pitch = 0.002f;
+float limit_yaw = 0.005f;
 
 static LowPassFilter1p_Info_TypeDef lpf_pitch_cv;
 #define CV_PITCH_LPF_ALPHA 0.65f
@@ -173,7 +173,7 @@ void control_loop_gimbal() {
 						time_stamp_cv_prev         = time_stamp_cv;
 
 						yaw_command_from_cv   = -yaw_cv;
-						pitch_command_from_cv = pitch_cv;
+						pitch_command_from_cv = -pitch_cv;
 						time_stamp_cv         = time_cv;
 				     
 			      if (pitch_command_from_cv == 0) pitch_command_from_cv = pitch_command_from_cv_prev;
@@ -181,22 +181,8 @@ void control_loop_gimbal() {
 						
 						if (time_stamp_cv != time_stamp_cv_prev) {
 							
-							//gimbal.r_x[0] = yaw_command_from_cv;
-//							gimbal.r_x[1] = -pitch_command_from_cv;
-//						// dt between last two CV frames (seconds)
-//						  float cv_dt = time_stamp_cv - time_stamp_cv_prev;
-//							float yaw_target_vel   = (yaw_command_from_cv - yaw_command_from_cv_prev) / cv_dt;
-//							float pitch_target_vel = (pitch_command_from_cv - pitch_command_from_cv_prev) / cv_dt;
-
-//							// Lead the reference by one frame (feedforward)
-//							gimbal.r_x[0] += yaw_target_vel   * cv_dt;
-//							gimbal.r_x[1] += pitch_target_vel * cv_dt;
-						}
-													// Standard delta: New Target - Previous Value
-							float limit_pitch = lim_ang_pitch * DEG_TO_RAD;
+							// Standard delta: New Target - Previous Value
 							float delta_pitch = pitch_command_from_cv - pitch_command_from_cv_prev; 
-						
-							float limit_yaw = lim_ang_yaw * DEG_TO_RAD;
 						  float delta_yaw = yaw_command_from_cv - yaw_command_from_cv_prev; 
 						  
 							// Clamp the command pitch
@@ -209,22 +195,20 @@ void control_loop_gimbal() {
 								} else {
 									pitch_command_from_cv = pitch_command_from_cv_prev + delta_pitch;
 									gimbal.r_x[1] = -pitch_command_from_cv;
+								}		
+							
+								// Clamp the command yaw
+								if (delta_yaw >= limit_yaw) {
+										yaw_command_from_cv = yaw_command_from_cv_prev + limit_yaw;
+										gimbal.r_x[0] = -yaw_command_from_cv;
+								} else if (delta_yaw < -limit_yaw) {
+										yaw_command_from_cv = yaw_command_from_cv_prev - limit_yaw;
+										gimbal.r_x[0] = -yaw_command_from_cv;
+								} else {
+									yaw_command_from_cv = yaw_command_from_cv_prev + delta_yaw;
+									gimbal.r_x[0] = -yaw_command_from_cv;
 								}
-									
-							
-							// Clamp the command yaw
-							if (delta_yaw >= limit_yaw) {
-									yaw_command_from_cv = yaw_command_from_cv_prev + limit_yaw;
-									gimbal.r_x[0] = -yaw_command_from_cv;
-							} else if (delta_yaw < -limit_yaw) {
-									yaw_command_from_cv = yaw_command_from_cv_prev - limit_yaw;
-									gimbal.r_x[0] = -yaw_command_from_cv;
-							} else {
-								yaw_command_from_cv = yaw_command_from_cv_prev + delta_yaw;
-								gimbal.r_x[0] = -yaw_command_from_cv;
 							}
-								
-							
 							
 							//else gimbal.r_x[1] = -pitch_command_from_cv;
 							saturate_in_range(&gimbal.r_x[1], pitch_zero - 5*DEG_TO_RAD ,pitch_zero + 20*DEG_TO_RAD );
