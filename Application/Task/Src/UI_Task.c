@@ -91,6 +91,8 @@ int top_graphics = 0;
 int dynamic_graphics = 0;
 float graphic_edge = 0; // Max/min angle in radians
 
+int g_spinspin_mode = 0;
+
 // Using the user's remote control struct
 extern NDJ6_Info_Typedef NDJ6_info;
 

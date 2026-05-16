@@ -173,9 +173,19 @@ void control_loop_chassis() {
     }
 
     //Velocity profiler: rate-limit the target before feeding the PID ---
-	  slewRateControl(&vx_ref, v_x_target, 3.0f, 25.0f, dt_chassis);
-	  slewRateControl(&vy_ref, v_y_target, 3.0f, 25.0f, dt_chassis);
+	  
+		if (is_rotating == 0){
+				slewRateControl(&vx_ref, v_x_target, 3.0f, 25.0f, dt_chassis);
+				slewRateControl(&vy_ref, v_y_target, 3.0f, 25.0f, dt_chassis);
 
+		}
+		else {
+				slewRateControl(&vx_ref, v_x_target, 8.0f, 25.0f, dt_chassis);
+				slewRateControl(&vy_ref, v_y_target, 8.0f, 25.0f, dt_chassis);
+
+		}
+						
+						
     switch (state_chassis) {
                 
         case CHASSIS_FOLLOW_GIMBAL:
@@ -208,7 +218,13 @@ void control_loop_chassis() {
 							r_ang_vel_wheel_3_left_right    = (vy_ref * c / radius_wheel) * cos(+ chassis.x[4] + pi/4);
 							r_ang_vel_wheel_4_left_right    = (vy_ref * c / radius_wheel) * sin(+ chassis.x[4] + pi/4);
 							// Chassis contiguous rotation
-							r_ang_vel_wheels_chassis_yaw    = rot_ang_vel_wheels;
+																						
+							if (vx_ref == 0 && vy_ref == 0){
+								r_ang_vel_wheels_chassis_yaw = rot_ang_vel_wheels;
+							}
+							else {
+									r_ang_vel_wheels_chassis_yaw = 30.0f;
+							}
 							is_rotating = 1;
 							break;
             }
@@ -229,7 +245,12 @@ void control_loop_chassis() {
 						r_ang_vel_wheel_3_left_right    = (vy_ref * c / radius_wheel) * cos(+ chassis.x[4] + pi/4);
 						r_ang_vel_wheel_4_left_right    = (vy_ref * c / radius_wheel) * sin(+ chassis.x[4] + pi/4);
 						// Chassis contiguous rotation
-						r_ang_vel_wheels_chassis_yaw    = rot_ang_vel_wheels;
+						if (vx_ref == 0 && vy_ref == 0){
+								r_ang_vel_wheels_chassis_yaw = rot_ang_vel_wheels;
+						}
+						else {
+								r_ang_vel_wheels_chassis_yaw = 30.0f;
+						}
 						is_rotating = 1;
             break;
   
