@@ -117,7 +117,7 @@ void CAN_Task(void const * argument)
             DM_Motor_Command(&FDCAN2_TxFrame, &DM_Yaw_Motor, Motor_Enable);
             osDelay(30);
 						CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Enable);
-
+						osDelay(30);
             is_first_iter_can= 0;
         }
 

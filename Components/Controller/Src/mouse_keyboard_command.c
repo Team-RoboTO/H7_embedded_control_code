@@ -39,10 +39,10 @@ void compute_weights_WASD_keys(float dt) {
 	
 	/* compute WASD keys weights */
 	
-	weight_fwd_key 		+= (is_keyboard_key_pressed(KEY_W)) ? dt*10 : - dt*1000;
-	weight_left_key 	+= (is_keyboard_key_pressed(KEY_A)) ? dt*10 : - dt*1000;
-	weight_bwd_key 		+= (is_keyboard_key_pressed(KEY_S)) ? dt*10 : - dt*1000;
-	weight_right_key 	+= (is_keyboard_key_pressed(KEY_D)) ? dt*10 : - dt*1000;
+	weight_fwd_key 		+= (is_keyboard_key_pressed(KEY_W)) ? dt*20 : - dt*1000;
+	weight_left_key 	+= (is_keyboard_key_pressed(KEY_A)) ? dt*20 : - dt*1000;
+	weight_bwd_key 		+= (is_keyboard_key_pressed(KEY_S)) ? dt*20 : - dt*1000;
+	weight_right_key 	+= (is_keyboard_key_pressed(KEY_D)) ? dt*20 : - dt*1000;
 	
 	/* saturate WASD keys weights between 0 and 1 */
 	weight_fwd_key 		= max(min(weight_fwd_key, 	1.0), 0.0);

@@ -64,7 +64,7 @@ static float time_stamp_cv_prev;
 static float yaw_command_from_cv_prev;
 static float pitch_command_from_cv_prev;
 
-static float k_ff_yaw = 0.3f;
+float k_ff_yaw = 0.5f;
 
 static bool is_first_iter = true;
 static bool is_homing = true;
@@ -156,7 +156,7 @@ void control_loop_gimbal() {
                     
                     // Mouse movement should be accumulated (delta)
                     // Mouse movement (sensitivity drastically reduced for 1ms loop)
-                    gimbal.r_x[0] += (remote_commands_yaw * 0.00001f);
+                    gimbal.r_x[0] -= (remote_commands_yaw * 0.00002f);
                     gimbal.r_x[1] -= (remote_commands_pitch * 0.00001f); // Inverted Y for standard mouse feel
                     
                     saturate_in_range(&gimbal.r_x[1], pitch_zero - 15*DEG_TO_RAD ,pitch_zero + 25*DEG_TO_RAD );
