@@ -173,8 +173,8 @@ void control_loop_chassis() {
     }
 
     //Velocity profiler: rate-limit the target before feeding the PID ---
-	  slewRateControl(&vx_ref, v_x_target, 5.0f, 25.0f, dt_chassis);
-	  slewRateControl(&vy_ref, v_y_target, 5.0f, 25.0f, dt_chassis);
+	  slewRateControl(&vx_ref, v_x_target, 3.0f, 25.0f, dt_chassis);
+	  slewRateControl(&vy_ref, v_y_target, 3.0f, 25.0f, dt_chassis);
 
     switch (state_chassis) {
                 
@@ -242,7 +242,10 @@ void control_loop_chassis() {
     chassis.r_x[1] = (+ r_ang_vel_wheel_2_bwd_fwd + r_ang_vel_wheel_2_left_right) + r_ang_vel_wheels_chassis_yaw;
     chassis.r_x[2] = (- r_ang_vel_wheel_3_bwd_fwd + r_ang_vel_wheel_3_left_right) + r_ang_vel_wheels_chassis_yaw;
     chassis.r_x[3] = (- r_ang_vel_wheel_4_bwd_fwd - r_ang_vel_wheel_4_left_right) + r_ang_vel_wheels_chassis_yaw;
-
+		saturate(&chassis.r_x[0], 44.0f);
+		saturate(&chassis.r_x[1], 44.0f);
+		saturate(&chassis.r_x[2], 44.0f);
+		saturate(&chassis.r_x[3], 44.0f);
 //    /*
 //     * Optimal saturation: if one wheel exceeds the physical speed limit, scale
 //     * all wheels down by the same factor to preserve the correct motion profile.

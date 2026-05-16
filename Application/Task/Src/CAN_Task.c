@@ -79,6 +79,15 @@ void CAN_Task(void const * argument)
             is_init = 0;
         }
 
+				if (hfdcan2.Instance->PSR & FDCAN_PSR_BO)
+				{
+						osDelay(20);
+						FDCAN2_Reset();
+						osDelay(20);
+						is_first_iter_can = 1;
+						osDelay(20);
+				}
+				
         /* If stop command arrived, disable motors once */
         if (state_remote_commands == COMMANDS_STOP) {
             CM_Motor_Command(&FDCAN2_TxFrame, &CM_Chassis_Motor[0], CM_Motor_Disable);
@@ -151,13 +160,7 @@ void CAN_Task(void const * argument)
 						// set current to 0
 				#endif
 				
-				if (hfdcan2.Instance->PSR & FDCAN_PSR_BO)
-				{
-						FDCAN2_Reset();
-						osDelay(20);
-						is_first_iter_can = 1;
-						osDelay(20);
-				}
+				
 			
         vTaskDelay(xPeriod); // Wait 1ms
     }
