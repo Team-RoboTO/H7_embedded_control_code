@@ -1033,6 +1033,16 @@
               <FileType>1</FileType>
               <FilePath>..\Components\Device\Src\INA228.c</FilePath>
             </File>
+            <File>
+              <FileName>type_c_can.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Components\Device\Inc\type_c_can.h</FilePath>
+            </File>
+            <File>
+              <FileName>type_c_can.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Device\Src\type_c_can.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

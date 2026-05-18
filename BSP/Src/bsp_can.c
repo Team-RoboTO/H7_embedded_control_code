@@ -41,6 +41,7 @@
 #include "Damiao_Motor.h"
 #include "Cubemars_Motor.h"
 #include "DJI_Motor.h"
+#include "type_c_can.h"
 
 /**
  * @brief The structure that contains the Information of FDCAN1 and FDCAN2 Receive.
@@ -89,6 +90,9 @@ volatile uint32_t fdcan2_tx_total = 0;
 volatile uint32_t fdcan2_fifo_overflow_count = 0;
 
 uint32_t fifo_number_1 = 0;
+
+Type_C_Can_t Type_C_Can = {0};
+
 
 /**
  * @brief The structure that contains the Information of FDCAN1 Transmit(CLASSIC_CAN).
@@ -195,22 +199,22 @@ void BSP_FDCAN_Init(void){
 
   HAL_FDCAN_Start(&hfdcan2);
 
-//	FDCAN_FilterTypeDef FDCAN3_FilterConfig;
-//	
-//	FDCAN3_FilterConfig.IdType = FDCAN_STANDARD_ID;
-//  FDCAN3_FilterConfig.FilterIndex = 0;
-//  FDCAN3_FilterConfig.FilterType = FDCAN_FILTER_MASK;
-//  FDCAN3_FilterConfig.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
-//  FDCAN3_FilterConfig.FilterID1 = 0x00000000; 
-//  FDCAN3_FilterConfig.FilterID2 = 0x00000000; 
-//  
-//	HAL_FDCAN_ConfigFilter(&hfdcan3, &FDCAN3_FilterConfig);
+	FDCAN_FilterTypeDef FDCAN3_FilterConfig;
+	
+	FDCAN3_FilterConfig.IdType = FDCAN_STANDARD_ID;
+  FDCAN3_FilterConfig.FilterIndex = 0;
+  FDCAN3_FilterConfig.FilterType = FDCAN_FILTER_MASK;
+  FDCAN3_FilterConfig.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
+  FDCAN3_FilterConfig.FilterID1 = 0x00000000; 
+  FDCAN3_FilterConfig.FilterID2 = 0x00000000; 
+  
+	HAL_FDCAN_ConfigFilter(&hfdcan3, &FDCAN3_FilterConfig);
 
-//  HAL_FDCAN_ConfigGlobalFilter(&hfdcan3, FDCAN_REJECT, FDCAN_REJECT, FDCAN_FILTER_REMOTE, FDCAN_FILTER_REMOTE);
+  HAL_FDCAN_ConfigGlobalFilter(&hfdcan3, FDCAN_REJECT, FDCAN_REJECT, FDCAN_FILTER_REMOTE, FDCAN_FILTER_REMOTE);
 
-//  HAL_FDCAN_ActivateNotification(&hfdcan3, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0);
+  HAL_FDCAN_ActivateNotification(&hfdcan3, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0);
 
-//  HAL_FDCAN_Start(&hfdcan3);
+  HAL_FDCAN_Start(&hfdcan3);
 }
 
 /**
@@ -319,8 +323,10 @@ static void FDCAN1_RxFifo0RxHandler(uint32_t *Identifier, uint8_t Data[8])
   */
 static void FDCAN3_RxFifo0RxHandler(uint32_t *Identifier, uint8_t Data[8])
 {
-    (void)Identifier;
-    (void)Data;
+    if (*Identifier == TYPE_C_CAN_ID)
+    {
+        Type_C_Can_Update(Data);
+    }
 }
 
 /**
