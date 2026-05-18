@@ -1043,6 +1043,11 @@
               <FileType>1</FileType>
               <FilePath>..\Components\Device\Src\type_c_can.c</FilePath>
             </File>
+            <File>
+              <FileName>Motor.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Components\Device\Inc\Motor.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

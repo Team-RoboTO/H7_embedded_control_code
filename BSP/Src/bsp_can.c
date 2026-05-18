@@ -288,26 +288,26 @@ void USER_FDCAN_AddMessageToTxFifoQ(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame){
   * @param  Data: 8-byte CAN data buffer.
   * @retval None
   */
-static void FDCAN1_RxFifo0RxHandler(uint32_t *Identifier, uint8_t Data[8])
+static void FDCAN1_RxFifo0RxHandler(FDCAN_RxHeaderTypeDef *RxHeader, uint8_t Data[8])
 {
-    uint32_t id = *Identifier;
+    uint32_t id = RxHeader->Identifier;
 
     switch (id)
     {
-        case 0x201:
-            DJI_Motor_Info_Update(Identifier, Data, &DJI_Shooting_Motor[0]);
+        case DJI_SHOOTING_0_RX_ID:
+            DJI_Motor_Info_Update(&id, Data, &DJI_Shooting_Motor[0]);
             break;
 
-        case 0x202:
-            DJI_Motor_Info_Update(Identifier, Data, &DJI_Shooting_Motor[1]);
+        case DJI_SHOOTING_1_RX_ID:
+            DJI_Motor_Info_Update(&id, Data, &DJI_Shooting_Motor[1]);
             break;
 
-        case 0x203:
-            DJI_Motor_Info_Update(Identifier, Data, &DJI_Rev_Motor);
+        case DJI_REV_RX_ID:
+            DJI_Motor_Info_Update(&id, Data, &DJI_Rev_Motor);
             break;
 				
-				case 0x204:
-				    DJI_Motor_Info_Update(Identifier, Data, &DJI_Lidar_Motor);
+				case DJI_LIDAR_RX_ID:
+				    DJI_Motor_Info_Update(&id, Data, &DJI_Lidar_Motor);
             break;
 
         default:
@@ -354,25 +354,25 @@ static void FDCAN2_RxFifo1RxHandler(FDCAN_RxHeaderTypeDef *RxHeader, uint8_t Dat
     /* Standard ID � DM yaw or CM chassis */
     switch (id)
     {
-        case 0x00000002:
+        case CM_PITCH_RX_ID:
             CM_Motor_Info_Update(&id, Data, &CM_Pitch_Motor);
             break;
-        case 0x01:
+        case DM_YAW_RX_ID:
             DM_Motor_Info_Update(&id, Data, &DM_Yaw_Motor);
             break;
-        case 0x00000079:
+        case CM_CHASSIS_0_RX_ID:
             CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[0]);
             break;
 
-        case 0x0000007A:
+        case CM_CHASSIS_1_RX_ID:
             CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[1]);
             break;
 
-        case 0x0000007B:
+        case CM_CHASSIS_2_RX_ID:
             CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[2]);
             break;
 
-        case 0x00000078:
+        case CM_CHASSIS_3_RX_ID:
             CM_Motor_Info_Update(&id, Data, &CM_Chassis_Motor[3]);
             break;
 
@@ -406,7 +406,7 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 
 			fdcan1_rx_callback_count++;
 
-			FDCAN1_RxFifo0RxHandler(&FDCAN_RxFIFO0Frame.Header.Identifier, 
+			FDCAN1_RxFifo0RxHandler(&FDCAN_RxFIFO0Frame.Header, 
 			                         FDCAN_RxFIFO0Frame.Data);
 		}
 	}

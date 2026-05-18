@@ -16,6 +16,8 @@
 #include "DJI_Motor.h"
 #include "Damiao_Motor.h"
 #include "Cubemars_Motor.h"
+/* Ensure the header with the ID macros is included here, e.g.: */
+// #include "Motor_Config.h" 
 
 /* ===========================================================================
  *  NEW ROBOT DEFINITIONS
@@ -35,8 +37,8 @@ CM_Motor_Info_Typedef CM_Chassis_Motor[4] = {
         .Type = CM_AK40_10,
         .Control_Mode = CM_MIT_MODE,
         .FDCANFrame = {
-            .TxIdentifier = 121,
-            .RxIdentifier = 0x00000079,
+            .TxIdentifier = CM_CHASSIS_0_TX_ID,
+            .RxIdentifier = CM_CHASSIS_0_RX_ID,
         },
         .Param_Range = {
             .P_MAX  = 12.5f,
@@ -50,8 +52,8 @@ CM_Motor_Info_Typedef CM_Chassis_Motor[4] = {
         .Type = CM_AK40_10,
         .Control_Mode = CM_MIT_MODE,
         .FDCANFrame = {
-            .TxIdentifier = 122,
-            .RxIdentifier = 0x0000007A,
+            .TxIdentifier = CM_CHASSIS_1_TX_ID,
+            .RxIdentifier = CM_CHASSIS_1_RX_ID,
         },
         .Param_Range = {
             .P_MAX  = 12.5f,
@@ -65,8 +67,8 @@ CM_Motor_Info_Typedef CM_Chassis_Motor[4] = {
         .Type = CM_AK40_10,
         .Control_Mode = CM_MIT_MODE,
         .FDCANFrame = {
-            .TxIdentifier = 123,
-            .RxIdentifier = 0x0000007B,
+            .TxIdentifier = CM_CHASSIS_2_TX_ID,
+            .RxIdentifier = CM_CHASSIS_2_RX_ID,
         },
         .Param_Range = {
             .P_MAX  = 12.5f,
@@ -80,8 +82,8 @@ CM_Motor_Info_Typedef CM_Chassis_Motor[4] = {
         .Type = CM_AK40_10,
         .Control_Mode = CM_MIT_MODE,
         .FDCANFrame = {
-            .TxIdentifier = 120,
-            .RxIdentifier = 0x00000078,
+            .TxIdentifier = CM_CHASSIS_3_TX_ID,
+            .RxIdentifier = CM_CHASSIS_3_RX_ID,
         },
         .Param_Range = {
             .P_MAX  = 12.5f,
@@ -106,8 +108,8 @@ DM_Motor_Info_Typedef DM_Yaw_Motor = {
         .T_MAX = 12.0f,
     },
     .FDCANFrame = {
-        .TxIdentifier = 0x11,
-        .RxIdentifier = 0x01,
+        .TxIdentifier = DM_YAW_TX_ID,
+        .RxIdentifier = DM_YAW_RX_ID,
     },
 };
 
@@ -119,8 +121,8 @@ CM_Motor_Info_Typedef CM_Pitch_Motor = {
     .Type = CM_AK40_10,
     .Control_Mode = CM_MIT_MODE,
     .FDCANFrame = {
-        .TxIdentifier = 2,
-        .RxIdentifier = 0x00000002,
+        .TxIdentifier = CM_PITCH_TX_ID,
+        .RxIdentifier = CM_PITCH_RX_ID,
     },
     .Param_Range = {
         .P_MAX  = 3.141593f,
@@ -139,15 +141,15 @@ DJI_Motor_Info_Typedef DJI_Shooting_Motor[2] = {
     [0] = {
         .Type = DJI_M3508_SHOOTING_WHEELS,
         .FDCANFrame = {
-            .TxIdentifier = 0x200,
-            .RxIdentifier = 0x201,
+            .TxIdentifier = DJI_SHOOTING_TX_ID,
+            .RxIdentifier = DJI_SHOOTING_0_RX_ID,
         },
     },
     [1] = {
         .Type = DJI_M3508_SHOOTING_WHEELS,
         .FDCANFrame = {
-            .TxIdentifier = 0x200,
-            .RxIdentifier = 0x202,
+            .TxIdentifier = DJI_SHOOTING_TX_ID,
+            .RxIdentifier = DJI_SHOOTING_1_RX_ID,
         },
     },
 };
@@ -159,8 +161,8 @@ DJI_Motor_Info_Typedef DJI_Shooting_Motor[2] = {
 DJI_Motor_Info_Typedef DJI_Rev_Motor = {
     .Type = DJI_M2006,
     .FDCANFrame = {
-        .TxIdentifier = 0x200,
-        .RxIdentifier = 0x203,
+        .TxIdentifier = DJI_REV_TX_ID,
+        .RxIdentifier = DJI_REV_RX_ID,
     },
 };
 
@@ -171,7 +173,7 @@ DJI_Motor_Info_Typedef DJI_Rev_Motor = {
 DJI_Motor_Info_Typedef DJI_Lidar_Motor = {
     .Type = DJI_M2006,
     .FDCANFrame = {
-        .TxIdentifier = 0x200,
-        .RxIdentifier = 0x204,
+        .TxIdentifier = DJI_LIDAR_TX_ID,
+        .RxIdentifier = DJI_LIDAR_RX_ID,
     },
 };
