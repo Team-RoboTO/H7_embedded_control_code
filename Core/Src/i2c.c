@@ -74,21 +74,11 @@ void HAL_I2C_MspInit(I2C_HandleTypeDef* i2cHandle)
 {
 
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-  RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
   if(i2cHandle->Instance==I2C2)
   {
   /* USER CODE BEGIN I2C2_MspInit 0 */
 
   /* USER CODE END I2C2_MspInit 0 */
-
-  /** Initializes the peripherals clock
-  */
-    PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_I2C2;
-    PeriphClkInitStruct.I2c123ClockSelection = RCC_I2C1235CLKSOURCE_D2PCLK1;
-    if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
-    {
-      Error_Handler();
-    }
 
     __HAL_RCC_GPIOB_CLK_ENABLE();
     /**I2C2 GPIO Configuration

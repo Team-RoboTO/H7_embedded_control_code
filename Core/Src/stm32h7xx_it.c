@@ -85,7 +85,6 @@ extern UART_HandleTypeDef huart2;
 extern UART_HandleTypeDef huart3;
 extern UART_HandleTypeDef huart10;
 extern TIM_HandleTypeDef htim2;
-extern __attribute__((aligned(32))) uint8_t USART7_Shared_MultiRx_Buf[2][256];
 
 /* USER CODE BEGIN EV */
 
@@ -612,71 +611,68 @@ void OTG_HS_IRQHandler(void)
 /**
   * @brief This function handles UART7 global interrupt.
   */
-/**
-  * @brief This function handles UART7 global interrupt.
-  */
 void UART7_IRQHandler(void)
 {
   /* USER CODE BEGIN UART7_IRQn 0 */
-  if (__HAL_UART_GET_FLAG(&huart7, UART_FLAG_IDLE))
-  {
-      /* Clear IDLE flag by reading SR then DR (or use clear flag macro) */
-      __HAL_UART_CLEAR_IDLEFLAG(&huart7);
-      
-      /* Check if IDLE interrupt is actually enabled */
-      if ((huart7.Instance->CR1 & USART_CR1_IDLEIE) != 0U)
-      {
-          /* Calculate received size (NDTR = 256, the actual buffer size) */
-          uint16_t remain = __HAL_DMA_GET_COUNTER(huart7.hdmarx);
-          uint16_t size = 256 - remain;
+//  if (__HAL_UART_GET_FLAG(&huart7, UART_FLAG_IDLE))
+//  {
+//      /* Clear IDLE flag by reading SR then DR (or use clear flag macro) */
+//      __HAL_UART_CLEAR_IDLEFLAG(&huart7);
+//      
+//      /* Check if IDLE interrupt is actually enabled */
+//      if ((huart7.Instance->CR1 & USART_CR1_IDLEIE) != 0U)
+//      {
+//          /* Calculate received size (NDTR = 256, the actual buffer size) */
+//          uint16_t remain = __HAL_DMA_GET_COUNTER(huart7.hdmarx);
+//          uint16_t size = 256 - remain;
 
-          /* Disable DMA and WAIT for it to actually stop */
-          __HAL_DMA_DISABLE(huart7.hdmarx);
-          while (((DMA_Stream_TypeDef *)huart7.hdmarx->Instance)->CR & DMA_SxCR_EN);
+//          /* Disable DMA and WAIT for it to actually stop */
+//          __HAL_DMA_DISABLE(huart7.hdmarx);
+//          while (((DMA_Stream_TypeDef *)huart7.hdmarx->Instance)->CR & DMA_SxCR_EN);
 
-          /* Current memory buffer used is Memory 0 */
-          if ((((DMA_Stream_TypeDef *)huart7.hdmarx->Instance)->CR & DMA_SxCR_CT) == RESET)
-          {
-              /* Switch to Memory 1 */
-              ((DMA_Stream_TypeDef *)huart7.hdmarx->Instance)->CR |= DMA_SxCR_CT;
+//          /* Current memory buffer used is Memory 0 */
+//          if ((((DMA_Stream_TypeDef *)huart7.hdmarx->Instance)->CR & DMA_SxCR_CT) == RESET)
+//          {
+//              /* Switch to Memory 1 */
+//              ((DMA_Stream_TypeDef *)huart7.hdmarx->Instance)->CR |= DMA_SxCR_CT;
 
-              /* Reset counter */
-              ((DMA_Stream_TypeDef *)huart7.hdmarx->Instance)->NDTR = 256;
+//              /* Reset counter */
+//              ((DMA_Stream_TypeDef *)huart7.hdmarx->Instance)->NDTR = 256;
 
-              /* Re-enable DMA before processing */
-              __HAL_DMA_ENABLE(huart7.hdmarx);
+//              /* Re-enable DMA before processing */
+//              __HAL_DMA_ENABLE(huart7.hdmarx);
 
-              if (size > 10)
-              {
-                  SCB_InvalidateDCache_by_Addr((uint32_t *)USART7_Shared_MultiRx_Buf[0], 256);
-                  Image_Transmission_Info_Update(USART7_Shared_MultiRx_Buf[0], 256);
-                  memset(USART7_Shared_MultiRx_Buf[0], 0, 256);
-                  SCB_CleanDCache_by_Addr((uint32_t *)USART7_Shared_MultiRx_Buf[0], 256);
-              }
-          }
-          /* Current memory buffer used is Memory 1 */
-          else
-          {
-              /* Switch to Memory 0 */
-              ((DMA_Stream_TypeDef *)huart7.hdmarx->Instance)->CR &= ~(DMA_SxCR_CT);
+//              if (size > 10)
+//              {
+//                  SCB_InvalidateDCache_by_Addr((uint32_t *)USART7_Shared_MultiRx_Buf[0], 256);
+//                  Image_Transmission_Info_Update(USART7_Shared_MultiRx_Buf[0], 256);
+//                  memset(USART7_Shared_MultiRx_Buf[0], 0, 256);
+//                  SCB_CleanDCache_by_Addr((uint32_t *)USART7_Shared_MultiRx_Buf[0], 256);
+//              }
+//          }
+//          /* Current memory buffer used is Memory 1 */
+//          else
+//          {
+//              /* Switch to Memory 0 */
+//              ((DMA_Stream_TypeDef *)huart7.hdmarx->Instance)->CR &= ~(DMA_SxCR_CT);
 
-              /* Reset counter */
-              ((DMA_Stream_TypeDef *)huart7.hdmarx->Instance)->NDTR = 256;
+//              /* Reset counter */
+//              ((DMA_Stream_TypeDef *)huart7.hdmarx->Instance)->NDTR = 256;
 
-              /* Re-enable DMA before processing */
-              __HAL_DMA_ENABLE(huart7.hdmarx);
+//              /* Re-enable DMA before processing */
+//              __HAL_DMA_ENABLE(huart7.hdmarx);
 
-              if (size > 10)
-              {
-                  SCB_InvalidateDCache_by_Addr((uint32_t *)USART7_Shared_MultiRx_Buf[1], 256);
-                  Image_Transmission_Info_Update(USART7_Shared_MultiRx_Buf[1], 256);
-                  memset(USART7_Shared_MultiRx_Buf[1], 0, 256);
-                  SCB_CleanDCache_by_Addr((uint32_t *)USART7_Shared_MultiRx_Buf[1], 256);
-              }
-          }
-          return; /* RITORNO DIRETTO: Impedisce alla HAL di corrompere lo stato! */
-      }
-  }
+//              if (size > 10)
+//              {
+//                  SCB_InvalidateDCache_by_Addr((uint32_t *)USART7_Shared_MultiRx_Buf[1], 256);
+//                  Image_Transmission_Info_Update(USART7_Shared_MultiRx_Buf[1], 256);
+//                  memset(USART7_Shared_MultiRx_Buf[1], 0, 256);
+//                  SCB_CleanDCache_by_Addr((uint32_t *)USART7_Shared_MultiRx_Buf[1], 256);
+//              }
+//          }
+//          return; /* RITORNO DIRETTO: Impedisce alla HAL di corrompere lo stato! */
+//      }
+//  }
   /* USER CODE END UART7_IRQn 0 */
   HAL_UART_IRQHandler(&huart7);
   /* USER CODE BEGIN UART7_IRQn 1 */
