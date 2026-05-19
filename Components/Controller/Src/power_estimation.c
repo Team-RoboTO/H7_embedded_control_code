@@ -9,6 +9,24 @@
 
 #include "INA228.h"
 
+#include "LPF.h"
+
+LowPassFilter1p_Info_TypeDef Torque1_LPF1p;
+LowPassFilter1p_Info_TypeDef Torque2_LPF1p;
+LowPassFilter1p_Info_TypeDef Torque3_LPF1p;
+LowPassFilter1p_Info_TypeDef Torque4_LPF1p;
+
+// In power_estimation.c — aggiungi i buffer
+static float torque_prev1[4] = {0};
+static float torque_prev2[4] = {0};
+
+static float median3(float a, float b, float c) {
+    if (a > b) { float t = a; a = b; b = t; }
+    if (b > c) { float t = b; b = c; c = t; }
+    if (a > b) { float t = a; a = b; b = t; }
+    return b;
+}
+
 /**
  * @brief Power model coefficients for different chassis types
  * The power model is: P = k1*τ² + τ*ω + k2*ω² + a = aτ² + bτ + c = eq. of grade 2 
@@ -19,12 +37,13 @@
  * - a: constant losses (iron losses, constant friction)
  */
 
-float values[3];
+float values[4];
 
 float k1 = 0;//338.2128;      // Coefficient for losses due to square of torque [W/Nm²]
 float k2 = 0;//1.3252e-05;    // Coefficient for losses due to square of velocity [W·s²/rad²] (higher for sentry)
 float p0 = 1.85f;             // Constant losses [W]
 
+bool is_first_iter = true;
 /**
  * @brief Chassis power control algorithm
  * * This algorithm implements a power limiting system that:
@@ -51,13 +70,34 @@ void chassis_power_control(uint16_t limit, float *r_x){
 	float scaled_give_power[4];       // [W]  - Scaled power for each motor after limiting
 	float power_scale_factor = 0;            //  Power limiting scale factor
 
+	if(is_first_iter) {
+		LowPassFilter1p_Init(&Torque1_LPF1p,0.70f);
+		LowPassFilter1p_Init(&Torque2_LPF1p, 0.70f);
+		LowPassFilter1p_Init(&Torque3_LPF1p, 0.70f);
+		LowPassFilter1p_Init(&Torque4_LPF1p, 0.70f);
+		
+		is_first_iter = false;
+	}
 	
 		/************************/
 	 /*   POWER ESTIMATION   */
 	/************************/
 	
 	for(int8_t i = 0; i < 4 ; i++ ){
-		
+
+    float raw = CM_Chassis_Motor[i].Data.Torque;
+    
+    // Step 1: mediana — elimina spike singoli
+    float deglitched = median3(torque_prev2[i], torque_prev1[i], raw);
+    torque_prev2[i] = torque_prev1[i];
+    torque_prev1[i] = raw;
+    
+    // Step 2: LPF con Alpha = 0.90
+    LowPassFilter1p_Info_TypeDef *lpf_array[4] = {
+        &Torque1_LPF1p, &Torque2_LPF1p,
+        &Torque3_LPF1p, &Torque4_LPF1p
+    };
+
 		// P = Mechanical Power + Torque Losses + Velocity Losses + Constant Losses
 		estimated_give_power[i] = 
 			CM_Chassis_Motor[i].Data.Torque * CM_Chassis_Motor[i].Data.Velocity                                       // Mechanical Power: P_mech = τ*ω [W]
@@ -75,7 +115,12 @@ void chassis_power_control(uint16_t limit, float *r_x){
 		}
 	}
 	
-
+	
+values[0] = CM_Chassis_Motor[0].Data.Torque;        // raw torque motore 1
+values[1] = LowPassFilter1p_Update(&Torque1_LPF1p,  // filtered (se non lo fai già nel loop)
+               CM_Chassis_Motor[0].Data.Torque);
+RTT_Log(values, 2);
+	
 //	values[0] = HAL_GetTick();
 //	values[1] = estimated_total_power;
 //	values[2] = INA228_ReadPower();

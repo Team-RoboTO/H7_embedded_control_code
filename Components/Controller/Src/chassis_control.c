@@ -282,8 +282,8 @@ void control_loop_chassis() {
 		
 		// Competition Power Limit
 		#if IS_POWER_LIMIT_ENABLED
-			chassis_power_limit_local	= robot_status.chassis_power_limit-20;
+			//chassis_power_limit_local	= robot_status.chassis_power_limit-20;
 		
-			chassis_power_control( chassis_power_limit_local , chassis.u);
+			chassis_power_control( chassis_power_limit_local , 0);
 		#endif
 }
