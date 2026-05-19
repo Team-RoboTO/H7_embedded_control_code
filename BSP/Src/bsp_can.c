@@ -89,6 +89,16 @@ volatile uint32_t fdcan2_rx_callback_count = 0;
 volatile uint32_t fdcan2_tx_total = 0;
 volatile uint32_t fdcan2_fifo_overflow_count = 0;
 
+
+volatile HAL_StatusTypeDef fdcan3_tx_status = HAL_OK;
+volatile uint32_t fdcan3_protocol_status = 0;
+volatile uint32_t fdcan3_hw_error_snapshot = 0;
+volatile uint32_t fdcan3_hw_bus_errors = 0;
+volatile uint32_t fdcan3_rx_error_count = 0;
+volatile uint32_t fdcan3_rx_callback_count = 0;
+volatile uint32_t fdcan3_tx_total = 0;
+volatile uint32_t fdcan3_fifo_overflow_count = 0;
+
 uint32_t fifo_number_1 = 0;
 
 Type_C_Can_t Type_C_Can = {0};
@@ -275,6 +285,29 @@ void USER_FDCAN_AddMessageToTxFifoQ(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame){
         fdcan2_hw_error_snapshot = err_counters.TxErrorCnt;
         fdcan2_rx_error_count = err_counters.RxErrorCnt;
     }
+		
+		/* Capture debug info for FDCAN3 */
+    if(FDCAN_TxFrame->hcan == &hfdcan3){
+        FDCAN_ProtocolStatusTypeDef psr;
+        FDCAN_ErrorCountersTypeDef err_counters;
+        
+        fdcan3_tx_total++;
+        if (status != HAL_OK) {
+            fdcan3_fifo_overflow_count++;
+        }
+        
+        fdcan3_tx_status = status;
+        HAL_FDCAN_GetProtocolStatus(FDCAN_TxFrame->hcan, &psr);
+        fdcan3_protocol_status = psr.LastErrorCode;
+        
+        HAL_FDCAN_GetErrorCounters(FDCAN_TxFrame->hcan, &err_counters);
+        /* Accumulate: add the delta since last snapshot */
+        if (err_counters.TxErrorCnt > fdcan3_hw_error_snapshot) {
+            fdcan3_hw_bus_errors += (err_counters.TxErrorCnt - fdcan3_hw_error_snapshot);
+        }
+        fdcan3_hw_error_snapshot = err_counters.TxErrorCnt;
+        fdcan3_rx_error_count = err_counters.RxErrorCnt;
+    }
 }
 
 /**
@@ -418,6 +451,8 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 			HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, 
 			                       &FDCAN_RxFIFO0Frame.Header, 
 			                       FDCAN_RxFIFO0Frame.Data);
+			
+			fdcan3_rx_callback_count++;
 
 			FDCAN3_RxFifo0RxHandler(&FDCAN_RxFIFO0Frame.Header.Identifier, 
 			                         FDCAN_RxFIFO0Frame.Data);

@@ -14,8 +14,9 @@
 #include "INS_task.h"
 #include "math_utils.h"
 #include "Robot_config.h" 
+#include "type_c_can.h" 
 
-
+extern float vx, vy;
 
   /************/
  /*   TASK   */
@@ -27,6 +28,7 @@ void USB_MiniPC_Task(void const *pvParameters)
 		for (;;)
     {
         MiniPC_Transmit_Info();
+				H7_Can_Send(vx,vy);
 			  vTaskDelay(xPeriod);
     }
 }
