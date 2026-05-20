@@ -64,12 +64,6 @@ void robot_states_update_state_machine() {
 
 uint8_t _state_machine_remote_commands() {
 
-    // Software override: if KBM activity is detected, exit STOP mode automatically
-    if (RC_info.Key.V != 0 || RC_info.Mouse.X != 0 || RC_info.Mouse.Y != 0)
-    {
-        return COMMANDS_KEYBOARD_MOUSE;
-    }
-
     switch (RC_info.RC.Switch) {
 
         case 0:
