@@ -133,6 +133,7 @@ int main(void)
   MX_ADC3_Init();
   MX_ADC1_Init();
   MX_I2C2_Init();
+  MX_TIM12_Init();
   /* USER CODE BEGIN 2 */
   MCU_Init();
 	
