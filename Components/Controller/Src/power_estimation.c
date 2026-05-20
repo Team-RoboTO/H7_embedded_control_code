@@ -6,6 +6,7 @@
 #include "cubemars_motor.h"
 #include "rtt_log.h"
 #include "segger_rtt.h"
+#include "type_c_can.h"
 
 #include "INA228.h"
 
@@ -42,6 +43,12 @@ float values[4];
 float k1 = 0;//338.2128;      // Coefficient for losses due to square of torque [W/Nm²]
 float k2 = 0;//1.3252e-05;    // Coefficient for losses due to square of velocity [W·s²/rad²] (higher for sentry)
 float p0 = 1.85f;             // Constant losses [W]
+float kt = 0.48f;
+
+float estimated_give_power[4];    // [W]  - Estimated power for each motor
+float estimated_total_power = 0;  // [W]  - Estimated total power
+float scaled_give_power[4];       // [W]  - Scaled power for each motor after limiting
+float power_scale_factor = 0;            //  Power limiting scale factor
 
 bool is_first_iter = true;
 /**
@@ -65,16 +72,14 @@ void chassis_power_control(uint16_t limit, float *r_x){
 	float chassis_power_limit = limit;  // [W] - Maximum power limit from the referee system
 	
 	// Arrays for calculating each motor's power
-	float estimated_give_power[4];    // [W]  - Estimated power for each motor
-	float estimated_total_power = 0;  // [W]  - Estimated total power
-	float scaled_give_power[4];       // [W]  - Scaled power for each motor after limiting
-	float power_scale_factor = 0;            //  Power limiting scale factor
+	
+	estimated_total_power = 0;  // [W]  - Estimated total power
 
 	if(is_first_iter) {
-		LowPassFilter1p_Init(&Torque1_LPF1p,0.70f);
-		LowPassFilter1p_Init(&Torque2_LPF1p, 0.70f);
-		LowPassFilter1p_Init(&Torque3_LPF1p, 0.70f);
-		LowPassFilter1p_Init(&Torque4_LPF1p, 0.70f);
+		LowPassFilter1p_Init(&Torque1_LPF1p,0.96f);
+		LowPassFilter1p_Init(&Torque2_LPF1p, 0.96f);
+		LowPassFilter1p_Init(&Torque3_LPF1p, 0.96f);
+		LowPassFilter1p_Init(&Torque4_LPF1p, 0.96f);
 		
 		is_first_iter = false;
 	}
@@ -100,7 +105,7 @@ void chassis_power_control(uint16_t limit, float *r_x){
 
 		// P = Mechanical Power + Torque Losses + Velocity Losses + Constant Losses
 		estimated_give_power[i] = 
-			CM_Chassis_Motor[i].Data.Torque * CM_Chassis_Motor[i].Data.Velocity                                       // Mechanical Power: P_mech = τ*ω [W]
+			CM_Chassis_Motor[i].Data.Torque *kt * CM_Chassis_Motor[i].Data.Velocity                                       // Mechanical Power: P_mech = τ*ω [W]
 				+ k2 * r_x[i] * r_x[i]                                                       // Velocity Losses: k2*ω² [W]
         + k1 * CM_Chassis_Motor[i].Data.Torque * CM_Chassis_Motor[i].Data.Torque     // Torque Losses: k1*τ² [W]
         + p0 ;                                                                       // Constant Losses [W]
@@ -116,9 +121,13 @@ void chassis_power_control(uint16_t limit, float *r_x){
 	}
 	
 	
-values[0] = CM_Chassis_Motor[0].Data.Torque;        // raw torque motore 1
-values[1] = LowPassFilter1p_Update(&Torque1_LPF1p,  // filtered (se non lo fai già nel loop)
-               CM_Chassis_Motor[0].Data.Torque);
+//values[0] = CM_Chassis_Motor[0].Data.Torque;        // raw torque motore 1
+//values[1] = LowPassFilter1p_Update(&Torque1_LPF1p,  // filtered (se non lo fai già nel loop)
+//               CM_Chassis_Motor[0].Data.Torque);
+
+values[0] = estimated_total_power;
+values[1] = Type_C_Can.value1;
+	
 RTT_Log(values, 2);
 	
 //	values[0] = HAL_GetTick();
