@@ -49,26 +49,26 @@
 
 /* USER CODE END Variables */
 osThreadId Start_INS_TaskHandle;
-uint32_t Start_INS_TaskBuffer[ 2048 ];
+uint32_t Start_INS_TaskBuffer[ 1024 ];
 osStaticThreadDef_t Start_INS_TaskControlBlock;
 osThreadId Start_Chassis_TaskHandle;
-uint32_t Start_Chassis_TaskBuffer[ 2048 ];
+uint32_t Start_Chassis_TaskBuffer[ 1024 ];
 osStaticThreadDef_t Start_Chassis_TaskControlBlock;
 osThreadId Start_CAN_TaskHandle;
-uint32_t Start_CAN_TaskBuffer[ 2048 ];
+uint32_t Start_CAN_TaskBuffer[ 1024 ];
 osStaticThreadDef_t Start_CAN_TaskControlBlock;
 osThreadId Start_Gimbal_TaskHandle;
-uint32_t Start_Gimbal_TaskBuffer[ 2048 ];
+uint32_t Start_Gimbal_TaskBuffer[ 1024 ];
 osStaticThreadDef_t Start_Gimbal_TaskControlBlock;
 osThreadId Start_USB_MiniPC_TaskHandle;
 uint32_t Start_USB_MiniPC_TaskBuffer[ 1024 ];
 osStaticThreadDef_t Start_USB_MiniPC_TaskControlBlock;
 osThreadId Start_Shooting_TaskHandle;
-uint32_t Start_Shooting_TaskBuffer[ 2048 ];
+uint32_t Start_Shooting_TaskBuffer[ 1024 ];
 osStaticThreadDef_t Start_Shooting_TaskControlBlock;
-osThreadId Start_Image_Transmission_TaskHandle;
-uint32_t Start_Image_Transmission_TaskBuffer[ 2048 ];
-osStaticThreadDef_t Start_Image_Transmission_TaskControlBlock;
+osThreadId Start_UI_TaskHandle;
+uint32_t Start_UI_TaskBuffer[ 1024 ];
+osStaticThreadDef_t Start_UI_TaskControlBlock;
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -81,13 +81,42 @@ void CAN_Task(void const * argument);
 void Gimbal_Task(void const * argument);
 void USB_MiniPC_Task(void const * argument);
 void Shooting_Task(void const * argument);
-void Image_Transmission_Task(void const * argument);
+void UI_Task(void const * argument);
 
 extern void MX_USB_DEVICE_Init(void);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /* GetIdleTaskMemory prototype (linked to static allocation support) */
 void vApplicationGetIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer, StackType_t **ppxIdleTaskStackBuffer, uint32_t *pulIdleTaskStackSize );
+
+/* Hook prototypes */
+void vApplicationStackOverflowHook(xTaskHandle xTask, signed char *pcTaskName);
+void vApplicationMallocFailedHook(void);
+
+/* USER CODE BEGIN 4 */
+__weak void vApplicationStackOverflowHook(xTaskHandle xTask, signed char *pcTaskName)
+{
+   /* Run time stack overflow checking is performed if
+   configCHECK_FOR_STACK_OVERFLOW is defined to 1 or 2. This hook function is
+   called if a stack overflow is detected. */
+}
+/* USER CODE END 4 */
+
+/* USER CODE BEGIN 5 */
+__weak void vApplicationMallocFailedHook(void)
+{
+   /* vApplicationMallocFailedHook() will only be called if
+   configUSE_MALLOC_FAILED_HOOK is set to 1 in FreeRTOSConfig.h. It is a hook
+   function that will get called if a call to pvPortMalloc() fails.
+   pvPortMalloc() is called internally by the kernel whenever a task, queue,
+   timer or semaphore is created. It is also called by various parts of the
+   demo application. If heap_1.c or heap_2.c are used, then the size of the
+   heap available to pvPortMalloc() is defined by configTOTAL_HEAP_SIZE in
+   FreeRTOSConfig.h, and the xPortGetFreeHeapSize() API function can be used
+   to query the size of free heap space that remains (although it does not
+   provide information on how the remaining heap might be fragmented). */
+}
+/* USER CODE END 5 */
 
 /* USER CODE BEGIN GET_IDLE_TASK_MEMORY */
 static StaticTask_t xIdleTaskTCBBuffer;
@@ -130,19 +159,19 @@ void MX_FREERTOS_Init(void) {
 
   /* Create the thread(s) */
   /* definition and creation of Start_INS_Task */
-  osThreadStaticDef(Start_INS_Task, INS_Task, osPriorityHigh, 0, 2048, Start_INS_TaskBuffer, &Start_INS_TaskControlBlock);
+  osThreadStaticDef(Start_INS_Task, INS_Task, osPriorityHigh, 0, 1024, Start_INS_TaskBuffer, &Start_INS_TaskControlBlock);
   Start_INS_TaskHandle = osThreadCreate(osThread(Start_INS_Task), NULL);
 
   /* definition and creation of Start_Chassis_Task */
-  osThreadStaticDef(Start_Chassis_Task, Chassis_Task, osPriorityNormal, 0, 2048, Start_Chassis_TaskBuffer, &Start_Chassis_TaskControlBlock);
+  osThreadStaticDef(Start_Chassis_Task, Chassis_Task, osPriorityNormal, 0, 1024, Start_Chassis_TaskBuffer, &Start_Chassis_TaskControlBlock);
   Start_Chassis_TaskHandle = osThreadCreate(osThread(Start_Chassis_Task), NULL);
 
   /* definition and creation of Start_CAN_Task */
-  osThreadStaticDef(Start_CAN_Task, CAN_Task, osPriorityAboveNormal, 0, 2048, Start_CAN_TaskBuffer, &Start_CAN_TaskControlBlock);
+  osThreadStaticDef(Start_CAN_Task, CAN_Task, osPriorityAboveNormal, 0, 1024, Start_CAN_TaskBuffer, &Start_CAN_TaskControlBlock);
   Start_CAN_TaskHandle = osThreadCreate(osThread(Start_CAN_Task), NULL);
 
   /* definition and creation of Start_Gimbal_Task */
-  osThreadStaticDef(Start_Gimbal_Task, Gimbal_Task, osPriorityAboveNormal, 0, 2048, Start_Gimbal_TaskBuffer, &Start_Gimbal_TaskControlBlock);
+  osThreadStaticDef(Start_Gimbal_Task, Gimbal_Task, osPriorityAboveNormal, 0, 1024, Start_Gimbal_TaskBuffer, &Start_Gimbal_TaskControlBlock);
   Start_Gimbal_TaskHandle = osThreadCreate(osThread(Start_Gimbal_Task), NULL);
 
   /* definition and creation of Start_USB_MiniPC_Task */
@@ -150,12 +179,12 @@ void MX_FREERTOS_Init(void) {
   Start_USB_MiniPC_TaskHandle = osThreadCreate(osThread(Start_USB_MiniPC_Task), NULL);
 
   /* definition and creation of Start_Shooting_Task */
-  osThreadStaticDef(Start_Shooting_Task, Shooting_Task, osPriorityBelowNormal, 0, 2048, Start_Shooting_TaskBuffer, &Start_Shooting_TaskControlBlock);
+  osThreadStaticDef(Start_Shooting_Task, Shooting_Task, osPriorityBelowNormal, 0, 1024, Start_Shooting_TaskBuffer, &Start_Shooting_TaskControlBlock);
   Start_Shooting_TaskHandle = osThreadCreate(osThread(Start_Shooting_Task), NULL);
 
-  /* definition and creation of Start_Image_Transmission_Task */
-  osThreadStaticDef(Start_Image_Transmission_Task, Image_Transmission_Task, osPriorityLow, 0, 2048, Start_Image_Transmission_TaskBuffer, &Start_Image_Transmission_TaskControlBlock);
-  Start_Image_Transmission_TaskHandle = osThreadCreate(osThread(Start_Image_Transmission_Task), NULL);
+  /* definition and creation of Start_UI_Task */
+  osThreadStaticDef(Start_UI_Task, UI_Task, osPriorityLow, 0, 1024, Start_UI_TaskBuffer, &Start_UI_TaskControlBlock);
+  Start_UI_TaskHandle = osThreadCreate(osThread(Start_UI_Task), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -273,22 +302,22 @@ __weak void Shooting_Task(void const * argument)
   /* USER CODE END Shooting_Task */
 }
 
-/* USER CODE BEGIN Header_Image_Transmission_Task */
+/* USER CODE BEGIN Header_UI_Task */
 /**
-* @brief Function implementing the Start_Image_Transmission_Task thread.
+* @brief Function implementing the Start_UI_Task thread.
 * @param argument: Not used
 * @retval None
 */
-/* USER CODE END Header_Image_Transmission_Task */
-__weak void Image_Transmission_Task(void const * argument)
+/* USER CODE END Header_UI_Task */
+__weak void UI_Task(void const * argument)
 {
-  /* USER CODE BEGIN Image_Transmission_Task */
+  /* USER CODE BEGIN UI_Task */
   /* Infinite loop */
   for(;;)
   {
     osDelay(1);
   }
-  /* USER CODE END Image_Transmission_Task */
+  /* USER CODE END UI_Task */
 }
 
 /* Private application code --------------------------------------------------*/

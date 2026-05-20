@@ -43,6 +43,9 @@ float KD_pitch = 1.0f;
 float KP_pitch = 20.0f;
 
 extern FDCAN_HandleTypeDef hfdcan2;
+
+size_t free_now, free_min;
+
 void CAN_Task(void const * argument)
 {
     /* Keep the task loop at 1ms (1000Hz) so our split halves result in 500Hz */
@@ -160,7 +163,8 @@ void CAN_Task(void const * argument)
 						// set current to 0
 				#endif
 				
-				
+				free_now = xPortGetFreeHeapSize();
+        free_min = xPortGetMinimumEverFreeHeapSize();
 			
         vTaskDelay(xPeriod); // Wait 1ms
     }

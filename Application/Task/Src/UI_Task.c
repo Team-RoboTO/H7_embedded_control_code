@@ -126,7 +126,7 @@ volatile uint32_t ui_tx_count = 0;
 // Mutex for safe UART transmission across multiple tasks
 osSemaphoreId ui_send_sem;
 // DMA buffer MUST be in AXI_SRAM and non-cacheable for H7
-__attribute__((section (".AXI_SRAM"), aligned(32))) static uint8_t ui_tx_dma_buffer[1024];
+__attribute__((section (".AXI_SRAM"), aligned(32))) static uint8_t ui_tx_dma_buffer[2048];
 
 
 void ref_send(uint8_t* tx_buffer, uint16_t tx_len){
