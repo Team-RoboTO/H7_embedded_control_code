@@ -10,8 +10,8 @@
       <TargetName>COD_H7_Template</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
-      <pArmCC>6220000::V6.22::.\ARM_Compiler_6.22</pArmCC>
-      <pCCUsed>6220000::V6.22::.\ARM_Compiler_6.22</pCCUsed>
+      <pArmCC>6240000::V6.24::.\ARM_Compiler_6.24</pArmCC>
+      <pCCUsed>6240000::V6.24::.\ARM_Compiler_6.24</pCCUsed>
       <uAC6>1</uAC6>
       <TargetOption>
         <TargetCommonOption>
@@ -1047,6 +1047,16 @@
               <FileName>Motor.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\Components\Device\Inc\Motor.h</FilePath>
+            </File>
+            <File>
+              <FileName>buzzer.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Device\Src\buzzer.c</FilePath>
+            </File>
+            <File>
+              <FileName>buzzer.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Components\Device\Inc\buzzer.h</FilePath>
             </File>
           </Files>
         </Group>
