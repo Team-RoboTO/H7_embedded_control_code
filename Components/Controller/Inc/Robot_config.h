@@ -24,11 +24,8 @@
 
 #define IS_MATCH_MODE_ENABLED         0  // Enable/Disable match mode (shooting wheels time on,...)
 #define IS_HEAT_ENABLED               0  // shooting limit 
-<<<<<<< Updated upstream
 #define IS_POWER_LIMIT_ENABLED        1  // chassis power consumption limit 
-=======
 #define IS_POWER_LIMIT_ENABLED        1 // chassis power consumption limit 
->>>>>>> Stashed changes
 #define SUPERCAP_ENABLED              0  // Enable/Disable supercapacitor module
 
   /********************/

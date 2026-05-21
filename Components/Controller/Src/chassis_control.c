@@ -109,6 +109,7 @@ uint16_t chassis_power_limit_local = 60;
 
 //MIT variables
 float MIT_kd = 0.2f;    	// range 0-5
+float MIT_kd_base = 0.2f;
 
   /********************/
  /*   CONTROL LOOP   */
@@ -287,14 +288,10 @@ void control_loop_chassis() {
 		
 		// Competition Power Limit
 		#if IS_POWER_LIMIT_ENABLED
-<<<<<<< Updated upstream
 			//chassis_power_limit_local	= robot_status.chassis_power_limit-20;
 		  chassis_power_limit_local = 1000.0f;
-			chassis_power_control( chassis_power_limit_local , chassis.r_x);
-=======
+			chassis_power_control( 50 , chassis.r_x, &MIT_kd);
 		//chassis_power_limit_local	= robot_status.chassis_power_limit-20;
-		
-			chassis_power_control( 1000 , chassis.r_x);
->>>>>>> Stashed changes
+	
 		#endif
 }

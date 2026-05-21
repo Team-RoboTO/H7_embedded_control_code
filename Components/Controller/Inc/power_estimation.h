@@ -12,6 +12,6 @@
 extern float db_power_out;
 extern float db_power_in;
 
-void chassis_power_control(uint16_t level, float *u);
+void chassis_power_control(uint16_t level, float *u, float *mit_kd);
 
 #endif
