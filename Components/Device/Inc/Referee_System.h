@@ -5,7 +5,7 @@
   * @brief          : The header file of Referee_System.c
   * @author         : GrassFan Wang (Updated for RMUC 2026 V1.3.1)
   * @date           : 2026/05/21
-  * @version        : v1.3.1
+  * @version        : v1.3.2
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -118,24 +118,29 @@ typedef struct
 
 /**
  * @brief typedef structure that contains the information of site event data, id: 0x0101U
+ *
+ * V1.3.1 bit layout (RMUC 2026 protocol, Table 1-9):
+ *  bit 0    : Own side Resupply Zone occupied (1 = occupied)
+ *  bit 1    : Reserved
+ *  bit 2    : Own side Resupply Zone occupied (RMUL only)
+ *  bit 3-4  : Own side Small Power Rune status (0=inactive, 1=active, 2=activating)
+ *  bit 5-6  : Own side Large Power Rune status (0=inactive, 1=active, 2=activating)
+ *  bit 7-8  : Own side central elevated ground (0=none, 1=Own, 2=Opponent)
+ *  bit 9-10 : Own side Trapezoid-Shaped Elevated Ground occupied
+ *  bit 11-19: Time opponent's Dart last hit Own Outpost/Base (0-420 s, init 0)
+ *  bit 20-22: Specific goal Opponent Dart hit
+ *             (0=init, 1=Outpost, 2=Base fixed, 3=Base random fixed,
+ *              4=Base random moving, 5=Base terminal moving)
+ *  bit 23-24: Central Buff Point occupation (RMUL only; 0=none, 1=Own,
+ *             2=Opponent, 3=both)
+ *  bit 25-26: Own side Fortress Buff Point occupation
+ *             (0=none, 1=Own, 2=Opponent, 3=both)
+ *  bit 27-28: Own side Outpost Buff Point occupation (0=none, 1=Own, 2=Opponent)
+ *  bit 29   : Own side Base Buff Point occupation (1=occupied)
+ *  bit 30-31: Reserved
  */
 typedef union
 {
-    /**
-     * @brief the event of site
-     * bit 0-2: Occupation status of own side Resupply Zone
-     * bit 3-4: Small Power Rune Status
-     * bit 5-6: Large Power Rune status
-     * bit 7-8: Own side central elevated ground
-     * bit 9-10: Own side Trapezoid-Shaped Elevated Ground
-     * bit 11-19: Time opponent Dart last hit Outpost or Base
-     * bit 20-22: Specific goal Dart hit
-     * bit 23-24: Central Buff Point occupation
-     * bit 25-26: Fortress Buff Point occupation
-     * bit 27-28: Outpost Buff Point
-     * bit 29: Base Buff Point
-     * bit 30-31: Reserved
-     */
     uint32_t  event_data;
 }event_data_t;
 

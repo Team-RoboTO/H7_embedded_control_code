@@ -5,7 +5,13 @@
   * @brief          : Referee_System_Info interfaces functions 
   * @author         : GrassFan Wang (Updated for RMUC 2026 V1.3.1)
   * @date           : 2026/05/21
-  * @version        : v1.3.1
+  * @version        : v1.3.2
+  *
+  * v1.3.2 fixes:
+  *   - Added missing `break;` statements after ROBOT_INTERACTION_DATA_ID,
+  *     MAP_COMMAND_ID, MAP_ROBOT_DATA_ID, MAP_DATA_ID, CUSTOM_INFO_ID cases.
+  *     Without them, fall-through caused subsequent case bodies to execute
+  *     against the same (incorrect) buffer offsets, corrupting parsed state.
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -245,6 +251,7 @@ static void Referee_System_Info_Update(uint8_t *Buff,Referee_System_Info_TypeDef
         for(uint8_t i = 0; i< 112; i++){
             Referee_System_Info->robot_interaction_data.user_data[i] =  Buff[Referee_System_Info->Index + FrameHeader_Length + CMDID_Length + 6 + i];
             }
+    break;  /* FIX v1.3.2: was falling through into MAP_COMMAND_ID */
 #endif   
 
 #ifdef MAP_COMMAND_ID
@@ -254,6 +261,7 @@ static void Referee_System_Info_Update(uint8_t *Buff,Referee_System_Info_TypeDef
       Referee_System_Info->map_command.cmd_keyboard      = Buff[Referee_System_Info->Index + FrameHeader_Length + CMDID_Length + 8];
         Referee_System_Info->map_command.opponent_robot_id = Buff[Referee_System_Info->Index + FrameHeader_Length + CMDID_Length + 9];
         Referee_System_Info->map_command.source_id         = bit8TObit16(&Buff[Referee_System_Info->Index + FrameHeader_Length + CMDID_Length + 10]);
+    break;  /* FIX v1.3.2: was falling through into MAP_ROBOT_DATA_ID */
 #endif   
 
 #ifdef MAP_ROBOT_DATA_ID
@@ -283,6 +291,7 @@ static void Referee_System_Info_Update(uint8_t *Buff,Referee_System_Info_TypeDef
         Referee_System_Info->map_robot_data.ally_aerial_position_y         = bit8TObit16(&Buff[Referee_System_Info->Index + FrameHeader_Length + CMDID_Length + 42]);
         Referee_System_Info->map_robot_data.ally_sentry_position_x         = bit8TObit16(&Buff[Referee_System_Info->Index + FrameHeader_Length + CMDID_Length + 44]);
         Referee_System_Info->map_robot_data.ally_sentry_position_y         = bit8TObit16(&Buff[Referee_System_Info->Index + FrameHeader_Length + CMDID_Length + 46]);
+    break;  /* FIX v1.3.2: was falling through into MAP_DATA_ID */
 #endif   
      
 #ifdef MAP_DATA_ID
@@ -297,6 +306,7 @@ static void Referee_System_Info_Update(uint8_t *Buff,Referee_System_Info_TypeDef
       Referee_System_Info->map_data.delta_y[i] = Buff[Referee_System_Info->Index + FrameHeader_Length + CMDID_Length + 54 + i];      
           }
             Referee_System_Info->map_data.sender_id = bit8TObit16(&Buff[Referee_System_Info->Index + FrameHeader_Length + CMDID_Length + 103]);
+    break;  /* FIX v1.3.2: was falling through into CUSTOM_INFO_ID */
 #endif
 
 #ifdef CUSTOM_INFO_ID
@@ -306,6 +316,7 @@ static void Referee_System_Info_Update(uint8_t *Buff,Referee_System_Info_TypeDef
             for(uint8_t i = 0;i < 30; i++){
             Referee_System_Info->custom_info.user_data[i] = Buff[Referee_System_Info->Index + FrameHeader_Length + CMDID_Length + 4 + i];
       }
+    break;  /* FIX v1.3.2: was falling through into default */
 #endif          
             default:break;
   }

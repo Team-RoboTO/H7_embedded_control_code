@@ -1,1395 +1,986 @@
 /**
- * @file UI_Task.c
- * @brief Gestione dell'interfaccia grafica (HUD) per il pilota.
- * 
- * Descrizione degli elementi grafici visualizzati (Referee System):
- * --------------------------------------------------------------
- * 1. SPIN (Rotazione Chassis):
- *    - "ON" (Verde): Modalità "Spin" attiva (il robot ruota su se stesso).
- *    - "OFF" (Arancio): Chassis segue il gimbal normalmente.
- *    - Bordo: Un arco circolare che ruota insieme al telaio del robot.
- * 
- * 2. GEAR (Marcia/Velocità):
- *    - Indica il moltiplicatore di velocità attuale (es. GEAR 1, GEAR 2).
- * 
- * 3. AIM (Aimbot):
- *    - "AIM ON": Auto-aim attivato (segue il target tramite computer vision).
- *    - "AIM OFF": Mira manuale.
- * 
- * 4. CAP (Supercap):
- *    - Visualizza lo stato di carica del supercondensatore.
- *    - Arco radiale: Carica rimanente (Verde > soglia, Arancio < soglia).
- *    - "CAP ON/OFF": Stato di scarica del modulo di potenza.
- * 
- * 5. CROSSHAIR (Mirino):
- *    - Mirino stile Sniper con compensatore di caduta (tick verticali).
- *    - Cerchio centrale per la mira rapida.
- * 
- * 6. PITCH (Inclinazione):
- *    - Scala laterale che indica l'angolo di inclinazione della testa del robot.
- *    - Include limiti fisici e indicatore di posizione corrente.
- * 
- * 7. STATUS ALARMS:
- *    - "RUOTAAA!": Avviso visivo quando il robot è fermo (bersaglio facile).
- *    - MOTOR FAULT: Elenco motori in errore (es: FR, FL, BL, BR, YAW, PITCH).
- *    - FEEDER: Stato caricatore (JAMMED se bloccato, OVERHEAT se surriscaldato).
+ * @file    UI_Task.c
+ * @brief   HUD interface for the operator (Referee System Client UI).
  */
 
 #include "UI_Task.h"
 #include "usart.h"
 #include "cmsis_os.h"
 #include "CRC.h"
-#include <stdio.h>
-#include <string.h>
-#include "math.h"
 #include "remote_control.h"
 #include "Damiao_Motor.h"
 #include "Cubemars_Motor.h"
 #include "Chassis_control.h"
 #include "INS_Task.h"
 
+#include <stdio.h>
+#include <string.h>
+#include <math.h>
+#include <stdbool.h>
+
+/* ============================================================================
+ * EXTERNAL STATE
+ * ============================================================================ */
 extern Referee_System_Info_TypeDef Referee_System_Info;
-static uint16_t g_client_id = 0;
-static uint8_t g_ref_tx_seq = 0;
+extern NDJ6_Info_Typedef            NDJ6_info;
+extern DM_Motor_Info_Typedef        DM_Yaw_Motor;
+extern CM_Motor_Info_Typedef        CM_Pitch_Motor;
+extern INS_Info_Typedef             INS_Info;
 
-// Enums and dummy variables to simulate the external states
-enum feeder_state_e {
-	FEEDER_STANDBY,
-	FEEDER_SPINUP,
-	FEEDER_LOADED,
-	FEEDER_JAM,
-	FEEDER_OVERHEAT,
-	FEEDER_STEP,
-	FEEDER_FIRING
-};
+/* Provided by chassis / aim / state machine layers */
+extern uint8_t is_rotating;
 
-enum feeder_state_e feeder_state = FEEDER_STANDBY;
-int prev_feeder_state = 0;
-int feeder_state_enabled = 0;
+/* ============================================================================
+ * GLOBAL UI STATE (driven by other tasks)
+ * ============================================================================ */
+int      aimbot_mode             = 0;
+int      supercap_dash           = 0;
+int      gear_speed_curr_gear    = 1;
+uint8_t  charging_state          = 50;
+uint16_t g_motor_fault           = 0;
 
+typedef enum {
+    FEEDER_STANDBY,
+    FEEDER_SPINUP,
+    FEEDER_LOADED,
+    FEEDER_JAM,
+    FEEDER_OVERHEAT,
+    FEEDER_STEP,
+    FEEDER_FIRING
+} feeder_state_e;
 
-int prev_spinspin = 0;
-int prev_spin_warning = 0;
-int supercap_dash = 0;
-int prev_supercap_dash = 0;
-int aimbot_mode = 0;
-int prev_aimbot = 0;
-int gear_speed_curr_gear = 1;
-int prev_gear = 0;
-uint8_t charging_state = 50;
+feeder_state_e feeder_state = FEEDER_STANDBY;
 
-uint16_t g_motor_fault = 0;
-int motor_fault_enabled = 0;
-int prev_motor_error = 0;
+/* ============================================================================
+ * INTERNAL STATE
+ * ============================================================================ */
+static uint16_t g_client_id   = 0;
+static uint8_t  g_ref_tx_seq  = 0;
 
-static uint32_t spin_coords = 0;
-static uint32_t gear_coords = 0;
-static uint32_t aimbot_coords = 0;
-static uint32_t supercap_coords = 0; // CORREZIONE: Aggiunto puntatore coords supercap
+/* Top-bar X coordinates (computed once in init) */
+static uint32_t spin_coords     = 0;
+static uint32_t gear_coords     = 0;
+static uint32_t aimbot_coords   = 0;
+static uint32_t supercap_coords = 0;
 
-int top_graphics = 0;
-int dynamic_graphics = 0;
-float graphic_edge = 0; // Max/min angle in radians
+/* Previous states (for change detection) */
+static int prev_spinspin      = -1;
+static int prev_spin_warning  = -1;
+static int prev_aimbot        = -1;
+static int prev_supercap_dash = -1;
+static int prev_gear          = -1;
+static int prev_motor_error   = -1;
+static int prev_feeder_state  = -1;
+static int motor_fault_enabled  = 0;
+static int feeder_state_enabled = 0;
+
+/* TX synchronization: semaphore released on DMA TxCplt */
+static osSemaphoreId ui_tx_done_sem  = NULL;  /* signaled when DMA completes */
+static osSemaphoreId ui_send_mtx     = NULL;  /* protects ref_send / seq */
+
+/* DMA TX buffer: must be in AXI_SRAM, 32-byte aligned for D-Cache */
+__attribute__((section(".AXI_SRAM"), aligned(32)))
+static uint8_t ui_tx_dma_buffer[512];
+
+volatile uint32_t ui_tx_count = 0;  /* debug counter */
+volatile uint32_t tx_cplt_count = 0;
+volatile uint32_t tx_start_count = 0;
 
 int g_spinspin_mode = 0;
 
-// Using the user's remote control struct
-extern NDJ6_Info_Typedef NDJ6_info;
-
-// Using the user's motor structs
-extern DM_Motor_Info_Typedef DM_Yaw_Motor;
-extern CM_Motor_Info_Typedef CM_Pitch_Motor;
-extern INS_Info_Typedef INS_Info; 
-
-void map_robot_id(uint16_t robot_id){
-	switch (robot_id) {
-		case 1: g_client_id = 0x101; break;
-		case 2: g_client_id = 0x102; break;
-		case 3: g_client_id = 0x103; break;
-		case 4: g_client_id = 0x104; break;
-		case 5: g_client_id = 0x105; break;
-		case 6: g_client_id = 0x106; break;
-		case 7: g_client_id = 0x107; break;
-		case 101: g_client_id = 0x165; break;
-		case 102: g_client_id = 0x166; break;
-		case 103: g_client_id = 0x167; break;
-		case 104: g_client_id = 0x168; break;
-		case 105: g_client_id = 0x169; break;
-		case 106: g_client_id = 0x16A; break;
-		case 107: g_client_id = 0x16B; break;
-		default: g_client_id = 0; break;
-	}
-}
-
-// Global counter to verify transmission in Watch window
-volatile uint32_t ui_tx_count = 0;
-// Mutex for safe UART transmission across multiple tasks
-osSemaphoreId ui_send_sem;
-// DMA buffer MUST be in AXI_SRAM and non-cacheable for H7
-__attribute__((section (".AXI_SRAM"), aligned(32))) static uint8_t ui_tx_dma_buffer[2048];
-
-
-void ref_send(uint8_t* tx_buffer, uint16_t tx_len){
-	Append_CRC16_Check_Sum(tx_buffer, tx_len + 2);
-	
-	// If UART is in error state (e.g. overrun), reset it to READY to avoid hanging
-	if (huart1.gState == HAL_UART_STATE_ERROR) {
-		huart1.gState = HAL_UART_STATE_READY;
-	}
-
-	// Use semaphore to ensure only one task sends at a time
-	if (ui_send_sem != NULL) {
-		osSemaphoreWait(ui_send_sem, osWaitForever);
-	}
-
-	uint32_t wait_start = osKernelSysTick();
-	while (huart1.gState != HAL_UART_STATE_READY) {
-		osDelay(1);
-		// 50ms timeout (100 bytes at 115200 baud takes ~8.6ms, but we need safe margin)
-		if ((osKernelSysTick() - wait_start) > 50) {
-			HAL_UART_AbortTransmit(&huart1);
-			huart1.gState = HAL_UART_STATE_READY;
-			break;
-		}
-	}
-	
-	// Copy to stable, DMA-accessible memory (AXI_SRAM)
-	memcpy(ui_tx_dma_buffer, tx_buffer, tx_len + 2);
-	
-	// Clean D-Cache for the buffer to ensure DMA sees the fresh data on H7
-	SCB_CleanDCache_by_Addr((uint32_t*)ui_tx_dma_buffer, tx_len + 2);
-	
-	// Increment counter for debugging (Watch window)
-	ui_tx_count++;
-	
-	HAL_UART_Transmit_DMA(&huart1, ui_tx_dma_buffer, tx_len + 2);
-
-	// Release semaphore after starting transmission
-	// Note: In a perfect world, we'd release this in the TxCpltCallback, 
-	// but since we check gState at the beginning, this is safe enough for now.
-	if (ui_send_sem != NULL) {
-		osSemaphoreRelease(ui_send_sem);
-	}
-}
-void send_custom_ref_data(uint8_t* data, uint16_t len){
-    if (len > 30) len = 30;
-    uint8_t tx_buffer[256];
-    ref_frame_header_t *send_header = (ref_frame_header_t*)tx_buffer;
-	send_header->start_frame = 0xA5;
-	send_header->seq = g_ref_tx_seq++;
-	send_header->data_length = 6 + len;
-	Append_CRC8_Check_Sum(tx_buffer, 5);
-	send_header->cmd_id = 0x0301;
-	
-    uint16_t robot_id = Referee_System_Info.robot_status.robot_id;
-    if (robot_id == 0) return;
-    
-    uint16_t client_id = 0;
-    if (robot_id < 100) {
-        client_id = 0x0100 + robot_id;
-    } else {
-        client_id = 0x0164 + (robot_id - 100);
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
+    if (huart == &huart1) {
+        tx_cplt_count++;
+        UI_NotifyTxComplete();
     }
-    
-	ref_inter_robot_data_t* data_header = (ref_inter_robot_data_t*)(tx_buffer + 7);
-	data_header->cmd_ID = 0x0200; 
-	data_header->send_ID = robot_id;
-	data_header->receiver_ID = client_id;
-    
-    memcpy(tx_buffer + 7 + sizeof(ref_inter_robot_data_t), data, len);
-    uint16_t tx_len = 7 + sizeof(ref_inter_robot_data_t) + len;
-    ref_send(tx_buffer, tx_len);
 }
 
-void set_top_coordinates(void) {
-    // CORREZIONE: Array aumentato a 4 elementi e aggiunta l'impostazione per 4 elementi.
-	uint32_t x_coordinates[4] = {0}; 
-	top_graphics = 4; // SPINSPIN + GEARING + AIMBOT + SUPERCAP
-
-	switch (top_graphics) {
-		case 1: x_coordinates[0] = HUD_MAX_X / 2; break;
-		case 2:
-			x_coordinates[0] = HUD_MAX_X / 2 - TOP_GAP / 2;
-			x_coordinates[1] = HUD_MAX_X / 2 + TOP_GAP / 2;
-			break;
-		case 3:
-			x_coordinates[0] = HUD_MAX_X / 2 - TOP_GAP;
-			x_coordinates[1] = HUD_MAX_X / 2;
-			x_coordinates[2] = HUD_MAX_X / 2 + TOP_GAP;
-			break;
-        case 4:
-		default:
-            x_coordinates[0] = HUD_MAX_X / 2 - TOP_GAP * 1.5f;
-            x_coordinates[1] = HUD_MAX_X / 2 - TOP_GAP / 2.0f;
-            x_coordinates[2] = HUD_MAX_X / 2 + TOP_GAP / 2.0f;
-            x_coordinates[3] = HUD_MAX_X / 2 + TOP_GAP * 1.5f;
-			break;
-	}
-
-	int index = 0;
-	spin_coords = x_coordinates[index++];
-	gear_coords = x_coordinates[index++];
-	aimbot_coords = x_coordinates[index++];
-	supercap_coords = x_coordinates[index++]; // CORREZIONE: Assegnato correttamente senza sovrascrivere
-	
-    // CORREZIONE: Impostato a 5 poichè vengono disegnati effettivamente 5 elementi 
-    // (spin(1) + supercap(1) + pitch(1) + balancing(2)).
-	dynamic_graphics = 5; 
+/* ============================================================================
+ * LOW-LEVEL: ROBOT ID -> CLIENT ID MAPPING
+ * ============================================================================ */
+static void map_robot_id(uint16_t robot_id)
+{
+    if (robot_id == 0)               g_client_id = 0;
+    else if (robot_id < 100)         g_client_id = 0x0100 + robot_id;
+    else                             g_client_id = 0x0164 + (robot_id - 100);
 }
 
-void clear_hud() {
-	uint8_t tx_buffer[256];
-	ref_frame_header_t *send_header = (ref_frame_header_t*)tx_buffer;
-	send_header->start_frame = 0xA5;
-	send_header->seq = g_ref_tx_seq++;
-	send_header->data_length = sizeof(ref_delete_graphic_t);
-	Append_CRC8_Check_Sum(tx_buffer, 5);
-	send_header->cmd_id = 0x0301;
-	ref_delete_graphic_t *ref_delete = (ref_delete_graphic_t*)(tx_buffer + 7);
-	ref_delete->cmd_ID = 0x0100;
-	ref_delete->graphic_layer = 9;
-	ref_delete->graphic_operation = 2; // delete all
-	ref_delete->receiver_ID = g_client_id;
-	ref_delete->send_ID = Referee_System_Info.robot_status.robot_id;
-	uint16_t tx_len = 7 + sizeof(ref_delete_graphic_t);
-	ref_send(tx_buffer,tx_len);
-	osDelay(REF_DELAY);
+/* ============================================================================
+ * LOW-LEVEL: TX COMPLETION NOTIFICATION
+ * ============================================================================ */
+void UI_NotifyTxComplete(void)
+{
+    if (ui_tx_done_sem != NULL) {
+        osSemaphoreRelease(ui_tx_done_sem);
+    }
 }
 
-uint16_t draw_empty(uint8_t* tx_buffer) {
-	graphic_data_struct_t* graphic_data = (graphic_data_struct_t *)(tx_buffer);
-	graphic_data->operation_type = GRAPHIC_NO_OP;
-	return sizeof(graphic_data_struct_t);
-}
+/* ============================================================================
+ * LOW-LEVEL: UNIFIED SEND PATH
+ * ============================================================================ */
+static void ref_send(uint8_t *tx_buffer, uint16_t tx_len)
+{
+    uint16_t total_len = tx_len + 2;  /* +2 for trailing CRC16 */
 
-uint16_t draw_graphic_header(uint8_t* tx_buffer, uint8_t num_graphics){
-	ref_frame_header_t *send_header = (ref_frame_header_t*)tx_buffer;
-	send_header->start_frame = 0xA5;
-	send_header->seq = g_ref_tx_seq++;
-	send_header->data_length = sizeof(ref_inter_robot_data_t) +
-			sizeof(graphic_data_struct_t) * num_graphics;
-	Append_CRC8_Check_Sum(tx_buffer, 5);
-	send_header->cmd_id = 0x0301;
-	ref_inter_robot_data_t* graphic_header = (ref_inter_robot_data_t*)(tx_buffer + 7);
-	if (num_graphics == 1) graphic_header->cmd_ID = 0x0101;
-	else if (num_graphics == 2) graphic_header->cmd_ID = 0x0102;
-	else if (num_graphics <= 5) graphic_header->cmd_ID = 0x0103;
-	else graphic_header->cmd_ID = 0x0104;
-	
-	graphic_header->send_ID = Referee_System_Info.robot_status.robot_id;
-	graphic_header->receiver_ID = g_client_id;
-	return sizeof(ref_frame_header_t)+sizeof(ref_inter_robot_data_t);
-}
+    if (total_len > sizeof(ui_tx_dma_buffer)) return;
+    if (g_client_id == 0) return;     /* no client to talk to yet */
 
-uint16_t draw_char_header(uint8_t* tx_buffer, uint8_t char_len){
-	ref_frame_header_t *send_header = (ref_frame_header_t*)tx_buffer;
-	send_header->start_frame = 0xA5;
-	send_header->seq = g_ref_tx_seq++;
-	send_header->data_length = sizeof(ref_inter_robot_data_t)
-			+ sizeof(graphic_data_struct_t) + 30; // MUST be exactly 30 bytes per RM Protocol
-	Append_CRC8_Check_Sum(tx_buffer, 5);
-	send_header->cmd_id = 0x0301;
-	ref_inter_robot_data_t* graphic_header = (ref_inter_robot_data_t*)(tx_buffer + sizeof(ref_frame_header_t));
+    /* Serialize all senders */
+    osSemaphoreWait(ui_send_mtx, osWaitForever);
 
-	graphic_header->cmd_ID = 0x0110;
-	graphic_header->send_ID = Referee_System_Info.robot_status.robot_id;
-	graphic_header->receiver_ID = g_client_id;
+    /* Generate sequences and CRCs safely inside the mutex lock */
+    ref_frame_header_t *hdr = (ref_frame_header_t *)tx_buffer;
+    hdr->seq = g_ref_tx_seq++;
+    Append_CRC8_Check_Sum(tx_buffer, 5);
+    Append_CRC16_Check_Sum(tx_buffer, total_len);
 
-	return sizeof(ref_frame_header_t)+sizeof(ref_inter_robot_data_t);
-}
+    /* Recover UART from error state if needed */
+    if (huart1.gState == HAL_UART_STATE_ERROR) {
+        HAL_UART_AbortTransmit(&huart1);
+        huart1.gState = HAL_UART_STATE_READY;
+    }
 
-uint16_t draw_supercap(uint8_t* tx_buffer, uint8_t modify) {
-	graphic_data_struct_t* graphic_data = (graphic_data_struct_t *)(tx_buffer);
-	graphic_data->color = (charging_state > SUPERCAP_ENABLE_THRESHOLD) ? GRAPHIC_COLOUR_GREEN : GRAPHIC_COLOUR_ORANGE;
-	graphic_data->graphic_name[0] = 'S';
-	graphic_data->graphic_name[1] = 'U';
-	graphic_data->graphic_name[2] = 'P';
-	graphic_data->layer = 3;
+    /* Drain any stale completion signal so we wait for THIS transfer */
+    while (osSemaphoreWait(ui_tx_done_sem, 0) == osOK) { /* drain */ }
 
-	graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-	graphic_data->graphic_type = GRAPHIC_TYPE_ARC;
-	graphic_data->details_a = 270; 
-    
-	int supercap_range = 100 - SUPERCAP_DISABLE_THRESHOLD;
-	float mapped_charging_state = fmaxf(0.0f, fminf(1.0f,
-	    (float)(charging_state - SUPERCAP_DISABLE_THRESHOLD) / (float)supercap_range));
+    /* Copy into AXI_SRAM DMA buffer */
+    memcpy(ui_tx_dma_buffer, tx_buffer, total_len);
 
-	int curr_lvl = fmaxf(1, (int)(mapped_charging_state * ANGLE_LIMIT));
-	graphic_data->details_b = 270 + curr_lvl;
+    /* D-Cache clean, rounded up to full 32-byte cache lines */
+    uint32_t clean_len = (total_len + 31U) & ~31U;
+    SCB_CleanDCache_by_Addr((uint32_t *)ui_tx_dma_buffer, clean_len);
 
-	graphic_data->width = 30; 
-	graphic_data->start_x = HUD_MAX_X / 2; 
-	graphic_data->start_y = HUD_MAX_Y / 2; 
-	graphic_data->details_d = RADIAL_DIAMETER;
-	graphic_data->details_e = RADIAL_DIAMETER;
-
-	return sizeof(graphic_data_struct_t);
-}
-
-void draw_spin_char(uint8_t modify, uint32_t x_coords) {
-	uint8_t tx_buffer[256];
-	uint32_t curr_pos = 0;
-	uint8_t char_len = 0;
-	char char_buffer[30];
-	memset(char_buffer, 0, 30);
-	char_len = is_rotating ?
-			snprintf((char*) char_buffer, 30, "ON") :
-			snprintf((char*) char_buffer, 30, "OFF");
-
-	curr_pos = draw_char_header(tx_buffer, char_len);
-
-	graphic_data_struct_t* graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-
-	graphic_data->color = is_rotating ? GRAPHIC_COLOUR_GREEN : GRAPHIC_COLOUR_ORANGE;
-	graphic_data->graphic_name[0] = 'C';
-	graphic_data->graphic_name[1] = 'H';
-	graphic_data->graphic_name[2] = 'A';
-	graphic_data->layer = 2;
-	graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-
-	graphic_data->graphic_type = GRAPHIC_TYPE_CHAR;
-	graphic_data->details_a = FONT_SIZE; 
-	graphic_data->details_b = char_len; 
-	graphic_data->width = CHAR_WIDTH; 
-	graphic_data->layer = 0;
-	graphic_data->start_x = x_coords - CHAR_X_OFFSET * char_len;
-	graphic_data->start_y = TOP_Y_POS + CHAR_Y_OFFSET;
-	curr_pos += sizeof(graphic_data_struct_t);
-	memcpy(tx_buffer + curr_pos, char_buffer, 30);
-	curr_pos += 30;
-
-	ref_send(tx_buffer, curr_pos);
-	osDelay(REF_DELAY);
-}
-
-void draw_spin_warning(uint8_t operation) {
-	uint8_t tx_buffer[256];
-	uint32_t curr_pos = 0;
-	char char_buffer[30];
-	memset(char_buffer, 0, 30);
-	uint8_t char_len = snprintf((char*) char_buffer, 30, "RUOTAAA!");
-
-	curr_pos = draw_char_header(tx_buffer, char_len);
-
-	graphic_data_struct_t* graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-
-	graphic_data->color = GRAPHIC_COLOUR_PURPLISH_RED;
-	graphic_data->graphic_name[0] = 'W';
-	graphic_data->graphic_name[1] = 'R';
-	graphic_data->graphic_name[2] = 'N';
-	graphic_data->layer = 9; // Livello alto per sovrapporsi a tutto
-	graphic_data->operation_type = operation; // GRAPHIC_ADD, GRAPHIC_MODIFY, o GRAPHIC_DELETE
-
-	graphic_data->graphic_type = GRAPHIC_TYPE_CHAR;
-	graphic_data->details_a = 60; 
-	graphic_data->details_b = char_len; 
-	graphic_data->width = 5; 
-	graphic_data->start_x = CENTER_X - (25 * char_len); 
-	graphic_data->start_y = CENTER_Y + 180;
-	
-	curr_pos += sizeof(graphic_data_struct_t);
-	memcpy(tx_buffer + curr_pos, char_buffer, 30);
-	curr_pos += 30;
-
-	ref_send(tx_buffer, curr_pos);
-	osDelay(REF_DELAY);
-}
-
-void check_spin_warning() {
-    int current_warning = !is_rotating; // Sempre attivo se non gira
-
-    // Se lo stato è cambiato (da off a on, o da on a off)
-    if (current_warning != prev_spin_warning) {
-        if (current_warning) {
-            draw_spin_warning(GRAPHIC_ADD);
-        } else {
-            draw_spin_warning(GRAPHIC_DELETE);
+    if (HAL_UART_Transmit_DMA(&huart1, ui_tx_dma_buffer, total_len) == HAL_OK) {
+        /* Wait for DMA TxCplt (with safety timeout) */
+        if (osSemaphoreWait(ui_tx_done_sem, 100) != osOK) {
+            HAL_UART_AbortTransmit(&huart1);
+            huart1.gState = HAL_UART_STATE_READY;
         }
-        prev_spin_warning = current_warning;
+        ui_tx_count++;
+    } else {
+        huart1.gState = HAL_UART_STATE_READY;
     }
+
+    osSemaphoreRelease(ui_send_mtx);
+
+    /* Referee 10Hz/cmd_id throttle (only matters when many calls run back-to-back) */
+    osDelay(REF_DELAY);
 }
 
-uint16_t draw_spin_border(uint8_t* tx_buffer, uint8_t modify, uint32_t x_coords) {
-	graphic_data_struct_t* graphic_data = (graphic_data_struct_t *)(tx_buffer);
-	graphic_data->color = is_rotating ? GRAPHIC_COLOUR_GREEN : GRAPHIC_COLOUR_ORANGE;
-	graphic_data->graphic_name[0] = 'B';
-	graphic_data->graphic_name[1] = 'O';
-	graphic_data->graphic_name[2] = 'R';
-	graphic_data->layer = 2;
+/* ============================================================================
+ * LOW-LEVEL: HEADER BUILDERS
+ * ============================================================================ */
+static uint16_t build_graphic_header(uint8_t *tx_buffer, uint8_t num_graphics)
+{
+    uint16_t sub_cmd_id;
+    if      (num_graphics == 1) sub_cmd_id = 0x0101;
+    else if (num_graphics == 2) sub_cmd_id = 0x0102;
+    else if (num_graphics == 5) sub_cmd_id = 0x0103;
+    else if (num_graphics == 7) sub_cmd_id = 0x0104;
+    else                        return 0;  /* invalid count, refuse to build */
 
-	graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
+    ref_frame_header_t *hdr = (ref_frame_header_t *)tx_buffer;
+    hdr->start_frame = 0xA5;
+    hdr->data_length = sizeof(ref_inter_robot_data_t)
+                     + sizeof(graphic_data_struct_t) * num_graphics;
+    hdr->cmd_id = 0x0301;
+
+    ref_inter_robot_data_t *gh = (ref_inter_robot_data_t *)(tx_buffer + sizeof(ref_frame_header_t));
+    gh->cmd_ID      = sub_cmd_id;
+    gh->send_ID     = Referee_System_Info.robot_status.robot_id;
+    gh->receiver_ID = g_client_id;
+    return sizeof(ref_frame_header_t) + sizeof(ref_inter_robot_data_t);
+}
+
+static uint16_t build_char_header(uint8_t *tx_buffer)
+{
+    ref_frame_header_t *hdr = (ref_frame_header_t *)tx_buffer;
+    hdr->start_frame = 0xA5;
+    hdr->data_length = sizeof(ref_inter_robot_data_t)
+                     + sizeof(graphic_data_struct_t) + 30;
+    hdr->cmd_id = 0x0301;
+
+    ref_inter_robot_data_t *gh = (ref_inter_robot_data_t *)(tx_buffer + sizeof(ref_frame_header_t));
+    gh->cmd_ID      = 0x0110;
+    gh->send_ID     = Referee_System_Info.robot_status.robot_id;
+    gh->receiver_ID = g_client_id;
+    return sizeof(ref_frame_header_t) + sizeof(ref_inter_robot_data_t);
+}
+
+/* ============================================================================
+ * HELPER: SET NAME / OPERATION / TYPE
+ * ============================================================================ */
+static void set_name(graphic_data_struct_t *g, char a, char b, char c)
+{
+    g->graphic_name[0] = a;
+    g->graphic_name[1] = b;
+    g->graphic_name[2] = c;
+}
+
+/* ============================================================================
+ * CLEAR / DELETE HELPERS
+ * ============================================================================ */
+static void clear_hud(void)
+{
+    uint8_t tx_buffer[64];
+    memset(tx_buffer, 0, sizeof(tx_buffer));
+
+    ref_frame_header_t *hdr = (ref_frame_header_t *)tx_buffer;
+    hdr->start_frame = 0xA5;
+    hdr->data_length = sizeof(ref_delete_graphic_t);
+    hdr->cmd_id = 0x0301;
+
+    ref_delete_graphic_t *del = (ref_delete_graphic_t *)(tx_buffer + sizeof(ref_frame_header_t));
+    del->cmd_ID             = 0x0100;
+    del->send_ID            = Referee_System_Info.robot_status.robot_id;
+    del->receiver_ID        = g_client_id;
+    del->graphic_operation  = 2;  /* delete all */
+    del->graphic_layer      = 9;
+
+    ref_send(tx_buffer, sizeof(ref_frame_header_t) + sizeof(ref_delete_graphic_t));
+}
+
+static void delete_layer(uint8_t layer)
+{
+    uint8_t tx_buffer[64];
+    memset(tx_buffer, 0, sizeof(tx_buffer));
+
+    ref_frame_header_t *hdr = (ref_frame_header_t *)tx_buffer;
+    hdr->start_frame = 0xA5;
+    hdr->data_length = sizeof(ref_delete_graphic_t);
+    hdr->cmd_id = 0x0301;
+
+    ref_delete_graphic_t *del = (ref_delete_graphic_t *)(tx_buffer + sizeof(ref_frame_header_t));
+    del->cmd_ID             = 0x0100;
+    del->send_ID            = Referee_System_Info.robot_status.robot_id;
+    del->receiver_ID        = g_client_id;
+    del->graphic_operation  = 1;  /* delete layer */
+    del->graphic_layer      = layer;
+
+    ref_send(tx_buffer, sizeof(ref_frame_header_t) + sizeof(ref_delete_graphic_t));
+}
+
+/* ============================================================================
+ * COORDINATE LAYOUT
+ * ============================================================================ */
+static void set_top_coordinates(void)
+{
+    /* 4 elements: SPIN | GEAR | AIM | CAP */
+    spin_coords     = CENTER_X - (uint32_t)(TOP_GAP * 1.5f);
+    gear_coords     = CENTER_X - (TOP_GAP / 2);
+    aimbot_coords   = CENTER_X + (TOP_GAP / 2);
+    supercap_coords = CENTER_X + (uint32_t)(TOP_GAP * 1.5f);
+}
+
+/* ============================================================================
+ * CHAR-DRAWING HELPER (one text graphic per call)
+ * ============================================================================ */
+static void send_char_graphic(const char *text, uint8_t name_a, uint8_t name_b, uint8_t name_c,
+                              uint8_t layer, uint8_t color, uint8_t font_size, uint8_t width,
+                              uint32_t x, uint32_t y, uint8_t op)
+{
+    uint8_t tx_buffer[128];
+    char    char_buffer[30];
     
-	float chassis_dir = DM_Yaw_Motor.Data.Angle * 57.2958f;
-	graphic_data->graphic_type = GRAPHIC_TYPE_ARC;
-	if (chassis_dir < 0) {
-		graphic_data->details_a = 360 + chassis_dir + BORDER_GAP_SIZE;
-		graphic_data->details_b = 360 + chassis_dir - BORDER_GAP_SIZE;
-	} else {
-		graphic_data->details_a = chassis_dir + BORDER_GAP_SIZE; 
-		graphic_data->details_b = chassis_dir - BORDER_GAP_SIZE; 
-	}
+    memset(tx_buffer, 0, sizeof(tx_buffer));
+    memset(char_buffer, 0, sizeof(char_buffer));
 
-	graphic_data->width = 7; 
-	graphic_data->start_x = x_coords;
-	graphic_data->start_y = TOP_Y_POS;
-	graphic_data->details_d = 50; 
-	graphic_data->details_e = 50; 
+    uint8_t char_len = (uint8_t)snprintf(char_buffer, 30, "%s", text);
 
-	return sizeof(graphic_data_struct_t);
+    uint16_t pos = build_char_header(tx_buffer);
+
+    graphic_data_struct_t *g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, name_a, name_b, name_c);
+    g->layer          = layer;
+    g->color          = color;
+    g->operation_type = op;
+    g->graphic_type   = GRAPHIC_TYPE_CHAR;
+    g->details_a      = font_size;
+    g->details_b      = char_len;
+    g->width          = width;
+    g->start_x        = x;
+    g->start_y        = y;
+    pos += sizeof(graphic_data_struct_t);
+
+    memcpy(tx_buffer + pos, char_buffer, 30);
+    pos += 30;
+
+    ref_send(tx_buffer, pos);
 }
 
-uint16_t draw_bullet_bar(uint8_t* tx_buffer, uint8_t modify){
-	uint16_t curr_pos = 0;
+/* ============================================================================
+ * TOP BAR: SPIN / GEAR / AIM / CAP TEXT
+ * ============================================================================ */
+static void draw_spin_text(uint8_t op)
+{
+    uint32_t x = spin_coords - CHAR_X_OFFSET * (is_rotating ? 2 : 3);
+    send_char_graphic(is_rotating ? "ON" : "OFF",
+                      'C', 'H', 'A', 0,
+                      is_rotating ? GRAPHIC_COLOUR_GREEN : GRAPHIC_COLOUR_ORANGE,
+                      FONT_SIZE, CHAR_WIDTH,
+                      x, TOP_Y_POS + CHAR_Y_OFFSET, op);
+}
+
+static void draw_gear_text(uint8_t op)
+{
+    char buf[16];
+    snprintf(buf, sizeof(buf), "GEAR %d", gear_speed_curr_gear);
+    uint8_t len = (uint8_t)strlen(buf);
+    send_char_graphic(buf, 'G', 'E', 'A', 5, GRAPHIC_COLOUR_CYAN,
+                      FONT_SIZE, CHAR_WIDTH,
+                      gear_coords - CHAR_X_OFFSET * len,
+                      TOP_Y_POS + CHAR_Y_OFFSET, op);
+}
+
+static void draw_aim_text(uint8_t op)
+{
+    const char *txt = aimbot_mode ? "AIM ON" : "AIM OFF";
+    uint8_t len = (uint8_t)strlen(txt);
+    send_char_graphic(txt, 'A', 'I', 'M', 4,
+                      aimbot_mode ? GRAPHIC_COLOUR_GREEN : GRAPHIC_COLOUR_ORANGE,
+                      FONT_SIZE, CHAR_WIDTH,
+                      aimbot_coords - CHAR_X_OFFSET * len,
+                      TOP_Y_POS + CHAR_Y_OFFSET, op);
+}
+
+static void draw_supercap_text(uint8_t op)
+{
+    const char *txt = supercap_dash ? "CAP ON" : "CAP OFF";
+    uint8_t len = (uint8_t)strlen(txt);
+    send_char_graphic(txt, 'C', 'A', 'P', 4,
+                      supercap_dash ? GRAPHIC_COLOUR_GREEN : GRAPHIC_COLOUR_ORANGE,
+                      FONT_SIZE, CHAR_WIDTH,
+                      supercap_coords - CHAR_X_OFFSET * len,
+                      TOP_Y_POS + CHAR_Y_OFFSET, op);
+}
+
+/* ============================================================================
+ * DYNAMIC: SPIN BORDER ARC + SUPERCAP ARC + CURRENT PITCH + BULLET BAR
+ * (all packed into one multi-graphic packet)
+ * ============================================================================ */
+static void fill_spin_border(graphic_data_struct_t *g, uint8_t op)
+{
+    set_name(g, 'B', 'O', 'R');
+    g->layer          = 2;
+    g->color          = is_rotating ? GRAPHIC_COLOUR_GREEN : GRAPHIC_COLOUR_ORANGE;
+    g->operation_type = op;
+    g->graphic_type   = GRAPHIC_TYPE_ARC;
+
+    float chassis_dir = DM_Yaw_Motor.Data.Angle * 57.2958f;
+    int   base = (chassis_dir < 0) ? (int)(360 + chassis_dir) : (int)chassis_dir;
+    g->details_a = base + BORDER_GAP_SIZE;
+    g->details_b = base - BORDER_GAP_SIZE;
+
+    g->width     = 7;
+    g->start_x   = spin_coords;
+    g->start_y   = TOP_Y_POS;
+    g->details_d = 50;
+    g->details_e = 50;
+}
+
+static void fill_supercap_arc(graphic_data_struct_t *g, uint8_t op)
+{
+    set_name(g, 'S', 'U', 'P');
+    g->layer          = 3;
+    g->color          = (charging_state > SUPERCAP_ENABLE_THRESHOLD)
+                        ? GRAPHIC_COLOUR_GREEN : GRAPHIC_COLOUR_ORANGE;
+    g->operation_type = op;
+    g->graphic_type   = GRAPHIC_TYPE_ARC;
+    g->details_a      = 270;
+
+    int   range  = 100 - SUPERCAP_DISABLE_THRESHOLD;
+    float mapped = fmaxf(0.0f, fminf(1.0f,
+                       (float)(charging_state - SUPERCAP_DISABLE_THRESHOLD) / (float)range));
+    int   level  = (int)fmaxf(1.0f, mapped * ANGLE_LIMIT);
+    g->details_b = 270 + level;
+
+    g->width     = 30;
+    g->start_x   = CENTER_X;
+    g->start_y   = CENTER_Y;
+    g->details_d = RADIAL_DIAMETER;
+    g->details_e = RADIAL_DIAMETER;
+}
+
+static void fill_curr_pitch(graphic_data_struct_t *g, uint8_t op)
+{
+    set_name(g, 'P', 'I', 'T');
+    g->layer          = 1;
+    g->color          = PITCH_ANG_COLOUR;
+    g->operation_type = op;
+    g->graphic_type   = GRAPHIC_TYPE_LINE;
+    g->width          = PITCH_ANG_WIDTH;
+
+    float curr_ang = -PITCH_INVERT * INS_Info.Roll_Angle * (ANGLE_LIMIT / 120.0f);
+    uint32_t xpos = CENTER_X + (int)(RADIAL_DIAMETER * cosf(curr_ang * 0.0174533f));
+    uint32_t ypos = CENTER_Y + (int)(RADIAL_DIAMETER * sinf(curr_ang * 0.0174533f));
+
+    g->start_x   = xpos - MAJOR_TICK_LENGTH / 2;
+    g->start_y   = ypos;
+    g->details_d = xpos + MAJOR_TICK_LENGTH / 2;
+    g->details_e = ypos;
+}
+
+static void fill_bullet_bar_border(graphic_data_struct_t *g, uint8_t op)
+{
+    set_name(g, 'B', 'B', 'O');
+    g->layer          = 3;
+    g->color          = GRAPHIC_COLOUR_WHITE;
+    g->operation_type = op;
+    g->graphic_type   = GRAPHIC_TYPE_RECTANGLE;
+    g->width          = 3;
+    g->start_x        = 1890 - 15;
+    g->start_y        = 350;
+    g->details_d      = 1890 + 15;
+    g->details_e      = 350 + 350;
+}
+
+static void fill_bullet_bar_level(graphic_data_struct_t *g, uint8_t op)
+{
     uint16_t bullets = Referee_System_Info.projectile_allowance.projectile_allowance_17mm;
-    uint32_t max_bullets = 500;
-    uint32_t max_h = 350; 
-    uint32_t bar_x_base = 1890;
+    if (bullets > 500) bullets = 500;
+    uint32_t bar_h = (bullets * 350) / 500;
 
-    if (bullets > max_bullets) bullets = max_bullets; 
-
-    uint32_t bar_height = (bullets * max_h) / max_bullets;
     uint8_t color = GRAPHIC_COLOUR_GREEN;
-    if (bullets < 50) color = GRAPHIC_COLOUR_PURPLISH_RED;
+    if      (bullets < 50)  color = GRAPHIC_COLOUR_PURPLISH_RED;
     else if (bullets < 150) color = GRAPHIC_COLOUR_YELLOW;
 
-	graphic_data_struct_t* graphic_data = (graphic_data_struct_t *)(tx_buffer);
-	graphic_data->graphic_name[0] = 'B';
-	graphic_data->graphic_name[1] = 'B';
-	graphic_data->graphic_name[2] = 'O'; 
-	graphic_data->layer = 3;
-	graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-	graphic_data->graphic_type = GRAPHIC_TYPE_RECTANGLE;
-	graphic_data->color = GRAPHIC_COLOUR_WHITE;
-	graphic_data->width = 3; // Thicker border
-	graphic_data->start_x = bar_x_base - 15;
-	graphic_data->start_y = 350;
-	graphic_data->details_d = bar_x_base + 15;
-	graphic_data->details_e = 350 + max_h;
-	curr_pos += sizeof(graphic_data_struct_t);
-    
-    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-	graphic_data->graphic_name[0] = 'B';
-	graphic_data->graphic_name[1] = 'B';
-	graphic_data->graphic_name[2] = 'L'; 
-	graphic_data->layer = 3;
-	graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-	graphic_data->graphic_type = GRAPHIC_TYPE_LINE; 
-	graphic_data->color = color;
-	graphic_data->width = 20; // Thicker bar
-	graphic_data->start_x = bar_x_base;
-	graphic_data->start_y = 351;
-	graphic_data->details_d = bar_x_base;
-	graphic_data->details_e = 351 + bar_height;
-	curr_pos += sizeof(graphic_data_struct_t);
-    
-
-	return curr_pos;
+    set_name(g, 'B', 'B', 'L');
+    g->layer          = 3;
+    g->color          = color;
+    g->operation_type = op;
+    g->graphic_type   = GRAPHIC_TYPE_LINE;
+    g->width          = 20;
+    g->start_x        = 1890;
+    g->start_y        = 351;
+    g->details_d      = 1890;
+    g->details_e      = 351 + bar_h;
 }
 
-void draw_aimbot(uint8_t modify, uint32_t x_coords) {
-	uint8_t tx_buffer[256];
-	uint8_t curr_pos = 0;
-	uint8_t char_len = 0;
-	char char_buffer[30];
-	memset(char_buffer, 0, 30);
-	graphic_data_struct_t* graphic_data;
-    
-    // CORREZIONE: Ora mostra l'effettivo stato dell'aimbot, non quello del supercap
-	char_len = aimbot_mode ?
-			snprintf((char*) char_buffer, 30, "AIM ON") :
-			snprintf((char*) char_buffer, 30, "AIM OFF");
-	curr_pos = draw_char_header(tx_buffer, char_len);
-	graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-	graphic_data->color = aimbot_mode ? GRAPHIC_COLOUR_GREEN : GRAPHIC_COLOUR_ORANGE;
-
-	graphic_data->graphic_name[0] = 'A';
-	graphic_data->graphic_name[1] = 'I';
-	graphic_data->graphic_name[2] = 'M';
-	graphic_data->layer = 4;
-	graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-	graphic_data->graphic_type = GRAPHIC_TYPE_CHAR; 
-	graphic_data->details_a = FONT_SIZE; 
-	graphic_data->details_b = char_len; 
-	graphic_data->width = CHAR_WIDTH; 
-	graphic_data->start_x = x_coords - CHAR_X_OFFSET * char_len;
-	graphic_data->start_y = TOP_Y_POS + CHAR_Y_OFFSET;
-
-	curr_pos += sizeof(graphic_data_struct_t);
-	memcpy(tx_buffer + curr_pos, char_buffer, 30);
-	curr_pos += 30;
-
-	ref_send(tx_buffer, curr_pos);
-	osDelay(REF_DELAY);
-}
-
-// CORREZIONE: Nuova funzione aggiunta per splittare la logica supercap testo da aimbot testo
-void draw_supercap_text(uint8_t modify, uint32_t x_coords) {
+static void draw_dynamic(uint8_t op)
+{
     uint8_t tx_buffer[256];
-    uint8_t curr_pos = 0;
-    uint8_t char_len = 0;
-    char char_buffer[30];
-    memset(char_buffer, 0, 30);
-    graphic_data_struct_t* graphic_data;
+    memset(tx_buffer, 0, sizeof(tx_buffer));
+    
+    uint16_t pos = build_graphic_header(tx_buffer, 5);
+    if (pos == 0) return;
 
-    char_len = supercap_dash ?
-            snprintf((char*) char_buffer, 30, "CAP ON") :
-            snprintf((char*) char_buffer, 30, "CAP OFF");
-    curr_pos = draw_char_header(tx_buffer, char_len);
-    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-    graphic_data->color = supercap_dash ? GRAPHIC_COLOUR_GREEN : GRAPHIC_COLOUR_ORANGE;
+    fill_spin_border       ((graphic_data_struct_t *)(tx_buffer + pos), op); pos += sizeof(graphic_data_struct_t);
+    fill_supercap_arc      ((graphic_data_struct_t *)(tx_buffer + pos), op); pos += sizeof(graphic_data_struct_t);
+    fill_curr_pitch        ((graphic_data_struct_t *)(tx_buffer + pos), op); pos += sizeof(graphic_data_struct_t);
+    fill_bullet_bar_border ((graphic_data_struct_t *)(tx_buffer + pos), op); pos += sizeof(graphic_data_struct_t);
+    fill_bullet_bar_level  ((graphic_data_struct_t *)(tx_buffer + pos), op); pos += sizeof(graphic_data_struct_t);
 
-    graphic_data->graphic_name[0] = 'C';
-    graphic_data->graphic_name[1] = 'A';
-    graphic_data->graphic_name[2] = 'P';
-    graphic_data->layer = 4;
-    graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-    graphic_data->graphic_type = GRAPHIC_TYPE_CHAR;
-    graphic_data->details_a = FONT_SIZE;
-    graphic_data->details_b = char_len;
-    graphic_data->width = CHAR_WIDTH;
-    graphic_data->start_x = x_coords - CHAR_X_OFFSET * char_len;
-    graphic_data->start_y = TOP_Y_POS + CHAR_Y_OFFSET;
-
-    curr_pos += sizeof(graphic_data_struct_t);
-    memcpy(tx_buffer + curr_pos, char_buffer, 30);
-    curr_pos += 30;
-
-    ref_send(tx_buffer, curr_pos);
-    osDelay(REF_DELAY);
+    ref_send(tx_buffer, pos);
 }
 
-void draw_gearing(uint8_t modify, uint32_t x_coords) {
-	uint8_t tx_buffer[256];
-	uint8_t curr_pos = 0;
-	uint8_t char_len = 0;
-	char char_buffer[30];
-	memset(char_buffer, 0, 30);
+/* ============================================================================
+ * CROSSHAIR (static, sent once on connect)
+ * ============================================================================ */
+static void draw_crosshair(uint8_t op)
+{
+    uint8_t  tx_buffer[256];
+    uint16_t pos;
+    graphic_data_struct_t *g;
 
-	char_len = snprintf((char*) char_buffer, 30, "GEAR %d", gear_speed_curr_gear);
-	curr_pos = draw_char_header(tx_buffer, char_len);
+    /* --- Packet 1: framework (5 graphics) --- */
+    memset(tx_buffer, 0, sizeof(tx_buffer));
+    pos = build_graphic_header(tx_buffer, 5);
+    if (pos == 0) return;
 
-	graphic_data_struct_t* graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-	graphic_data->color = GRAPHIC_COLOUR_CYAN;
-	graphic_data->graphic_name[0] = 'G';
-	graphic_data->graphic_name[1] = 'E';
-	graphic_data->graphic_name[2] = 'A';
-	graphic_data->layer = 5;
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'W', 'L', 'B'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 5;
+    g->start_x = CENTER_X - 180; g->start_y = CENTER_Y - 30;
+    g->details_d = CENTER_X - 180; g->details_e = CENTER_Y + 30;
+    pos += sizeof(graphic_data_struct_t);
 
-	graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-	graphic_data->graphic_type = GRAPHIC_TYPE_CHAR; 
-	graphic_data->details_a = FONT_SIZE; 
-	graphic_data->details_b = char_len; 
-	graphic_data->width = CHAR_WIDTH; 
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'W', 'R', 'B'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 5;
+    g->start_x = CENTER_X + 180; g->start_y = CENTER_Y - 30;
+    g->details_d = CENTER_X + 180; g->details_e = CENTER_Y + 30;
+    pos += sizeof(graphic_data_struct_t);
 
-	graphic_data->start_x = x_coords - CHAR_X_OFFSET * char_len;
-	graphic_data->start_y = TOP_Y_POS + CHAR_Y_OFFSET;
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'H', 'O', 'R'); g->layer = 0; g->color = CROSSHAIR_COLOR;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 4;
+    g->start_x = CENTER_X - 160; g->start_y = CENTER_Y;
+    g->details_d = CENTER_X + 160; g->details_e = CENTER_Y;
+    pos += sizeof(graphic_data_struct_t);
 
-	curr_pos += sizeof(graphic_data_struct_t);
-	memcpy(tx_buffer + curr_pos, char_buffer, 30);
-	curr_pos += 30;
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'V', 'E', 'T'); g->layer = 0; g->color = CROSSHAIR_COLOR;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 4;
+    g->start_x = CENTER_X; g->start_y = CENTER_Y + 40;
+    g->details_d = CENTER_X; g->details_e = CENTER_Y + 140;
+    pos += sizeof(graphic_data_struct_t);
 
-	ref_send(tx_buffer, curr_pos);
-	osDelay(REF_DELAY);
-}
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'D', 'I', 'A'); g->layer = 0; g->color = GRAPHIC_COLOUR_ORANGE;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_RECTANGLE; g->width = 3;
+    g->start_x = CENTER_X - 6; g->start_y = CENTER_Y - 6;
+    g->details_d = CENTER_X + 6; g->details_e = CENTER_Y + 6;
+    pos += sizeof(graphic_data_struct_t);
 
-void draw_crosshair(uint8_t modify) {
-    uint8_t tx_buffer[256];
-    uint32_t curr_pos = 0;
-    graphic_data_struct_t* graphic_data;
+    ref_send(tx_buffer, pos);
 
-    // --- PACKET 1: Main Framework (5 Graphics) ---
-    curr_pos = draw_graphic_header(tx_buffer, 5);
-    
-    // Left Wing Bracket (Thick)
-    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-    graphic_data->graphic_name[0] = 'W'; graphic_data->graphic_name[1] = 'L'; graphic_data->graphic_name[2] = 'B';
-    graphic_data->layer = 0;
-    graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-    graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
-    graphic_data->color = GRAPHIC_COLOUR_CYAN;
-    graphic_data->width = 5;
-    graphic_data->start_x = CENTER_X - 180; graphic_data->start_y = CENTER_Y - 30;
-    graphic_data->details_d = CENTER_X - 180; graphic_data->details_e = CENTER_Y + 30;
-    curr_pos += sizeof(graphic_data_struct_t);
+    /* --- Packet 2: tracks + corner brackets (5 graphics) --- */
+    memset(tx_buffer, 0, sizeof(tx_buffer));
+    pos = build_graphic_header(tx_buffer, 5);
+    if (pos == 0) return;
 
-    // Right Wing Bracket (Thick)
-    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-    graphic_data->graphic_name[0] = 'W'; graphic_data->graphic_name[1] = 'R'; graphic_data->graphic_name[2] = 'B';
-    graphic_data->layer = 0;
-    graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-    graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
-    graphic_data->color = GRAPHIC_COLOUR_CYAN;
-    graphic_data->width = 5;
-    graphic_data->start_x = CENTER_X + 180; graphic_data->start_y = CENTER_Y - 30;
-    graphic_data->details_d = CENTER_X + 180; graphic_data->details_e = CENTER_Y + 30;
-    curr_pos += sizeof(graphic_data_struct_t);
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'T', 'R', 'L'); g->layer = 0; g->color = GRAPHIC_COLOUR_GREEN;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 3;
+    g->start_x = CENTER_X - 40;  g->start_y = CENTER_Y - 80;
+    g->details_d = CENTER_X - 350; g->details_e = CENTER_Y - 540;
+    pos += sizeof(graphic_data_struct_t);
 
-    // Main Horizontal Axis (Thick)
-    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-    graphic_data->graphic_name[0] = 'H'; graphic_data->graphic_name[1] = 'O'; graphic_data->graphic_name[2] = 'R';
-    graphic_data->layer = 0;
-    graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-    graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
-    graphic_data->color = CROSSHAIR_COLOR;
-    graphic_data->width = 4;
-    graphic_data->start_x = CENTER_X - 160; graphic_data->start_y = CENTER_Y;
-    graphic_data->details_d = CENTER_X + 160; graphic_data->details_e = CENTER_Y;
-    curr_pos += sizeof(graphic_data_struct_t);
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'T', 'R', 'R'); g->layer = 0; g->color = GRAPHIC_COLOUR_GREEN;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 3;
+    g->start_x = CENTER_X + 40;  g->start_y = CENTER_Y - 80;
+    g->details_d = CENTER_X + 350; g->details_e = CENTER_Y - 540;
+    pos += sizeof(graphic_data_struct_t);
 
-    // Vertical Top Mast
-    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-    graphic_data->graphic_name[0] = 'V'; graphic_data->graphic_name[1] = 'E'; graphic_data->graphic_name[2] = 'T';
-    graphic_data->layer = 0;
-    graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-    graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
-    graphic_data->color = CROSSHAIR_COLOR;
-    graphic_data->width = 4;
-    graphic_data->start_x = CENTER_X; graphic_data->start_y = CENTER_Y + 40;
-    graphic_data->details_d = CENTER_X; graphic_data->details_e = CENTER_Y + 140;
-    curr_pos += sizeof(graphic_data_struct_t);
+    uint32_t cd = 110, cl = 35;
 
-    // Center Diamond
-    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-    graphic_data->graphic_name[0] = 'D'; graphic_data->graphic_name[1] = 'I'; graphic_data->graphic_name[2] = 'A';
-    graphic_data->layer = 0;
-    graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-    graphic_data->graphic_type = GRAPHIC_TYPE_RECTANGLE;
-    graphic_data->color = GRAPHIC_COLOUR_ORANGE;
-    graphic_data->width = 3;
-    graphic_data->start_x = CENTER_X - 6; graphic_data->start_y = CENTER_Y - 6;
-    graphic_data->details_d = CENTER_X + 6; graphic_data->details_e = CENTER_Y + 6;
-    curr_pos += sizeof(graphic_data_struct_t);
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'C', 'T', 'L'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 2;
+    g->start_x = CENTER_X - cd; g->start_y = CENTER_Y + cd;
+    g->details_d = CENTER_X - cd + cl; g->details_e = CENTER_Y + cd - cl;
+    pos += sizeof(graphic_data_struct_t);
 
-    ref_send(tx_buffer, curr_pos);
-    osDelay(REF_DELAY);
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'C', 'T', 'R'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 2;
+    g->start_x = CENTER_X + cd; g->start_y = CENTER_Y + cd;
+    g->details_d = CENTER_X + cd - cl; g->details_e = CENTER_Y + cd - cl;
+    pos += sizeof(graphic_data_struct_t);
 
-    // --- PACKET 2: Track Lines & Corner Brackets (7 Graphics) ---
-    curr_pos = draw_graphic_header(tx_buffer, 7);
-    
-    // Left Track (Converging perspective)
-    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-    graphic_data->graphic_name[0] = 'T'; graphic_data->graphic_name[1] = 'R'; graphic_data->graphic_name[2] = 'L';
-    graphic_data->layer = 0;
-    graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-    graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
-    graphic_data->color = GRAPHIC_COLOUR_GREEN;
-    graphic_data->width = 3;
-    graphic_data->start_x = CENTER_X - 40; graphic_data->start_y = CENTER_Y - 80; // Ends near center
-    graphic_data->details_d = CENTER_X - 350; graphic_data->details_e = CENTER_Y - 540; // Starts wide at bottom
-    curr_pos += sizeof(graphic_data_struct_t);
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'C', 'B', 'L'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 2;
+    g->start_x = CENTER_X - cd; g->start_y = CENTER_Y - cd;
+    g->details_d = CENTER_X - cd + cl; g->details_e = CENTER_Y - cd + cl;
+    pos += sizeof(graphic_data_struct_t);
 
-    // Right Track (Converging perspective)
-    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-    graphic_data->graphic_name[0] = 'T'; graphic_data->graphic_name[1] = 'R'; graphic_data->graphic_name[2] = 'R';
-    graphic_data->layer = 0;
-    graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-    graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
-    graphic_data->color = GRAPHIC_COLOUR_GREEN;
-    graphic_data->width = 3;
-    graphic_data->start_x = CENTER_X + 40; graphic_data->start_y = CENTER_Y - 80; // Ends near center
-    graphic_data->details_d = CENTER_X + 350; graphic_data->details_e = CENTER_Y - 540; // Starts wide at bottom
-    curr_pos += sizeof(graphic_data_struct_t);
+    ref_send(tx_buffer, pos);
 
-    // Bottom Perspective Bar
-    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-    graphic_data->graphic_name[0] = 'B'; graphic_data->graphic_name[1] = 'P'; graphic_data->graphic_name[2] = 'B';
-    graphic_data->layer = 0;
-    graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-    graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
-    graphic_data->color = GRAPHIC_COLOUR_GREEN;
-    graphic_data->width = 2;
-    graphic_data->start_x = CENTER_X - 130; graphic_data->start_y = CENTER_Y - 500;
-    graphic_data->details_d = CENTER_X + 130; graphic_data->details_e = CENTER_Y - 500;
-    curr_pos += sizeof(graphic_data_struct_t);
+    /* --- Packet 3: CBR + drop compensator ticks (5 graphics) --- */
+    memset(tx_buffer, 0, sizeof(tx_buffer));
+    pos = build_graphic_header(tx_buffer, 5);
+    if (pos == 0) return;
 
-    // Corner Brackets
-    uint32_t cd = 110; uint32_t cl = 35;
-    
-    // CTL
-    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-    graphic_data->graphic_name[0] = 'C'; graphic_data->graphic_name[1] = 'T'; graphic_data->graphic_name[2] = 'L';
-    graphic_data->layer = 0;
-    graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-    graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
-    graphic_data->color = GRAPHIC_COLOUR_CYAN;
-    graphic_data->width = 2;
-    graphic_data->start_x = CENTER_X - cd; graphic_data->start_y = CENTER_Y + cd;
-    graphic_data->details_d = CENTER_X - cd + cl; graphic_data->details_e = CENTER_Y + cd - cl;
-    curr_pos += sizeof(graphic_data_struct_t);
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'C', 'B', 'R'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 2;
+    g->start_x = CENTER_X + cd; g->start_y = CENTER_Y - cd;
+    g->details_d = CENTER_X + cd - cl; g->details_e = CENTER_Y - cd + cl;
+    pos += sizeof(graphic_data_struct_t);
 
-    // CTR
-    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-    graphic_data->graphic_name[0] = 'C'; graphic_data->graphic_name[1] = 'T'; graphic_data->graphic_name[2] = 'R';
-    graphic_data->layer = 0;
-    graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-    graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
-    graphic_data->color = GRAPHIC_COLOUR_CYAN;
-    graphic_data->width = 2;
-    graphic_data->start_x = CENTER_X + cd; graphic_data->start_y = CENTER_Y + cd;
-    graphic_data->details_d = CENTER_X + cd - cl; graphic_data->details_e = CENTER_Y + cd - cl;
-    curr_pos += sizeof(graphic_data_struct_t);
-
-    // CBL
-    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-    graphic_data->graphic_name[0] = 'C'; graphic_data->graphic_name[1] = 'B'; graphic_data->graphic_name[2] = 'L';
-    graphic_data->layer = 0;
-    graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-    graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
-    graphic_data->color = GRAPHIC_COLOUR_CYAN;
-    graphic_data->width = 2;
-    graphic_data->start_x = CENTER_X - cd; graphic_data->start_y = CENTER_Y - cd;
-    graphic_data->details_d = CENTER_X - cd + cl; graphic_data->details_e = CENTER_Y - cd + cl;
-    curr_pos += sizeof(graphic_data_struct_t);
-
-    // CBR
-    graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-    graphic_data->graphic_name[0] = 'C'; graphic_data->graphic_name[1] = 'B'; graphic_data->graphic_name[2] = 'R';
-    graphic_data->layer = 0;
-    graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-    graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
-    graphic_data->color = GRAPHIC_COLOUR_CYAN;
-    graphic_data->width = 2;
-    graphic_data->start_x = CENTER_X + cd; graphic_data->start_y = CENTER_Y - cd;
-    graphic_data->details_d = CENTER_X + cd - cl; graphic_data->details_e = CENTER_Y - cd + cl;
-    curr_pos += sizeof(graphic_data_struct_t);
-
-    ref_send(tx_buffer, curr_pos);
-    osDelay(REF_DELAY);
-
-    // --- PACKET 3: Drop Compensator Ticks (7 Graphics) ---
-    curr_pos = draw_graphic_header(tx_buffer, 7);
-    for (int i = 0; i < 7; i++) {
+    for (int i = 0; i < 4; i++) {
         int y_offset = (i + 1) * SCALE_TICK_STEP;
-        graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-        graphic_data->graphic_name[0] = 'T'; graphic_data->graphic_name[1] = 'K'; graphic_data->graphic_name[2] = 'A' + i;
-        graphic_data->layer = 0;
-        graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-        graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
-        graphic_data->color = CROSSHAIR_COLOR;
-        graphic_data->width = 1;
-        int tick_w = 10 + (i * 2);
-        graphic_data->start_x = CENTER_X - (tick_w / 2); graphic_data->start_y = CENTER_Y - y_offset; 
-        graphic_data->details_d = CENTER_X + (tick_w / 2); graphic_data->details_e = CENTER_Y - y_offset;
-        curr_pos += sizeof(graphic_data_struct_t);
+        int tick_w   = 10 + (i * 2);
+        g = (graphic_data_struct_t *)(tx_buffer + pos);
+        set_name(g, 'T', 'K', (uint8_t)('A' + i));
+        g->layer = 0; g->color = CROSSHAIR_COLOR;
+        g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 1;
+        g->start_x   = CENTER_X - (tick_w / 2); g->start_y = CENTER_Y - y_offset;
+        g->details_d = CENTER_X + (tick_w / 2); g->details_e = CENTER_Y - y_offset;
+        pos += sizeof(graphic_data_struct_t);
     }
-    ref_send(tx_buffer, curr_pos);
-    osDelay(REF_DELAY);
+    ref_send(tx_buffer, pos);
 }
 
-void draw_major_ticks(uint8_t modify) {
-	uint8_t tx_buffer[256];
-	uint32_t curr_pos = 0;
-	graphic_data_struct_t* graphic_data;
+/* ============================================================================
+ * PITCH SCALE (static)
+ * ============================================================================ */
+static void draw_pitch_ticks(uint8_t op)
+{
+    uint8_t  tx_buffer[256];
+    uint16_t pos;
+    graphic_data_struct_t *g;
 
-	curr_pos = draw_graphic_header(tx_buffer, 5);
+    /* Major ticks (5) */
+    memset(tx_buffer, 0, sizeof(tx_buffer));
+    pos = build_graphic_header(tx_buffer, 5);
+    if (pos == 0) return;
+    float angles_maj[5] = { ANGLE_LIMIT, ANGLE_LIMIT/2.0f, 0.0f, -ANGLE_LIMIT/2.0f, -ANGLE_LIMIT };
+    for (int i = 0; i < 5; i++) {
+        float a = angles_maj[i] * 0.0174533f;
+        uint32_t x = CENTER_X + (int)(RADIAL_DIAMETER * cosf(a));
+        uint32_t y = CENTER_Y + (int)(RADIAL_DIAMETER * sinf(a));
+        g = (graphic_data_struct_t *)(tx_buffer + pos);
+        set_name(g, 'M', 'A', (uint8_t)(i + 1));
+        g->layer = 1; g->color = TICK_COLOUR;
+        g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE;
+        g->width = MAJOR_TICK_WIDTH;
+        g->start_x = x - MAJOR_TICK_LENGTH/2; g->start_y = y;
+        g->details_d = x + MAJOR_TICK_LENGTH/2; g->details_e = y;
+        pos += sizeof(graphic_data_struct_t);
+    }
+    ref_send(tx_buffer, pos);
 
-	uint32_t xpos[5] = {
-			HUD_MAX_X/2 + (int)(RADIAL_DIAMETER*cos(ANGLE_LIMIT * 0.0174533)),
-			HUD_MAX_X/2 + (int)(RADIAL_DIAMETER*cos(ANGLE_LIMIT/2 * 0.0174533)),
-			HUD_MAX_X/2 + RADIAL_DIAMETER,
-			HUD_MAX_X/2 + (int)(RADIAL_DIAMETER*cos(-ANGLE_LIMIT/2 * 0.0174533)),
-			HUD_MAX_X/2 + (int)(RADIAL_DIAMETER*cos(-ANGLE_LIMIT * 0.0174533))
-	};
-	uint32_t ypos[5] = {
-			HUD_MAX_Y/2 + (int)(RADIAL_DIAMETER*sin(ANGLE_LIMIT * 0.0174533)),
-			HUD_MAX_Y/2 + (int)(RADIAL_DIAMETER*sin(ANGLE_LIMIT/2 * 0.0174533)),
-			HUD_MAX_Y/2,
-			HUD_MAX_Y/2 + (int)(RADIAL_DIAMETER*sin(-ANGLE_LIMIT/2 * 0.0174533)),
-			HUD_MAX_Y/2 + (int)(RADIAL_DIAMETER*sin(-ANGLE_LIMIT * 0.0174533))
-	};
+    /* Minor ticks (5 graphics) */
+    memset(tx_buffer, 0, sizeof(tx_buffer));
+    pos = build_graphic_header(tx_buffer, 5);
+    if (pos == 0) return;
+    float gap = ANGLE_LIMIT / 4.0f;
+    float angles_min[5] = { gap * 3.0f, gap, 0.0f, -gap, -gap * 3.0f };
+    for (int i = 0; i < 5; i++) {
+        float a = angles_min[i] * 0.0174533f;
+        uint32_t x = CENTER_X + (int)(RADIAL_DIAMETER * cosf(a));
+        uint32_t y = CENTER_Y + (int)(RADIAL_DIAMETER * sinf(a));
+        g = (graphic_data_struct_t *)(tx_buffer + pos);
+        set_name(g, 'M', 'I', (uint8_t)(i + 1));
+        g->layer = 1; g->color = TICK_COLOUR;
+        g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE;
+        g->width = MINOR_TICK_WIDTH;
+        g->start_x = x - MINOR_TICK_LENGTH/2; g->start_y = y;
+        g->details_d = x + MINOR_TICK_LENGTH/2; g->details_e = y;
+        pos += sizeof(graphic_data_struct_t);
+    }
+    ref_send(tx_buffer, pos);
 
-	for (int i = 0; i < 5; i++) {
-		graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-		graphic_data->graphic_name[0] = 'M';
-		graphic_data->graphic_name[1] = 'A';
-		graphic_data->graphic_name[2] = i + 1;
-		graphic_data->layer = 1;
-		graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-		graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
-		graphic_data->color = TICK_COLOUR;
-		graphic_data->width = MAJOR_TICK_WIDTH;
-		graphic_data->start_x = xpos[i] - MAJOR_TICK_LENGTH/2;
-		graphic_data->start_y = ypos[i];
-		graphic_data->details_d = xpos[i] + MAJOR_TICK_LENGTH/2;
-		graphic_data->details_e = ypos[i];
-		curr_pos += sizeof(graphic_data_struct_t);
-	}
-
-	ref_send(tx_buffer, curr_pos);
-	osDelay(REF_DELAY);
+    /* Pitch labels (one CHAR per send, 5 total) */
+    int tick_num = 2;
+    for (int i = 0; i < 5; i++) {
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%d", tick_num * TICK_INTERVALS * 2);
+        tick_num--;
+        float a = angles_maj[i] * 0.0174533f;
+        uint32_t x = CENTER_X + (int)(RADIAL_DIAMETER * cosf(a));
+        uint32_t y = CENTER_Y + (int)(RADIAL_DIAMETER * sinf(a));
+        send_char_graphic(buf, 'L', 'A', (uint8_t)(i + 1), 1, TICK_COLOUR,
+                          FONT_SIZE_SMALL, CHAR_WIDTH_SMALL,
+                          x + PITCH_LABEL_DIST, y + CHAR_Y_OFFSET, op);
+    }
 }
 
-void draw_minor_ticks(uint8_t modify) {
-	uint8_t tx_buffer[256];
-	uint32_t curr_pos = 0;
-	graphic_data_struct_t* graphic_data;
+static void draw_pitch_limits(uint8_t op)
+{
+    uint8_t  tx_buffer[128];
+    uint16_t pos;
+    graphic_data_struct_t *g;
+    
+    memset(tx_buffer, 0, sizeof(tx_buffer));
 
-	curr_pos = draw_graphic_header(tx_buffer, 5);
+    float graphic_edge = TICK_INTERVALS * 4 * 0.0174533f;
+    float max_ang = -PITCH_INVERT * INS_Info.Roll_Angle * ANGLE_LIMIT / graphic_edge;
+    float min_ang = -PITCH_INVERT * -INS_Info.Roll_Angle * ANGLE_LIMIT / graphic_edge;
+    float angs[2] = { max_ang, min_ang };
 
-	float gap = ANGLE_LIMIT / 4;
-	uint32_t xpos[4] = {
-			HUD_MAX_X/2 + (int)(RADIAL_DIAMETER*cos(gap * 3 * 0.0174533)),
-			HUD_MAX_X/2 + (int)(RADIAL_DIAMETER*cos(gap * 0.0174533)),
-			HUD_MAX_X/2 + (int)(RADIAL_DIAMETER*cos(-gap * 0.0174533)),
-			HUD_MAX_X/2 + (int)(RADIAL_DIAMETER*cos(-gap * 3 * 0.0174533))
-	};
-	uint32_t ypos[4] = {
-			HUD_MAX_Y/2 + (int)(RADIAL_DIAMETER*sin(gap * 3 * 0.0174533)),
-			HUD_MAX_Y/2 + (int)(RADIAL_DIAMETER*sin(gap * 0.0174533)),
-			HUD_MAX_Y/2 + (int)(RADIAL_DIAMETER*sin(-gap * 0.0174533)),
-			HUD_MAX_Y/2 + (int)(RADIAL_DIAMETER*sin(-gap * 3 * 0.0174533))
-	};
-
-	for (int i = 0; i < 4; i++) {
-		graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-		graphic_data->graphic_name[0] = 'M';
-		graphic_data->graphic_name[1] = 'I';
-		graphic_data->graphic_name[2] = i + 1;
-		graphic_data->layer = 1;
-		graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-		graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
-		graphic_data->color = TICK_COLOUR;
-		graphic_data->width = MINOR_TICK_WIDTH;
-		graphic_data->start_x = xpos[i] - MINOR_TICK_LENGTH/2;
-		graphic_data->start_y = ypos[i];
-		graphic_data->details_d = xpos[i] + MINOR_TICK_LENGTH/2;
-		graphic_data->details_e = ypos[i];
-		curr_pos += sizeof(graphic_data_struct_t);
-	}
-	curr_pos += draw_empty(tx_buffer + curr_pos);
-
-	ref_send(tx_buffer, curr_pos);
-	osDelay(REF_DELAY);
+    pos = build_graphic_header(tx_buffer, 2);
+    if (pos == 0) return;
+    for (int i = 0; i < 2; i++) {
+        float a = angs[i] * 0.0174533f;
+        uint32_t x = CENTER_X + (int)(RADIAL_DIAMETER * cosf(a));
+        uint32_t y = CENTER_Y + (int)(RADIAL_DIAMETER * sinf(a));
+        g = (graphic_data_struct_t *)(tx_buffer + pos);
+        set_name(g, 'L', 'I', (uint8_t)(i + 1));
+        g->layer = 1; g->color = PITCH_BOUNDARY_COLOUR;
+        g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE;
+        g->width = PITCH_BOUNDARY_WIDTH;
+        g->start_x = x - MAJOR_TICK_LENGTH/2; g->start_y = y;
+        g->details_d = x + MAJOR_TICK_LENGTH/2; g->details_e = y;
+        pos += sizeof(graphic_data_struct_t);
+    }
+    ref_send(tx_buffer, pos);
 }
 
-void draw_pitch_labels(uint8_t modify) {
-	uint8_t tx_buffer[256];
-	uint32_t curr_pos = 0;
-	graphic_data_struct_t* graphic_data;
-	uint8_t char_len = 0;
-	char char_buffer[30];
-	memset(char_buffer, 0, 30);
-	int curr_tick_num = 2;
-
-	uint32_t xpos[5] = {
-			HUD_MAX_X/2 + (int)(RADIAL_DIAMETER*cos(ANGLE_LIMIT * 0.0174533)),
-			HUD_MAX_X/2 + (int)(RADIAL_DIAMETER*cos(ANGLE_LIMIT/2 * 0.0174533)),
-			HUD_MAX_X/2 + RADIAL_DIAMETER,
-			HUD_MAX_X/2 + (int)(RADIAL_DIAMETER*cos(-ANGLE_LIMIT/2 * 0.0174533)),
-			HUD_MAX_X/2 + (int)(RADIAL_DIAMETER*cos(-ANGLE_LIMIT * 0.0174533))
-	};
-	uint32_t ypos[5] = {
-			HUD_MAX_Y/2 + (int)(RADIAL_DIAMETER*sin(ANGLE_LIMIT * 0.0174533)),
-			HUD_MAX_Y/2 + (int)(RADIAL_DIAMETER*sin(ANGLE_LIMIT/2 * 0.0174533)),
-			HUD_MAX_Y/2,
-			HUD_MAX_Y/2 + (int)(RADIAL_DIAMETER*sin(-ANGLE_LIMIT/2 * 0.0174533)),
-			HUD_MAX_Y/2 + (int)(RADIAL_DIAMETER*sin(-ANGLE_LIMIT * 0.0174533))
-	};
-
-	for (int i = 0; i < 5; i++) {
-		curr_pos = 0;
-		char_len = snprintf((char*) char_buffer, 30, "%d", curr_tick_num * TICK_INTERVALS * 2);
-		curr_tick_num--;
-		curr_pos = draw_char_header(tx_buffer, char_len);
-
-		graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-		graphic_data->graphic_name[0] = 'L';
-		graphic_data->graphic_name[1] = 'A';
-		graphic_data->graphic_name[2] =  i + 1;
-		graphic_data->layer = 1;
-		graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-		graphic_data->graphic_type = GRAPHIC_TYPE_CHAR;
-		graphic_data->color = TICK_COLOUR;
-		graphic_data->width = CHAR_WIDTH_SMALL;
-		graphic_data->start_x = xpos[i] + PITCH_LABEL_DIST;
-		graphic_data->start_y = ypos[i] + CHAR_Y_OFFSET;
-		graphic_data->details_a = FONT_SIZE_SMALL;
-		graphic_data->details_b = char_len; 
-		curr_pos += sizeof(graphic_data_struct_t);
-
-		memcpy(tx_buffer + curr_pos, char_buffer, 30);
-		curr_pos += 30;
-
-		ref_send(tx_buffer, curr_pos);
-		osDelay(REF_DELAY);
-	}
+/* ============================================================================
+ * ALARMS: SPIN WARNING, MOTOR FAULT, FEEDER STATE
+ * ============================================================================ */
+static void draw_spin_warning_op(uint8_t op)
+{
+    send_char_graphic("RUOTAAA!", 'W', 'R', 'N', 9, GRAPHIC_COLOUR_PURPLISH_RED,
+                      60, 5,
+                      CENTER_X - (25 * 8),
+                      CENTER_Y + 180, op);
 }
 
-void draw_pitch_limits(uint8_t modify) {
-	uint8_t tx_buffer[256];
-	uint32_t curr_pos = 0;
-	graphic_data_struct_t* graphic_data;
+static void update_spin_warning(void)
+{
+    int current = !is_rotating;
+    if (current == prev_spin_warning) return;
 
-	float max_ang_pos = -PITCH_INVERT * INS_Info.Roll_Angle * ANGLE_LIMIT / graphic_edge;
-	float min_ang_pos = -PITCH_INVERT * -INS_Info.Roll_Angle * ANGLE_LIMIT / graphic_edge;
+    if (current)  draw_spin_warning_op(GRAPHIC_ADD);
+    else          draw_spin_warning_op(GRAPHIC_DELETE);
 
-	uint32_t xpos[2] = {
-			HUD_MAX_X/2 + (int)(RADIAL_DIAMETER*cos(max_ang_pos * 0.0174533)),
-			HUD_MAX_X/2 + (int)(RADIAL_DIAMETER*cos(min_ang_pos * 0.0174533))
-	};
-	uint32_t ypos[2] = {
-			HUD_MAX_Y/2 + (int)(RADIAL_DIAMETER*sin(max_ang_pos * 0.0174533)),
-			HUD_MAX_Y/2 + (int)(RADIAL_DIAMETER*sin(min_ang_pos * 0.0174533))
-	};
-
-	curr_pos = draw_graphic_header(tx_buffer, 2);
-
-	for (int i = 0; i < 2; i++) {
-		graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-		graphic_data->graphic_name[0] = 'L';
-		graphic_data->graphic_name[1] = 'I';
-		graphic_data->graphic_name[2] = i + 1;
-		graphic_data->layer = 1;
-		graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-		graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
-		graphic_data->color = PITCH_BOUNDARY_COLOUR;
-		graphic_data->width = PITCH_BOUNDARY_WIDTH;
-		graphic_data->start_x = xpos[i] - MAJOR_TICK_LENGTH/2;
-		graphic_data->start_y = ypos[i];
-		graphic_data->details_d = xpos[i] + MAJOR_TICK_LENGTH/2;
-		graphic_data->details_e = ypos[i];
-		curr_pos += sizeof(graphic_data_struct_t);
-	}
-
-	ref_send(tx_buffer, curr_pos);
-	osDelay(REF_DELAY);
+    prev_spin_warning = current;
 }
 
-uint16_t draw_curr_pitch(uint8_t* tx_buffer, uint8_t modify) {
-	graphic_data_struct_t* graphic_data = (graphic_data_struct_t *)(tx_buffer);
-
-    // Set scale to 1:6 (Angle / 6) to match the new HUD requirement
-	float curr_ang_pos = -PITCH_INVERT * INS_Info.Roll_Angle * (ANGLE_LIMIT / 120.0f);
-	uint32_t xpos = HUD_MAX_X/2 + (int)(RADIAL_DIAMETER*cos(curr_ang_pos * 0.0174533));
-	uint32_t ypos = HUD_MAX_Y/2 + (int)(RADIAL_DIAMETER*sin(curr_ang_pos * 0.0174533));
-
-	graphic_data->graphic_name[0] = 'P';
-	graphic_data->graphic_name[1] = 'I';
-	graphic_data->graphic_name[2] = 'T';
-	graphic_data->layer = 1;
-	graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-	graphic_data->graphic_type = GRAPHIC_TYPE_LINE;
-	graphic_data->color = PITCH_ANG_COLOUR;
-	graphic_data->width = PITCH_ANG_WIDTH;
-	graphic_data->start_x = xpos - MAJOR_TICK_LENGTH/2;
-	graphic_data->start_y = ypos;
-	graphic_data->details_d = xpos + MAJOR_TICK_LENGTH/2;
-	graphic_data->details_e = ypos;
-
-	return sizeof(graphic_data_struct_t);
+static void draw_motor_fault_line(const char *label, uint8_t na, uint8_t nb, uint8_t nc,
+                                  uint8_t row, uint8_t op)
+{
+    send_char_graphic(label, na, nb, nc, 7, GRAPHIC_COLOUR_PURPLISH_RED,
+                      FONT_SIZE, CHAR_WIDTH,
+                      50, MOTOR_FAULT_START - MOTOR_FAULT_GAP * row, op);
 }
 
-void draw_pitch_graphics(uint8_t modify) {
-	draw_major_ticks(modify);
-	draw_minor_ticks(modify);
-	draw_pitch_limits(modify);
-	draw_pitch_labels(modify);
-}
+static void draw_motor_fault(uint8_t op)
+{
+    char buf[30];
+    uint8_t row = 0;
 
-void motor_fault() {
-	if (Referee_System_Info.game_status.game_progress == 4 || Referee_System_Info.game_status.game_progress == 3) {
-		if (motor_fault_enabled) {
-			motor_fault_enabled = 0;
-			delete_motor_fault();
-		}
-	} else if (!motor_fault_enabled) {
-		motor_fault_enabled = 1;
-		draw_motor_fault(0);
-		prev_motor_error = g_motor_fault;
-	} else if (prev_motor_error != g_motor_fault) {
-		delete_motor_fault();
-		draw_motor_fault(0);
-		prev_motor_error = g_motor_fault;
-	}
-}
-
-void delete_motor_fault() {
-	uint8_t tx_buffer[256];
-	ref_frame_header_t *send_header = (ref_frame_header_t*)tx_buffer;
-	send_header->start_frame = 0xA5;
-	send_header->seq = g_ref_tx_seq++;
-	send_header->data_length = sizeof(ref_delete_graphic_t);
-	Append_CRC8_Check_Sum(tx_buffer, 5);
-	send_header->cmd_id = 0x0301;
-	ref_delete_graphic_t *ref_delete = (ref_delete_graphic_t*)(tx_buffer + 7);
-	ref_delete->cmd_ID = 0x0100;
-	ref_delete->graphic_layer = 7;
-	ref_delete->graphic_operation = 1; 
-	ref_delete->receiver_ID = g_client_id;
-	ref_delete->send_ID = Referee_System_Info.robot_status.robot_id;
-	uint16_t tx_len = 7 + sizeof(ref_delete_graphic_t);
-	ref_send(tx_buffer,tx_len);
-	osDelay(REF_DELAY);
-}
-
-void draw_motor_fault(uint8_t modify) {
-	uint8_t tx_buffer[256];
-	uint8_t curr_pos = 0;
-	uint8_t char_len = 0;
-	char char_buffer[30] = {0};
-	uint8_t char_pos = 0;
-	graphic_data_struct_t* graphic_data;
-
-	for (uint8_t i = 0; i < 4; i++) {
-		if (g_motor_fault & (1 << (i))) {
-			if (strlen(char_buffer)) snprintf(char_buffer + strlen(char_buffer), 30, ", ");
-			switch (i) {
-			case 0: snprintf(char_buffer + strlen(char_buffer), 30, "FR"); break;
-			case 1: snprintf(char_buffer + strlen(char_buffer), 30, "FL"); break;
-			case 2: snprintf(char_buffer + strlen(char_buffer), 30, "BL"); break;
-			case 3: snprintf(char_buffer + strlen(char_buffer), 30, "BR"); break;
-			}
-		}
-	}
-	char_len = strlen(char_buffer);
-	if (char_len) {
-		curr_pos = draw_char_header(tx_buffer, char_len);
-		graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-		graphic_data->color = GRAPHIC_COLOUR_PURPLISH_RED;
-
-		graphic_data->graphic_name[0] = 'C';
-		graphic_data->graphic_name[1] = 'H';
-		graphic_data->graphic_name[2] = 'S';
-		graphic_data->layer = 7;
-
-		graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-		graphic_data->graphic_type = GRAPHIC_TYPE_CHAR;
-		graphic_data->details_a = FONT_SIZE;
-		graphic_data->details_b = char_len;
-		graphic_data->width = CHAR_WIDTH;
-
-		graphic_data->start_x = 50;
-		graphic_data->start_y = MOTOR_FAULT_START - MOTOR_FAULT_GAP * char_pos;
-		char_pos++;
-
-		curr_pos += sizeof(graphic_data_struct_t);
-		memcpy(tx_buffer + curr_pos, char_buffer, 30);
-		curr_pos += 30;
-
-		ref_send(tx_buffer, curr_pos);
-		osDelay(REF_DELAY);
-		memset(char_buffer, 0, sizeof(char_buffer));
-	}
-
-	for (uint8_t i = 4; i < 7; i++) {
-		if (g_motor_fault & (1 << (i))) {
-			if (strlen(char_buffer)) snprintf(char_buffer + strlen(char_buffer), 30, ", ");
-			switch (i) {
-			case 4: snprintf(char_buffer + strlen(char_buffer), 30, "LF"); break;
-			case 5: snprintf(char_buffer + strlen(char_buffer), 30, "RF"); break;
-			case 6: snprintf(char_buffer + strlen(char_buffer), 30, "FEED"); break;
-			}
-		}
-	}
-
-	char_len = strlen(char_buffer);
-	if (char_len) {
-		curr_pos = draw_char_header(tx_buffer, char_len);
-		graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-		graphic_data->color = GRAPHIC_COLOUR_PURPLISH_RED;
-
-		graphic_data->graphic_name[0] = 'L';
-		graphic_data->graphic_name[1] = 'A';
-		graphic_data->graphic_name[2] = 'U';
-		graphic_data->layer = 7;
-
-		graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-		graphic_data->graphic_type = GRAPHIC_TYPE_CHAR;
-		graphic_data->details_a = FONT_SIZE;
-		graphic_data->details_b = char_len;
-		graphic_data->width = CHAR_WIDTH;
-
-		graphic_data->start_x = 50;
-		graphic_data->start_y = MOTOR_FAULT_START - MOTOR_FAULT_GAP * char_pos;
-		char_pos++;
-
-		curr_pos += sizeof(graphic_data_struct_t);
-		memcpy(tx_buffer + curr_pos, char_buffer, 30);
-		curr_pos += 30;
-
-		ref_send(tx_buffer, curr_pos);
-		osDelay(REF_DELAY);
-		memset(char_buffer, 0, sizeof(char_buffer));
-	}
-
-	for (uint8_t i = 7; i < 9; i++) {
-		if (g_motor_fault & (1 << (i))) {
-			if (strlen(char_buffer)) snprintf(char_buffer + strlen(char_buffer), 30, ", ");
-			switch (i) {
-			case 7: snprintf(char_buffer + strlen(char_buffer), 30, "PITCH"); break;
-			case 8: snprintf(char_buffer + strlen(char_buffer), 30, "YAW"); break;
-			}
-		}
-	}
-
-	char_len = strlen(char_buffer);
-	if (char_len) {
-		curr_pos = draw_char_header(tx_buffer, char_len);
-		graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-		graphic_data->color = GRAPHIC_COLOUR_PURPLISH_RED;
-
-		graphic_data->graphic_name[0] = 'P';
-		graphic_data->graphic_name[1] = 'A';
-		graphic_data->graphic_name[2] = 'Y';
-		graphic_data->layer = 7;
-
-		graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-		graphic_data->graphic_type = GRAPHIC_TYPE_CHAR;
-		graphic_data->details_a = FONT_SIZE;
-		graphic_data->details_b = char_len;
-		graphic_data->width = CHAR_WIDTH;
-
-		graphic_data->start_x = 50;
-		graphic_data->start_y = MOTOR_FAULT_START - MOTOR_FAULT_GAP * char_pos;
-		char_pos++;
-
-		curr_pos += sizeof(graphic_data_struct_t);
-		memcpy(tx_buffer + curr_pos, char_buffer, 30);
-		curr_pos += 30;
-
-		ref_send(tx_buffer, curr_pos);
-		osDelay(REF_DELAY);
-	}
-}
-
-void draw_feeder_state(uint8_t modify) {
-	uint8_t tx_buffer[256];
-	uint8_t curr_pos = 0;
-	uint8_t char_len = 0;
-	char char_buffer[30];
-	memset(char_buffer, 0, 30);
-	uint32_t colour = 0;
-
-	switch (feeder_state) {
-	case FEEDER_STANDBY:
-	case FEEDER_SPINUP:
-		colour = GRAPHIC_COLOUR_GREEN;
-		char_len = snprintf((char*) char_buffer, 30, "STANDBY");
-		break;
-	case FEEDER_LOADED:
-		colour = GRAPHIC_COLOUR_GREEN;
-		char_len = snprintf((char*) char_buffer, 30, "LOADED");
-		break;
-	case FEEDER_JAM:
-		colour = GRAPHIC_COLOUR_YELLOW;
-		memset(char_buffer, 0, 30);
-		char_len = snprintf((char*) char_buffer, 30, "JAMMED");
-		break;
-	case FEEDER_OVERHEAT:
-		colour = GRAPHIC_COLOUR_PURPLISH_RED;
-		memset(char_buffer, 0, 30);
-		char_len = snprintf((char*) char_buffer, 30, "OVERHEAT");
-		break;
-	case FEEDER_STEP:
-	case FEEDER_FIRING:
-	default:
-		colour = GRAPHIC_COLOUR_GREEN;
-		memset(char_buffer, 0, 30);
-		char_len = snprintf((char*) char_buffer, 30, "FIRING");
-		break;
-	}
-
-	curr_pos = draw_char_header(tx_buffer, char_len);
-
-	graphic_data_struct_t* graphic_data = (graphic_data_struct_t *)(tx_buffer + curr_pos);
-	graphic_data->color = colour;
-
-	graphic_data->graphic_name[0] = 'F';
-	graphic_data->graphic_name[1] = 'D';
-	graphic_data->graphic_name[2] = 'R';
-	graphic_data->layer = 6;
-
-	graphic_data->operation_type = modify ? GRAPHIC_MODIFY : GRAPHIC_ADD;
-	graphic_data->graphic_type = GRAPHIC_TYPE_CHAR;
-	graphic_data->details_a = FONT_SIZE; 
-	graphic_data->details_b = char_len; 
-	graphic_data->width = CHAR_WIDTH; 
-
-	graphic_data->start_x = 50;
-	graphic_data->start_y = 800;
-
-	curr_pos += sizeof(graphic_data_struct_t);
-	memcpy(tx_buffer + curr_pos, char_buffer, 30);
-	curr_pos += 30;
-
-	ref_send(tx_buffer, curr_pos);
-	osDelay(REF_DELAY);
-}
-
-void delete_feeder_state() {
-	uint8_t tx_buffer[256];
-	ref_frame_header_t *send_header = (ref_frame_header_t*)tx_buffer;
-	send_header->start_frame = 0xA5;
-	send_header->seq = g_ref_tx_seq++;
-	send_header->data_length = sizeof(ref_delete_graphic_t);
-	Append_CRC8_Check_Sum(tx_buffer, 5);
-	send_header->cmd_id = 0x0301;
-	ref_delete_graphic_t *ref_delete = (ref_delete_graphic_t*)(tx_buffer + 7);
-	ref_delete->cmd_ID = 0x0100;
-	ref_delete->graphic_layer = 6;
-	ref_delete->graphic_operation = 1; 
-	ref_delete->receiver_ID = g_client_id;
-	ref_delete->send_ID = Referee_System_Info.robot_status.robot_id;
-	uint16_t tx_len = 7 + sizeof(ref_delete_graphic_t);
-	ref_send(tx_buffer,tx_len);
-	osDelay(REF_DELAY);
-}
-
-void dfeeder_state() {
-	if (Referee_System_Info.game_status.game_progress == 4 || Referee_System_Info.game_status.game_progress == 3) {
-		if (feeder_state_enabled) {
-			feeder_state_enabled = 0;
-			delete_feeder_state();
-		}
-	} else if (!feeder_state_enabled) {
-		feeder_state_enabled = 1;
-		draw_feeder_state(0);
-		prev_feeder_state = feeder_state;
-	} else if (prev_feeder_state != feeder_state) {
-		draw_feeder_state(1);
-		prev_feeder_state = feeder_state;
-	}
-}
-
-void draw_static() {
-	draw_crosshair(0);
-	draw_pitch_graphics(0);
-}
-
-void draw_dynamic(uint8_t modify) {
-	uint8_t tx_buffer[256];
-	uint8_t curr_pos = 0;
-	switch (dynamic_graphics) {
-	case 0: break;
-	case 1: curr_pos = draw_graphic_header(tx_buffer, 1); break;
-	case 2: curr_pos = draw_graphic_header(tx_buffer, 2); break;
-	case 3:
-	case 4:
-	case 5:
-		curr_pos = draw_graphic_header(tx_buffer, 5);
-		for (int i = 0; i < 5 - 5; i++) curr_pos += draw_empty(tx_buffer + curr_pos);
-		break;
-	case 6:
-	case 7:
-		curr_pos = draw_graphic_header(tx_buffer, 7);
-		for (int i = 0; i < 7 - 5; i++) curr_pos += draw_empty(tx_buffer + curr_pos);
-		break;
-	}
-
-    // Questi in totale generano 5 operazioni (1 + 1 + 1 + 2)
-	curr_pos += draw_spin_border(tx_buffer + curr_pos, modify, spin_coords);
-	curr_pos += draw_supercap(tx_buffer + curr_pos, modify);
-	curr_pos += draw_curr_pitch(tx_buffer + curr_pos, modify);
-	curr_pos += draw_bullet_bar(tx_buffer + curr_pos, modify);
-
-	if (curr_pos) {
-		ref_send(tx_buffer, curr_pos);
-		osDelay(REF_DELAY);
-	}
-}
-
-void draw_char(uint8_t modify) {
-    static uint32_t refresh_counter = 0;
-    bool force_update = (refresh_counter++ % 50 == 0); // Periodic refresh every ~5 seconds
-
-	if (modify) {
-		if (prev_spinspin != is_rotating || force_update) {
-			prev_spinspin = is_rotating;
-			draw_spin_char(modify, spin_coords);
-		}
-		if (prev_aimbot != aimbot_mode || force_update) {
-			prev_aimbot = aimbot_mode;
-			draw_aimbot(modify, aimbot_coords);
-		}
-		if (prev_supercap_dash != supercap_dash || force_update) {
-			prev_supercap_dash = supercap_dash;
-			draw_supercap_text(modify, supercap_coords);
-		}
-		if (prev_gear != gear_speed_curr_gear || force_update) {
-			prev_gear = gear_speed_curr_gear;
-			draw_gearing(modify, gear_coords);
-		}
-	} else {
-		prev_spinspin = is_rotating;
-		draw_spin_char(modify, spin_coords);
-		prev_aimbot = aimbot_mode;
-		draw_aimbot(modify, aimbot_coords);
-		prev_supercap_dash = supercap_dash;
-		draw_supercap_text(modify, supercap_coords);
-		prev_gear = gear_speed_curr_gear;
-		draw_gearing(modify, gear_coords);
-	}
-}
-
-void UI_Task(void const * argument) {
-	// Initialize the transmission semaphore
-	osSemaphoreDef(UI_SEM);
-	ui_send_sem = osSemaphoreCreate(osSemaphore(UI_SEM), 1);
-
-	uint32_t start_wait = osKernelSysTick();
-	while (Referee_System_Info.robot_status.robot_id == 0) {
-		osDelay(10);
-		if ((osKernelSysTick() - start_wait) > 500) {
-			break;
-		}
-	}
-	// Initial mapping
-	map_robot_id(Referee_System_Info.robot_status.robot_id);
-
-
-	set_top_coordinates();
-	graphic_edge = TICK_INTERVALS * 4 * 0.0174533f;
-
-	uint16_t current_robot_id = 0; // Inizializza a 0 per forzare il primo caricamento ADD nel loop
-
-	// Inizializzazione spostata all'interno del while(1) per gestire meglio il rilevamento dell'ID
-	// clear_hud();
-	// draw_dynamic(0);
-	// draw_char(0);
-	// draw_static();
-
-	while (1) {
-		// If the real robot ID arrives and is different from what we initialized with,
-		// we MUST re-send everything as ADD (0) because the new Client ID doesn't have the graphics yet.
-		if (current_robot_id != Referee_System_Info.robot_status.robot_id && Referee_System_Info.robot_status.robot_id != 0) {
-			current_robot_id = Referee_System_Info.robot_status.robot_id;
-			map_robot_id(current_robot_id);
-			
-			osDelay(500); // Attendi che il client sia pronto
-			clear_hud();
-            
-            // Send multiple ADD packets for redundancy (Referee Client is unreliable)
-            for (int i = 0; i < 3; i++) {
-			    draw_dynamic(0); // 0 = ADD
-			    draw_char(0);    // 0 = ADD
-			    draw_static();
-                osDelay(200);
+    buf[0] = 0;
+    for (int i = 0; i < 4; i++) {
+        if (g_motor_fault & (1u << i)) {
+            if (buf[0]) strncat(buf, ", ", sizeof(buf) - strlen(buf) - 1);
+            switch (i) {
+                case 0: strncat(buf, "FR", sizeof(buf) - strlen(buf) - 1); break;
+                case 1: strncat(buf, "FL", sizeof(buf) - strlen(buf) - 1); break;
+                case 2: strncat(buf, "BL", sizeof(buf) - strlen(buf) - 1); break;
+                case 3: strncat(buf, "BR", sizeof(buf) - strlen(buf) - 1); break;
             }
-            
-			osDelay(1000); // Dai tempo di caricare tutto prima dei MODIFY
-		} else if (current_robot_id != 0) {
-			// Update mapping and states normally
-			map_robot_id(current_robot_id);
-            
-            // Update UI states from sensors/referee
-            charging_state = (uint8_t)(Referee_System_Info.power_heat_data.buffer_energy);
-            if (charging_state <= 60) charging_state = (uint8_t)((float)charging_state * 1.66f);
-            else if (charging_state > 100) charging_state = 100;
-            
-            supercap_dash = RC_info.Key.Set.C;
-            aimbot_mode = (RC_info.Mouse.Press_R);
-            // is_rotating is updated by state_machine toggle logic
-		}
-		
-        if (current_robot_id != 0) {
-		    draw_dynamic(1);
-		    draw_char(1);
-		    
-		    motor_fault();
-		    dfeeder_state();
-		    check_spin_warning();
         }
-		
-        osDelay(100); 
-	}
+    }
+    if (buf[0]) { draw_motor_fault_line(buf, 'C', 'H', 'S', row++, op); }
+
+    buf[0] = 0;
+    for (int i = 4; i < 7; i++) {
+        if (g_motor_fault & (1u << i)) {
+            if (buf[0]) strncat(buf, ", ", sizeof(buf) - strlen(buf) - 1);
+            switch (i) {
+                case 4: strncat(buf, "LF",   sizeof(buf) - strlen(buf) - 1); break;
+                case 5: strncat(buf, "RF",   sizeof(buf) - strlen(buf) - 1); break;
+                case 6: strncat(buf, "FEED", sizeof(buf) - strlen(buf) - 1); break;
+            }
+        }
+    }
+    if (buf[0]) { draw_motor_fault_line(buf, 'L', 'A', 'U', row++, op); }
+
+    buf[0] = 0;
+    for (int i = 7; i < 9; i++) {
+        if (g_motor_fault & (1u << i)) {
+            if (buf[0]) strncat(buf, ", ", sizeof(buf) - strlen(buf) - 1);
+            switch (i) {
+                case 7: strncat(buf, "PITCH", sizeof(buf) - strlen(buf) - 1); break;
+                case 8: strncat(buf, "YAW",   sizeof(buf) - strlen(buf) - 1); break;
+            }
+        }
+    }
+    if (buf[0]) { draw_motor_fault_line(buf, 'P', 'A', 'Y', row++, op); }
+}
+
+static void update_motor_fault(void)
+{
+    bool in_match = (Referee_System_Info.game_status.game_progress == 4
+                  || Referee_System_Info.game_status.game_progress == 3);
+
+    if (in_match) {
+        if (motor_fault_enabled) { delete_layer(7); motor_fault_enabled = 0; }
+        return;
+    }
+
+    if (!motor_fault_enabled) {
+        draw_motor_fault(GRAPHIC_ADD);
+        motor_fault_enabled = 1;
+        prev_motor_error    = g_motor_fault;
+    } else if (prev_motor_error != g_motor_fault) {
+        delete_layer(7);
+        draw_motor_fault(GRAPHIC_ADD);
+        prev_motor_error = g_motor_fault;
+    }
+}
+
+static void draw_feeder(uint8_t op)
+{
+    const char *txt;
+    uint8_t color;
+    switch (feeder_state) {
+        case FEEDER_STANDBY:
+        case FEEDER_SPINUP:   txt = "STANDBY";  color = GRAPHIC_COLOUR_GREEN; break;
+        case FEEDER_LOADED:   txt = "LOADED";   color = GRAPHIC_COLOUR_GREEN; break;
+        case FEEDER_JAM:      txt = "JAMMED";   color = GRAPHIC_COLOUR_YELLOW; break;
+        case FEEDER_OVERHEAT: txt = "OVERHEAT"; color = GRAPHIC_COLOUR_PURPLISH_RED; break;
+        default:              txt = "FIRING";   color = GRAPHIC_COLOUR_GREEN; break;
+    }
+    send_char_graphic(txt, 'F', 'D', 'R', 6, color, FONT_SIZE, CHAR_WIDTH,
+                      50, 800, op);
+}
+
+static void update_feeder(void)
+{
+    bool in_match = (Referee_System_Info.game_status.game_progress == 4
+                  || Referee_System_Info.game_status.game_progress == 3);
+
+    if (in_match) {
+        if (feeder_state_enabled) { delete_layer(6); feeder_state_enabled = 0; }
+        return;
+    }
+
+    if (!feeder_state_enabled) {
+        draw_feeder(GRAPHIC_ADD);
+        feeder_state_enabled = 1;
+        prev_feeder_state    = feeder_state;
+    } else if (prev_feeder_state != feeder_state) {
+        draw_feeder(GRAPHIC_MODIFY);
+        prev_feeder_state = feeder_state;
+    }
+}
+
+/* ============================================================================
+ * SIMPLE TEST GRAPHIC (Sent once on connect)
+ * ============================================================================ */
+static void draw_test_shapes(uint8_t op)
+{
+    uint8_t  tx_buffer[128];
+    uint16_t pos;
+    graphic_data_struct_t *g;
+
+    // Clear the buffer to prevent random memory corruption
+    memset(tx_buffer, 0, sizeof(tx_buffer));
+
+    // We are drawing exactly 2 graphics, so we use count=2 (cmd_id 0x0102)
+    pos = build_graphic_header(tx_buffer, 2);
+    if (pos == 0) return;
+
+    /* Graphic 1: A prominent Pink Circle in the center */
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'T', 'S', 'C');             // Name: TeSt Circle
+    g->layer = 8;                           // High layer to stay on top
+    g->color = GRAPHIC_COLOUR_PINK;         // Highly visible color
+    g->operation_type = op;
+    g->graphic_type = GRAPHIC_TYPE_CIRCLE;  
+    g->width = 5;                           // Line thickness
+    g->start_x = CENTER_X;                  // Center X
+    g->start_y = CENTER_Y;                  // Center Y
+    g->details_c = 150;                     // Radius of the circle
+    pos += sizeof(graphic_data_struct_t);
+
+    /* Graphic 2: A Yellow Rectangle around the circle */
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'T', 'S', 'B');             // Name: TeSt Box
+    g->layer = 8;
+    g->color = GRAPHIC_COLOUR_YELLOW;
+    g->operation_type = op;
+    g->graphic_type = GRAPHIC_TYPE_RECTANGLE;
+    g->width = 4;
+    g->start_x = CENTER_X - 180;            // Bottom-Left X
+    g->start_y = CENTER_Y - 180;            // Bottom-Left Y
+    g->details_d = CENTER_X + 180;          // Top-Right X
+    g->details_e = CENTER_Y + 180;          // Top-Right Y
+    pos += sizeof(graphic_data_struct_t);
+
+    // Send the packet to the DMA
+    ref_send(tx_buffer, pos);
+}
+
+
+/* ============================================================================
+ * HIGH-LEVEL: ADD-ALL / MODIFY-ALL
+ * ============================================================================ */
+static void draw_all_static(uint8_t op)
+{
+		draw_test_shapes(op);
+    draw_crosshair(op);
+    draw_pitch_ticks(op);
+    draw_pitch_limits(op);
+}
+
+static void draw_all_text(uint8_t op)
+{
+    draw_spin_text(op);
+    draw_gear_text(op);
+    draw_aim_text(op);
+    draw_supercap_text(op);
+}
+
+static void update_text_if_changed(void)
+{
+    if (prev_spinspin != is_rotating) {
+        prev_spinspin = is_rotating;
+        draw_spin_text(GRAPHIC_MODIFY);
+    }
+    if (prev_gear != gear_speed_curr_gear) {
+        prev_gear = gear_speed_curr_gear;
+        draw_gear_text(GRAPHIC_MODIFY);
+    }
+    if (prev_aimbot != aimbot_mode) {
+        prev_aimbot = aimbot_mode;
+        draw_aim_text(GRAPHIC_MODIFY);
+    }
+    if (prev_supercap_dash != supercap_dash) {
+        prev_supercap_dash = supercap_dash;
+        draw_supercap_text(GRAPHIC_MODIFY);
+    }
+}
+
+/* ============================================================================
+ * STATE INGEST (read sensors -> UI globals)
+ * ============================================================================ */
+static void poll_inputs(void)
+{
+    uint16_t buf_e = Referee_System_Info.power_heat_data.buffer_energy;
+    if (buf_e > 100) buf_e = 100;
+    uint16_t mapped = (buf_e <= 60) ? (uint16_t)(buf_e * 1.66f) : buf_e;
+    if (mapped > 100) mapped = 100;
+    charging_state = (uint8_t)mapped;
+
+    supercap_dash = RC_info.Key.Set.C ? 1 : 0;
+    aimbot_mode   = RC_info.Mouse.Press_R ? 1 : 0;
+}
+
+/* ============================================================================
+ * MAIN TASK
+ * ============================================================================ */
+void UI_Task(void const * argument)
+{
+    (void)argument;
+
+    /* Period strictly set to match the 10Hz limit */
+    const TickType_t xPeriod = 100 / portTICK_PERIOD_MS;
+
+    /* Init synchronization primitives */
+    osSemaphoreDef(UI_TX_DONE);
+    ui_tx_done_sem = osSemaphoreCreate(osSemaphore(UI_TX_DONE), 1);
+    osSemaphoreWait(ui_tx_done_sem, 0);
+
+    osSemaphoreDef(UI_SEND_MTX);
+    ui_send_mtx = osSemaphoreCreate(osSemaphore(UI_SEND_MTX), 1);
+
+    set_top_coordinates();
+
+    uint16_t current_robot_id = 0;
+
+    for (;;)
+    {
+        uint16_t rid = Referee_System_Info.robot_status.robot_id;
+
+        if (rid != 0 && rid != current_robot_id) {
+            current_robot_id = rid;
+            map_robot_id(current_robot_id);
+
+            osDelay(500);
+            clear_hud();
+
+            draw_all_static(GRAPHIC_ADD);
+            draw_all_text(GRAPHIC_ADD);
+            draw_dynamic(GRAPHIC_ADD);
+
+            prev_spinspin      = -1;
+            prev_aimbot        = -1;
+            prev_supercap_dash = -1;
+            prev_gear          = -1;
+            prev_spin_warning  = -1;
+            prev_motor_error   = -1;
+            prev_feeder_state  = -1;
+            motor_fault_enabled  = 0;
+            feeder_state_enabled = 0;
+        }
+        else if (current_robot_id != 0) {
+            poll_inputs();
+
+            draw_dynamic(GRAPHIC_MODIFY);
+            update_text_if_changed();
+            update_spin_warning();
+            update_motor_fault();
+            update_feeder();
+        }
+
+        vTaskDelay(xPeriod);
+    }
 }
