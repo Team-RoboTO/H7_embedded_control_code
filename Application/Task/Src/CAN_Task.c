@@ -44,6 +44,7 @@ float KP_pitch = 20.0f;
 
 extern FDCAN_HandleTypeDef hfdcan2;
 
+uint32_t test = 0;
 size_t free_now, free_min;
 
 void CAN_Task(void const * argument)
@@ -58,16 +59,16 @@ void CAN_Task(void const * argument)
     for(;;)
     {
         /* Debug: measure actual frequency */
-        can_task_iter_count++;
-        can_task_freq_iters++;
+//        can_task_iter_count++;
+//        can_task_freq_iters++;
 
-        uint32_t now = HAL_GetTick();
-        uint32_t elapsed = now - can_task_freq_start_ms;
-        if (elapsed >= 1000) {
-            can_task_freq_hz = (float)can_task_freq_iters * 1000.0f / (float)elapsed;
-            can_task_freq_iters = 0;
-            can_task_freq_start_ms = now;
-        }
+//        uint32_t now = HAL_GetTick();
+//        uint32_t elapsed = now - can_task_freq_start_ms;
+//        if (elapsed >= 1000) {
+//            can_task_freq_hz = (float)can_task_freq_iters * 1000.0f / (float)elapsed;
+//            can_task_freq_iters = 0;
+//            can_task_freq_start_ms = now;
+//        }
 
         /* One-time init */
         if (is_init) {
@@ -84,7 +85,6 @@ void CAN_Task(void const * argument)
 
 				if (hfdcan2.Instance->PSR & FDCAN_PSR_BO)
 				{
-						osDelay(20);
 						FDCAN2_Reset();
 						osDelay(20);
 						is_first_iter_can = 1;
@@ -105,7 +105,11 @@ void CAN_Task(void const * argument)
             osDelay(30);
             DM_Motor_Command(&FDCAN2_TxFrame, &DM_Yaw_Motor, Motor_Disable);
             osDelay(30);
-
+						
+						if (RC_info.RC.Left){
+								DM_Motor_Command(&FDCAN2_TxFrame, &DM_Yaw_Motor, Motor_Save_Zero_Position);
+								osDelay(30);
+						}
             is_first_iter_can = 1;
         }
         else if (is_first_iter_can == 1) {

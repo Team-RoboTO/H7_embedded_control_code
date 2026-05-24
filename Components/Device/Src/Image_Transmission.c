@@ -103,10 +103,12 @@ void VT13_Info_Update(uint8_t *Buff ,VT13_Info_TypeDef *VT13_Info){
 				}
 				last_button_state[0] = (  Buff[7] >> 6 ) & 0x01 ;
 				
-				if( (  Buff[7] >> 7 ) & 0x01 && last_button_state[1] == 0) {
-					VT13_Info->RC.Left = !VT13_Info->RC.Left;
-				}
-			  last_button_state[1] = (  Buff[7] >> 7 ) & 0x01;
+//				if( (  Buff[7] >> 7 ) & 0x01 && last_button_state[1] == 0) {
+//					VT13_Info->RC.Left = !VT13_Info->RC.Left;
+//				}
+//			  last_button_state[1] = (  Buff[7] >> 7 ) & 0x01;
+				
+				VT13_Info->RC.Left = (  Buff[7] >> 7 ) & 0x01;
 				
 				if( (  Buff[8]  ) & 0x01 && last_button_state[2] == 0) {
 					 VT13_Info->RC.Right = ! VT13_Info->RC.Right ;
