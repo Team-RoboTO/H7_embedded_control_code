@@ -17,6 +17,7 @@
 #include "shooting_control.h"
 #include "chassis_control.h"
 #include "gimbal_control.h"
+#include "Remote_Control.h"
 
 static bool is_first_iter = 1;
 static bool is_init = 1;
@@ -103,7 +104,7 @@ void CAN_Task(void const * argument)
 								DM_Motor_Command(&FDCAN2_TxFrame, &DM_Yaw_Motor, Motor_Save_Zero_Position);
 								osDelay(30);
 						}
-            is_first_iter_can = 1;
+            is_first_iter = 1;
 						#if IS_HERO
 							DM_Motor_Command(&FDCAN3_TxFrame, &DM_Rev_Motor, Motor_Disable);
 							osDelay(30);

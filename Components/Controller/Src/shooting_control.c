@@ -4,8 +4,6 @@
 #include "Damiao_Motor.h"
 #include "state_machine.h"
 #include "control_utils.h"
-#include "string.h"
-#include "Referee_System.h"
 #include "Remote_Control.h"
 
   /*************************/
@@ -13,31 +11,15 @@
 /*************************/
 
 controlled_system_t shoot_wheels_and_rev = {
-    .n          = 4,
-    .m          = 3,
-    .p          = 4,
-    .x          = {0},
-    .x_prev     = {0},
-    .u          = {0},
-    .u_prev     = {0},
-    .ud         = {0},
-    .ud_prev    = {0},
-    .r_x        = {0},
-    .r_x_prev   = {0},
+    .n          = 4,			// Number of system states
+    .m          = 3,			// Number of system inputs
+    .p          = 4,			// Number of system outputs
 };
 
 controlled_system_t lidar_lifter = {
-    .n          = 1,
-    .m          = 2,
-    .p          = 1,
-    .x          = {0},
-    .x_prev     = {0},
-    .u          = {0},
-    .u_prev     = {0},
-    .ud         = {0},
-    .ud_prev    = {0},
-    .r_x        = {0},
-    .r_x_prev   = {0},
+    .n          = 1,			// Number of system states	
+    .m          = 2,			// Number of system inputs
+    .p          = 1,			// Number of system outputs
 };
 
   /*******************/
@@ -52,8 +34,7 @@ static PID_Info_TypeDef pid_ll_pos;
 static PID_Info_TypeDef pid_ll_vel;
 
 // Shoot wheel velocity PIDs: KP, KI, KD, Alpha, Deadband, LimitIntegral, LimitOutput
-static float pid_shoot_wheel_left_params[PID_PARAMETER_NUM]  = {0.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10.0f};
-static float pid_shoot_wheel_right_params[PID_PARAMETER_NUM] = {0.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10.0f};
+static float pid_shoot_wheel_params[PID_PARAMETER_NUM]  = {0.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10.0f};
 
 // REV position PID (outer loop): KP is overwritten at runtime per shooting mode
 static float pid_rev_pos_params[PID_PARAMETER_NUM] = {27.0f, 5.0f, 0.0f, 0.0f, 0.0f, 1.0f, 10000.0f};
@@ -119,8 +100,8 @@ void control_loop_shooting(void)
 void _control_loop_shoot_wheels(void){
 		
 		if (is_first_iter == 1) {
-			PID_Init(&pid_shoot_wheel_left,  PID_POSITION, pid_shoot_wheel_left_params);
-			PID_Init(&pid_shoot_wheel_right, PID_POSITION, pid_shoot_wheel_right_params);
+			PID_Init(&pid_shoot_wheel_left,  PID_POSITION, pid_shoot_wheel_params);
+			PID_Init(&pid_shoot_wheel_right, PID_POSITION, pid_shoot_wheel_params);
 		}
 		
 		// STOP command
@@ -281,7 +262,7 @@ void _control_loop_lidar_lifter(void)
 			}
 		
 			lidar_lifter.x[0] = (float) DJI_Lidar_Motor.Data.Angle_sum;           // [rad]
-			lidar_lifter.x[1] = (float) DJI_Lidar_Motor.Data.Velocity_rads;		  // [rad/s]
+			lidar_lifter.x[1] = (float) DJI_Lidar_Motor.Data.Velocity_rads;		  	// [rad/s]
 
 				
 			if( lidar_home_position < 0 ){

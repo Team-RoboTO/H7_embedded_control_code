@@ -8,11 +8,6 @@ void Chassis_Task(void const * argument)
 {
     /* Keep the task loop at 1ms (1000Hz) so our split halves result in 500Hz */
     const TickType_t xPeriod = 1 / portTICK_PERIOD_MS;
-		
-//		while(INA228_Init())										   	// init of the INA226 peripheral
-//			{
-//        osDelay(100);
-//			}
 			
     for(;;)
     {

@@ -54,10 +54,6 @@ controlled_system_MIT_t chassis = {
     .n          = 4,  // Number of system states
     .m          = 4,  // Number of system inputs
     .p          = 5,  // Number of system outputs
-    .x          = {0},
-    .x_prev     = {0},
-    .r_x        = {0},
-    .r_x_prev   = {0},
 };
 
   /*************************/
@@ -99,13 +95,15 @@ float w_ref;
 float w_target;
 
 static float linear_vel_lim = 4.9f;
-static float radius_wheel = 0.0825f;
-static float radius_robot = 0.183f;
 static float c = 0.7071067812;
 
-static float max_reference = 0; 
-
-uint16_t chassis_power_limit_local = 60;
+#if IS_STD || IS_SENTRY
+	static float radius_wheel = 0.0825f;
+	static float radius_robot = 0.183f;
+#elif IS_HERO
+	static float radius_wheel = 0.08f;
+	static float radius_robot = 0.2895f;
+#endif
 
 //MIT variables
 float MIT_kd = 0.2f;    	// range 0-5
@@ -289,7 +287,7 @@ void control_loop_chassis() {
 		// Competition Power Limit
 		#if IS_POWER_LIMIT_ENABLED
 			//chassis_power_limit_local	= robot_status.chassis_power_limit-20;
-		  chassis_power_limit_local = 1000.0f;
+		  float chassis_power_limit_local = 1000.0f;
 			chassis_power_control( 50 , chassis.r_x, &MIT_kd);
 		//chassis_power_limit_local	= robot_status.chassis_power_limit-20;
 	

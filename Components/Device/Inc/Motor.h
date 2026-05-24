@@ -31,9 +31,15 @@
 #define CM_CHASSIS_3_TX_ID 120
 #define CM_CHASSIS_3_RX_ID 0x00000078
 
-/* Yaw Motor (DaMiao DM-J6006-2EC or DM-4310-2EC) */
-#define DM_YAW_TX_ID       0x01
-#define DM_YAW_RX_ID       0x11
+#if IS_STD || IS_SENTRY
+	/* Yaw Motor (DaMiao DM-J6006-2EC) */
+	#define DM_YAW_TX_ID       0x11
+	#define DM_YAW_RX_ID       0x01
+#elif IS_HERO
+	/* Yaw Motor (DM-4310-2EC) */
+	#define DM_YAW_TX_ID       0x01
+	#define DM_YAW_RX_ID       0x11
+#endif
 
 /* Pitch Motor (CubeMars AK40-10) */
 #define CM_PITCH_TX_ID     2
