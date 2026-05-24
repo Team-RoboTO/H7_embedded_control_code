@@ -95,6 +95,9 @@ static float vy_ref;
 float v_x_target;
 float v_y_target;
 
+float w_ref;
+float w_target;
+
 static float linear_vel_lim = 4.9f;
 static float radius_wheel = 0.0825f;
 static float radius_robot = 0.183f;
@@ -106,6 +109,7 @@ uint16_t chassis_power_limit_local = 60;
 
 //MIT variables
 float MIT_kd = 0.2f;    	// range 0-5
+float MIT_kd_base = 0.2f;
 
   /********************/
  /*   CONTROL LOOP   */
@@ -246,11 +250,13 @@ void control_loop_chassis() {
 						r_ang_vel_wheel_4_left_right    = (vy_ref * c / radius_wheel) * sin(+ chassis.x[4] + pi/4);
 						// Chassis contiguous rotation
 						if (vx_ref == 0 && vy_ref == 0){
-								r_ang_vel_wheels_chassis_yaw = rot_ang_vel_wheels;
+							w_target = rot_ang_vel_wheels;
 						}
 						else {
-								r_ang_vel_wheels_chassis_yaw = 30.0f;
+								w_target = 30.0f;
 						}
+						r_ang_vel_wheels_chassis_yaw = w_target;
+						//slewRateControl(&r_ang_vel_wheels_chassis_yaw, w_target, 10.0f, 15.0f, dt_chassis);
 						is_rotating = 1;
             break;
   
@@ -282,8 +288,10 @@ void control_loop_chassis() {
 		
 		// Competition Power Limit
 		#if IS_POWER_LIMIT_ENABLED
-			chassis_power_limit_local	= robot_status.chassis_power_limit-20;
-		
-			chassis_power_control( chassis_power_limit_local , chassis.u);
+			//chassis_power_limit_local	= robot_status.chassis_power_limit-20;
+		  chassis_power_limit_local = 1000.0f;
+			chassis_power_control( 50 , chassis.r_x, &MIT_kd);
+		//chassis_power_limit_local	= robot_status.chassis_power_limit-20;
+	
 		#endif
 }
