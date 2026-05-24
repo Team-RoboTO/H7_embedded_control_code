@@ -15,35 +15,12 @@
  *          struct, not from hardcoded #defines.
  */
 
-// **************************** Parameter Definitions - MIT MODE FOR CUBEMARS *******************
-#define CM_P_MIN   -12.5f
-#define CM_P_MAX    12.5f
-#define CM_V_MIN   -50.0f
-#define CM_V_MAX    50.0f
-#define CM_T_MIN   -25.0f
-#define CM_T_MAX    25.0f
-#define CM_KP_MIN    0.0f
-#define CM_KP_MAX  500.0f
-#define CM_KD_MIN    0.0f
-#define CM_KD_MAX    5.0f
-
-#define AK40_POS_MIN    CM_P_MIN
-#define AK40_POS_MAX    CM_P_MAX
-#define AK40_VEL_MIN    CM_V_MIN
-#define AK40_VEL_MAX    CM_V_MAX
-#define AK40_TORQUE_MIN CM_T_MIN
-#define AK40_TORQUE_MAX CM_T_MAX
-// **************************** End - MIT MODE FOR CUBEMARS *******************
-
-// --------------------------------------------------------------------------
-//  Enums
-// --------------------------------------------------------------------------
-
 /**
  * @brief typedef enum that contains the type of CubeMars Motor Device.
  */
 typedef enum {
     CM_AK40_10,
+		CM_AK60_06,
     CM_MOTOR_TYPE_NUM,
 } CM_Motor_Type_e;
 

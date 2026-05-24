@@ -5,6 +5,7 @@
 #include "math_utils.h"
 #include <stdlib.h>
 #include "DJI_Motor.h"
+#include "Damiao_Motor.h"
 #include "Minipc.h"
   /**************/
  /*   STATES   */
@@ -223,6 +224,7 @@ uint8_t _state_machine_shoot_wheels_autonomus() {
     }
 }
 
+#if IS_STD || IS_SENTRY
   /*******************/
  /*   REV STATES    */
 /*******************/
@@ -304,6 +306,90 @@ uint8_t _state_machine_rev_autonomus() {
         return REV_STOP;
     }
 }
+#elif IS_HERO
+	  /*******************/
+ /*   REV STATES    */
+/*******************/
+
+uint8_t _state_machine_rev() {
+
+    switch (state_remote_commands) {
+        case COMMANDS_REMOTE_CONTROLLER: return _state_machine_rev_remote_controller();
+        case COMMANDS_KEYBOARD_MOUSE:    return _state_machine_rev_keyboard_mouse();
+        case COMMANDS_AUTONOMUS:         return _state_machine_rev_autonomus();
+        default:                         return state_rev;  // hold current state
+    }
+}
+
+uint8_t _state_machine_rev_remote_controller() {
+
+    // --- Jam detection: if motor is stalled for too long, trigger unstuck ---
+//    if (abs(DJI_Rev_Motor.Data.Current) < 6000)
+//        rev_spin.time_rev_locked = HAL_GetTick();  // reset stall timer (raw ms ticks)
+
+//    if (HAL_GetTick() - rev_spin.time_rev_locked > 300)  // 300 ms stall threshold
+//        return REV_UNSTUCK;
+
+    // --- Normal rev control via wheel axis ---
+    if (RC_info.RC.Wheel >= 300) {
+        rev_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3f;
+        return REV_SINGLE_SHOOTING;
+    }
+    else if (RC_info.RC.Wheel <= -300) {
+        rev_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3f;
+        return REV_SINGLE_SHOOTING;
+    }
+    else {
+        return REV_STOP;
+    }
+}
+
+uint8_t _state_machine_rev_keyboard_mouse() {
+
+    // TODO: add jam detection (REV_UNSTUCK) like in remote controller mode
+
+    float now_s        = HAL_GetTick() * 1e-3f;
+    float held_time_s  = now_s - rev_spin.timestamp_last_shoot_command;
+
+    if (RC_info.Mouse.Press_L) {
+
+        if (rev_spin.timestamp_last_shoot_command == 0.0f) {
+            // Rising edge: button just pressed � record timestamp
+            rev_spin.timestamp_last_shoot_command = now_s;
+        }
+
+        // Decide based on how long the button has been held
+        if (held_time_s >= rev_spin.time_threshold_hold_mouse_key_multiple_shooting) {
+            return REV_SINGLE_SHOOTING;  // held long enough ? continuous fire
+        }
+    }
+    else {
+        // Button released � reset timestamp for next press
+        rev_spin.timestamp_last_shoot_command = 0.0f;
+        return REV_STOP;
+    }
+}
+
+uint8_t _state_machine_rev_autonomus() {
+
+    // --- Jam detection: if motor is stalled for too long, trigger unstuck ---
+//    if (abs(DM_Rev_Motor.Data.Current) < 6000)
+//        rev_spin.time_rev_locked = HAL_GetTick();  // reset stall timer (raw ms ticks)
+
+    if (HAL_GetTick() - rev_spin.time_rev_locked > 300)  // 300 ms stall threshold
+        return REV_UNSTUCK;
+
+    // --- Normal rev control via wheel axis ---
+    else if (shoot_flag_cv && rev_spin.timestamp_last_shoot_command > 0.2f) {
+        rev_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3f;
+        return REV_SINGLE_SHOOTING;
+    }
+    else {
+        return REV_STOP;
+    }
+}
+
+#endif
 
 uint8_t _state_machine_lidar_lifter() {
 		if( RC_info.RC.Stop == 1) return LIDAR_UP;

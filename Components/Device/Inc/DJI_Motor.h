@@ -5,7 +5,7 @@
 #include "stm32h723xx.h"
 #include "bsp_can.h"
 #include "motor.h"
-
+#include "robot_config.h"
 
 /**
  * @file    dji_motor.h
@@ -64,8 +64,13 @@ typedef struct
 extern DJI_Motor_Info_Typedef DJI_Yaw_Motor;
 extern DJI_Motor_Info_Typedef DJI_Chassis_Motor[4];
 extern DJI_Motor_Info_Typedef DJI_Shooting_Motor[2];
-extern DJI_Motor_Info_Typedef DJI_Rev_Motor;
 extern DJI_Motor_Info_Typedef DJI_Lidar_Motor;
+
+#if IS_SENTRY || IS_STD
+	extern DJI_Motor_Info_Typedef DJI_Rev_Motor;
+#elif IS_HERO
+	extern DJI_Motor_Info_Typedef DJI_Push_Motor;
+#endif
 
 // Extern Functions
 extern void DJI_Motor_Info_Update(uint32_t *Identifier, uint8_t *Rx_Buf, DJI_Motor_Info_Typedef *DJI_Motor);

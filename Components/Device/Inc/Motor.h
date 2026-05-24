@@ -11,7 +11,7 @@
   ******************************************************************************
   */
 /* USER CODE END Header */
-
+#include "robot_config.h"
 
 /* Define to prevent recursive inclusion -------------------------------------*/
 #ifndef DEVICE_MOTOR_H
@@ -31,9 +31,9 @@
 #define CM_CHASSIS_3_TX_ID 120
 #define CM_CHASSIS_3_RX_ID 0x00000078
 
-/* Yaw Motor (DaMiao DM-J6006-2EC) */
-#define DM_YAW_TX_ID       0x11
-#define DM_YAW_RX_ID       0x01
+/* Yaw Motor (DaMiao DM-J6006-2EC or DM-4310-2EC) */
+#define DM_YAW_TX_ID       0x01
+#define DM_YAW_RX_ID       0x11
 
 /* Pitch Motor (CubeMars AK40-10) */
 #define CM_PITCH_TX_ID     2
@@ -48,9 +48,18 @@
 #define DJI_REV_TX_ID      0x200
 #define DJI_REV_RX_ID      0x203
 
+/* Push Motor (DJI M2006) */
+#define DJI_PUSH_TX_ID    0x200
+#define DJI_PUSH_RX_ID    0x203
+
 /* Lidar Lifter Motor (DJI M2006) */
 #define DJI_LIDAR_TX_ID    0x200
 #define DJI_LIDAR_RX_ID    0x204
+
+/* REV Motor (DaMiao DM-J6006-2EC) */
+#define DM_REV_TX_ID       0x09
+#define DM_REV_RX_ID       0x19
+
 
 
 #endif

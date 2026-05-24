@@ -334,31 +334,22 @@ static void FDCAN1_RxFifo0RxHandler(FDCAN_RxHeaderTypeDef *RxHeader, uint8_t Dat
         case DJI_SHOOTING_1_RX_ID:
             DJI_Motor_Info_Update(&id, Data, &DJI_Shooting_Motor[1]);
             break;
-
-        case DJI_REV_RX_ID:
-            DJI_Motor_Info_Update(&id, Data, &DJI_Rev_Motor);
-            break;
-				
-				case DJI_LIDAR_RX_ID:
-				    DJI_Motor_Info_Update(&id, Data, &DJI_Lidar_Motor);
-            break;
-
+				#if IS_STD || IS_SENTRY
+					case DJI_REV_RX_ID:
+							DJI_Motor_Info_Update(&id, Data, &DJI_Rev_Motor);
+							break;
+					
+					case DJI_LIDAR_RX_ID:
+							DJI_Motor_Info_Update(&id, Data, &DJI_Lidar_Motor);
+							break;
+				#elif IS_HERO
+					case DM_REV_RX_ID:
+							DJI_Motor_Info_Update(&id, Data, &DJI_Push_Motor);
+							break;
+				#endif
+					
         default:
             break;
-    }
-}
-
-/**
-  * @brief  FDCAN3 RX handler � currently unused.
-  * @param  Identifier: Received identifier.
-  * @param  Data: 8-byte CAN data buffer.
-  * @retval None
-  */
-static void FDCAN3_RxFifo0RxHandler(uint32_t *Identifier, uint8_t Data[8])
-{
-    if (*Identifier == TYPE_C_CAN_ID)
-    {
-        Type_C_Can_Update(Data);
     }
 }
 
@@ -381,8 +372,6 @@ static void FDCAN3_RxFifo0RxHandler(uint32_t *Identifier, uint8_t Data[8])
 static void FDCAN2_RxFifo1RxHandler(FDCAN_RxHeaderTypeDef *RxHeader, uint8_t Data[8])
 {
     uint32_t id = RxHeader->Identifier;
-	
-    fifo_number_1 = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan2);
 
     /* Standard ID � DM yaw or CM chassis */
     switch (id)
@@ -411,6 +400,32 @@ static void FDCAN2_RxFifo1RxHandler(FDCAN_RxHeaderTypeDef *RxHeader, uint8_t Dat
 
         default:
             break;
+    }
+}
+
+/**
+  * @brief  FDCAN3 RX handler � currently unused.
+  * @param  Identifier: Received identifier.
+  * @param  Data: 8-byte CAN data buffer.
+  * @retval None
+  */
+static void FDCAN3_RxFifo0RxHandler(FDCAN_RxHeaderTypeDef *RxHeader, uint8_t Data[8]){
+	
+	uint32_t id = RxHeader->Identifier;
+	
+	
+//    if (*Identifier == TYPE_C_CAN_ID)
+//    {
+//			//Type_C_Can_Update(Data);
+//		}
+			switch (id){
+
+			#if IS_HERO
+				case DM_REV_RX_ID:
+            DM_Motor_Info_Update(&id, Data, &DM_Rev_Motor);
+            break;
+			#endif
+				
     }
 }
 

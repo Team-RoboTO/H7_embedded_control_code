@@ -142,7 +142,7 @@ void control_loop_gimbal() {
                     remote_commands_yaw   = -RC_info.RC.Channel[0];
                     remote_commands_pitch = -RC_info.RC.Channel[1];
                         if (remote_commands_yaw != 0){
-													 gimbal.r_x[0] += (remote_commands_yaw / MAX_RC_TILT) * 0.15f * DEG_TO_RAD;
+													 gimbal.r_x[0] += (remote_commands_yaw / MAX_RC_TILT) * 0.25f * DEG_TO_RAD;
 												}
 												if (is_homing == 0){
 													gimbal.r_x[1] = pitch_zero + (remote_commands_pitch / MAX_RC_TILT) * 20 * DEG_TO_RAD;

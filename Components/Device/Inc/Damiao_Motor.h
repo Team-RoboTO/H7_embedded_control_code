@@ -10,21 +10,6 @@
  *          STM32H7 FDCAN, classic CAN, 1Mbps
  */
  
-// Constants
-// DM Motor Model Constants
-#define DM_J6006_POS_MIN        -12.5f
-#define DM_J6006_POS_MAX         12.5f
-#define DM_J6006_VEL_MIN        -45.0f
-#define DM_J6006_VEL_MAX         45.0f
-#define DM_J6006_TORQUE_MIN     -12.0f
-#define DM_J6006_TORQUE_MAX      12.0f
-#define DM_J4310_POS_MIN        -12.5f
-#define DM_J4310_POS_MAX         12.5f
-#define DM_J4310_VEL_MIN        -50.0f
-#define DM_J4310_VEL_MAX         50.0f
-#define DM_J4310_TORQUE_MIN     -10.0f
-#define DM_J4310_TORQUE_MAX      10.0f
-
 /**
  * @brief  typedef enum that contains the type of DM Motor Device.
  */
@@ -121,9 +106,9 @@ typedef struct
 }DM_Motor_Control_Info_Typedef;
 
 // Extern Variables
-extern DM_Motor_Info_Typedef         DM_8009_Motor[4];
 extern DM_Motor_Control_Info_Typedef DM_Motor_Contorl_Info[4];
 extern DM_Motor_Info_Typedef         DM_Yaw_Motor;
+extern DM_Motor_Info_Typedef         DM_Rev_Motor;
 
 // Extern Functions
 extern void DM_Motor_Info_Update(uint32_t *Identifier, uint8_t *Rx_Buf, DM_Motor_Info_Typedef *DM_Motor);

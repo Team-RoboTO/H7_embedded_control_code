@@ -9,8 +9,7 @@
  /*   CONTROLLED SYSTEM   */
 /*************************/
 
-extern controlled_system_t std_circ_shoot_wheels;
-extern controlled_system_t std_circ_rev;
+extern controlled_system_t shoot_wheels_and_rev;
 
   /********************/
  /*   CONTROL LOOP   */
@@ -19,6 +18,7 @@ extern controlled_system_t std_circ_rev;
 void control_loop_shooting(void);
 void _control_loop_shoot_wheels(void);
 void _control_loop_rev(void);
+void _control_loop_push(void);
 void _control_loop_lidar_lifter(void);
 
 #endif

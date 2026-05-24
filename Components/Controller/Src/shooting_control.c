@@ -1,6 +1,7 @@
 #include "shooting_control.h"
 #include "PID.h"
 #include "DJI_motor.h"
+#include "Damiao_Motor.h"
 #include "state_machine.h"
 #include "control_utils.h"
 #include "string.h"
@@ -69,8 +70,12 @@ static float pid_ll_vel_params[PID_PARAMETER_NUM] = {1.0f,  0.0f, 0.0f, 0.0f, 0.
   /*************************/
  /*   CONTROL VARIABLES   */
 /*************************/
+#if IS_STD || IS_SENTRY
+float r_shoot_wheels_ang_vel                       = 660;  // [rad/s]ACCEL_CS_GPIO_Port
+#elif IS_HERO
+float r_shoot_wheels_ang_vel                       = 400;  // [rad/s]ACCEL_CS_GPIO_Port
+#endif
 
-float r_shoot_wheels_ang_vel                       = 660;  // [rad/s]
 static uint8_t need_to_set_rev_ang_pos_reference   = true;
 static float rev_shooting_frequency                = 10;  // Bullets per second [Hz]
 
@@ -82,6 +87,12 @@ float LIDAR_CURRENT_TRESHOLD = 1000;
 float CALIBRATION_SPEED =  10; // rad/s
 float SETPOINT_DISTANCE = 105.0f;
 
+bool has_shooted = 0;
+float vel_up_rev = 3.0f;
+float vel_down_rev = 15.0f;
+
+
+
   /********************/
  /*   CONTROL LOOP   */
 /********************/
@@ -89,8 +100,13 @@ float SETPOINT_DISTANCE = 105.0f;
 void control_loop_shooting(void)
 {
     _control_loop_shoot_wheels();
-    _control_loop_rev();
-		_control_loop_lidar_lifter();
+		#if IS_STD || IS_SENTRY
+			_control_loop_rev();
+			_control_loop_lidar_lifter();
+		#elif IS_HERO
+			_control_loop_rev();
+			_control_loop_push();
+		#endif
 
     is_first_iter = false;
 		DJI_M3508_M2006_TxMessage(&FDCAN1_TxFrame, shoot_wheels_and_rev.ud[0], shoot_wheels_and_rev.ud[1], shoot_wheels_and_rev.ud[2], lidar_lifter.ud[0]);
@@ -158,7 +174,7 @@ void _control_loop_shoot_wheels(void){
     }
 
 }
-
+#if IS_STD || IS_SENTRY
   /************************/
  /*   REV CONTROL LOOP   */
 /************************/
@@ -303,7 +319,69 @@ void _control_loop_lidar_lifter(void)
 			lidar_lifter.ud[0] = lidar_lifter.u[1]*DJI_Motor_ADC[DJI_M2006]; //M2006_ADC_CONVERTION;
 	
 		return;
-		
-	
-		
+			
 }
+
+#elif IS_HERO
+	void _control_loop_rev(void){
+		
+    // Update state from sensors
+    for (uint8_t i = 2; i < shoot_wheels_and_rev.p; i++) {
+        shoot_wheels_and_rev.x_prev[i] = shoot_wheels_and_rev.x[i];
+    }
+    shoot_wheels_and_rev.x[2] = (float) DM_Rev_Motor.Data.Position;    // REV angular position [rad]
+
+    // Update reference history
+    for (uint8_t i = 2; i < shoot_wheels_and_rev.n; i++) {
+        shoot_wheels_and_rev.r_x_prev[i] = shoot_wheels_and_rev.r_x[i];
+    }
+
+    // One-time init: latch current position as initial setpoint
+    if (is_first_iter == 1) {
+        shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.x[2];
+				shoot_wheels_and_rev.r_x[3] = shoot_wheels_and_rev.x[2];
+    }
+
+//    // Clear unstuck flag once error is small enough
+//    if (unstuck_rev_enabled && fabs(shoot_wheels_and_rev.r_x[2] - shoot_wheels_and_rev.x[2]) < 1 * pi / 180) {
+//        unstuck_rev_enabled = 0;
+//    }
+
+    // Setpoint generation based on REV state machine
+    switch (state_rev) {
+
+//        case REV_UNSTUCK:
+//            if (!unstuck_rev_enabled) {
+//                shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.x[2] - 23 * pi / 180;
+//                unstuck_rev_enabled = 1;
+//            }
+//            break;
+
+        case REV_STOP:
+						has_shooted = 0;
+            break;
+
+        case REV_SINGLE_SHOOTING:
+						if (has_shooted == 0){
+							shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.r_x[2] - (6*pi)/7;
+							has_shooted = 1;
+						}
+            break;
+
+//        case REV_MULTIPLE_SHOOTING:
+//            if (!unstuck_rev_enabled) {
+//                shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.x[2];
+//                shoot_wheels_and_rev.r_x[3] = rev_shooting_frequency * pi / 4;
+//                need_to_set_rev_ang_pos_reference = false;
+//            }
+//            break;
+
+        default:
+            break;
+    }
+	slewRateControl(&shoot_wheels_and_rev.r_x[3], shoot_wheels_and_rev.r_x[2], vel_up_rev, vel_down_rev, 0.001f);
+	}
+	void _control_loop_push(void){
+	}
+
+#endif

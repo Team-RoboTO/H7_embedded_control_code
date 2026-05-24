@@ -2,20 +2,14 @@
  ******************************************************************************
  * @file           : CAN_Task.c
  * @brief          : CAN task
- * @author         : GrassFam Wang
- * @date           : 2025/1/22
- * @version        : v2.0
+ * @author         : RoboTO
  ******************************************************************************
  */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "cmsis_os.h"
 #include "CAN_Task.h"
-#include "Control_Task.h"
 #include "INS_Task.h"
-#include "motor.h"
-#include "bsp_can.h"
-#include "Remote_Control.h"
 #include "Damiao_Motor.h"
 #include "Cubemars_Motor.h"
 #include "DJI_Motor.h"
@@ -24,11 +18,8 @@
 #include "chassis_control.h"
 #include "gimbal_control.h"
 
-uint8_t is_first_iter_can = 1;
-static uint8_t is_init = 1;
-
-extern controlled_system_t shoot_wheels_and_rev;
-extern float test_angle;
+static bool is_first_iter = 1;
+static bool is_init = 1;
 
 /* Debug: frequency measurement */
 volatile uint32_t can_task_iter_count = 0;
@@ -72,13 +63,15 @@ void CAN_Task(void const * argument)
 
         /* One-time init */
         if (is_init) {
+						#if IS_HERO
+							DM_Motor_Command(&FDCAN3_TxFrame, &DM_Rev_Motor, Motor_Save_Zero_Position);
+							osDelay(30);
+						#endif
+					  
+            is_init = 0;
 					
 						CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Save_Zero_Position);
             osDelay(30);
-					
-					  // remove the comment for set the zero of the yaw
-//						DM_Motor_Command(&FDCAN2_TxFrame, &DM_Yaw_Motor, Motor_Save_Zero_Position);
-//            osDelay(30);
 					  
             is_init = 0;
         }
@@ -87,7 +80,7 @@ void CAN_Task(void const * argument)
 				{
 						FDCAN2_Reset();
 						osDelay(20);
-						is_first_iter_can = 1;
+						is_first_iter = 1;
 						osDelay(20);
 				}
 				
@@ -111,8 +104,14 @@ void CAN_Task(void const * argument)
 								osDelay(30);
 						}
             is_first_iter_can = 1;
+						#if IS_HERO
+							DM_Motor_Command(&FDCAN3_TxFrame, &DM_Rev_Motor, Motor_Disable);
+							osDelay(30);
+						#endif
+						
+            is_first_iter = 1;
         }
-        else if (is_first_iter_can == 1) {
+        else if (is_first_iter == 1) {
             CM_Motor_Command(&FDCAN2_TxFrame, &CM_Chassis_Motor[0], CM_Motor_Enable);
             osDelay(30);
             CM_Motor_Command(&FDCAN2_TxFrame, &CM_Chassis_Motor[1], CM_Motor_Enable);
@@ -125,7 +124,11 @@ void CAN_Task(void const * argument)
             osDelay(30);
 						CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Enable);
 						osDelay(30);
-            is_first_iter_can= 0;
+						#if IS_HERO
+							DM_Motor_Command(&FDCAN3_TxFrame, &DM_Rev_Motor, Motor_Enable);
+							osDelay(30);
+						#endif
+            is_first_iter = 0;
         }
 
         /* --- TIME SLICING: Send half the messages at a time --- */
@@ -133,6 +136,9 @@ void CAN_Task(void const * argument)
             // First Half: Chassis 0, 1 and Yaw
             #if IS_GIMBAL_ENABLED
                 DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &DM_Yaw_Motor, 0, gimbal.u[0], 0, KD_yaw, 0);
+								#if IS_HERO
+									DM_Motor_CAN_TxMessage(&FDCAN3_TxFrame, &DM_Rev_Motor, shoot_wheels_and_rev.r_x[3], 0 , 10, 1, 0);
+								#endif
             #endif
             #if IS_CHASSIS_ENABLED
                 CM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &CM_Chassis_Motor[0], 0, chassis.r_x[0], 0, MIT_kd, 0);
