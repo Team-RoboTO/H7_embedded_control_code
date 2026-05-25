@@ -3,9 +3,7 @@
   ******************************************************************************
   * @file           : INS_Task.c
   * @brief          : INS task
-  * @author         : GrassFan Wang
-  * @date           : 2025/01/22
-  * @version        : v1.0
+  * @author         : RoboTO
   ******************************************************************************
   * @attention      : None
   ******************************************************************************
@@ -21,12 +19,7 @@
 #include "tim.h"
 #include "Quaternion.h"
 #include "bsp_pwm.h"
-//#include "rtt_log.h"
-//#include "segger_rtt.h"
 #include "math_utils.h"
-//#include "EventRecorder.h"
-
-
 
 /**
   * @brief the structure that contains the information for the INS.

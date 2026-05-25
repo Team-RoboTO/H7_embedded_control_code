@@ -13,10 +13,9 @@
  /*   ROBOT CONFIGURATION   */
 /***************************/
 
-#define IS_CHASSIS_ENABLED 				    1  // Enable/Disable chassis motors
-#define IS_GIMBAL_ENABLED 			     	1  // Enable/Disable gimbal motors
-#define IS_SHOOT_WHEELS_ENABLED 	    1  // Enable/Disable shooting wheels motors
-#define IS_REV_ENABLED 				      	1  // Enable/Disable REV motor
+#define IS_CHASSIS_ENABLED 				 	  1  // Enable/Disable chassis motors
+#define IS_GIMBAL_ENABLED 			  	 	1  // Enable/Disable gimbal motors
+#define IS_SHOOTING_ENABLED 	   		  1  // Enable/Disable shooting wheels motors
 
   /********************/
  /* COMPETITION MODE */
@@ -25,7 +24,6 @@
 #define IS_MATCH_MODE_ENABLED         0  // Enable/Disable match mode (shooting wheels time on,...)
 #define IS_HEAT_ENABLED               0  // shooting limit 
 #define IS_POWER_LIMIT_ENABLED        1  // chassis power consumption limit 
-#define IS_POWER_LIMIT_ENABLED        1 // chassis power consumption limit 
 #define SUPERCAP_ENABLED              0  // Enable/Disable supercapacitor module
 
   /********************/
@@ -40,8 +38,6 @@
 
 #define IS_NDJ6_REMOTE                0  // old remote
 #define IS_VT13_REMOTE                1  // new remote
-
-
 
 
   /*****************************/
@@ -66,6 +62,6 @@
 
 // Event mode and shooting cannot be on at the same time
 #define CONFLICT_EVENT_SHOOTING \
-    (IS_SHOOT_WHEELS_ENABLED + IS_EVENT_MODE_ENABLED) > 1
+    (IS_SHOOTING_ENABLED + IS_EVENT_MODE_ENABLED) > 1
 
 #endif

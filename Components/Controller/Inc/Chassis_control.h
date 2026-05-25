@@ -2,7 +2,7 @@
 #define CHASSIS_CONTROL_H
 
 #include "robot_config.h"
-
+#include "stdbool.h"
 #include "controlled_system.h"
 
   /*************************/
@@ -12,12 +12,12 @@
 extern controlled_system_MIT_t chassis;
 extern float MIT_kd_base;
 extern float MIT_kd;
-extern uint8_t is_rotating;
+extern bool is_rotating;
 
   /********************/
  /*   CONTROL LOOP   */
 /********************/
-#define GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD 0.0f
+#define YAW_ZERO 0.0f
 
 void control_loop_chassis(void);
 

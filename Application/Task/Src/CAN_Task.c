@@ -28,15 +28,8 @@ volatile float    can_task_freq_hz = 0.0f;
 static uint32_t   can_task_freq_start_ms = 0;
 static uint32_t   can_task_freq_iters = 0;
 
-float KD_yaw = 0.8f;//0.8f;
-
-float KD_pitch = 1.0f;
-
-float KP_pitch = 20.0f;
-
 extern FDCAN_HandleTypeDef hfdcan2;
 
-uint32_t test = 0;
 size_t free_now, free_min;
 
 void CAN_Task(void const * argument)
@@ -160,18 +153,17 @@ void CAN_Task(void const * argument)
             
             split_flag = 0; // Toggle flag back
         }
-
-        #if !IS_REV_ENABLED
-            shoot_wheels_and_rev.ud[2] = 0;
-        #endif
-
-        #if !IS_SHOOT_WHEELS_ENABLED
+				
+				#if IS_SHOOTING_ENABLED
+						DJI_M3508_M2006_TxMessage(&FDCAN1_TxFrame, shoot_wheels_and_rev.ud[0], shoot_wheels_and_rev.ud[1], shoot_wheels_and_rev.ud[2], lidar_lifter.ud[0]);
+        #else
             shoot_wheels_and_rev.ud[0] = 0;
             shoot_wheels_and_rev.ud[1] = 0;
+						shoot_wheels_and_rev.ud[2] = 0;
         #endif
 				
 				#if !IS_LIDAR_LIFTER_ENABLED
-						// set current to 0
+						lidar_lifter.ud[0] = 0;
 				#endif
 				
 				free_now = xPortGetFreeHeapSize();

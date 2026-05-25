@@ -33,17 +33,15 @@
  */
 
 #include "chassis_control.h"
-#include "robot_config.h"
 #include "state_machine.h"
 #include "PID.h"
-#include "Remote_Control.h"
 #include "Cubemars_Motor.h"
 #include "Damiao_Motor.h"
 #include "power_estimation.h"
-#include "math_utils.h"
 #include "control_utils.h"
 #include "MiniPC.h"
 #include "mouse_keyboard_command.h"
+#include "Referee_System.h"
 
   /*************************/
  /*   CONTROLLED SYSTEM   */
@@ -63,7 +61,7 @@ static float dt_chassis = 0.001f;
 
 static float max_r_ang_vel_wheels = 20.0;  // Max reference of angular velocity of wheels [rad/s]
 static float rot_ang_vel_wheels = 45.0f;
-uint8_t is_rotating = 0; //flag for complete the rotation until the head return alligned to the zero 
+bool is_rotating = 0; //flag for complete the rotation until the head return alligned to the zero 
 
 int16_t remote_commands_bwd_fwd;                // in range [-660, +660]
 int16_t remote_commands_left_right;             // in range [-660, +660]
@@ -109,6 +107,8 @@ static float c = 0.7071067812;
 float MIT_kd = 0.2f;    	// range 0-5
 float MIT_kd_base = 0.2f;
 
+float chassis_power_limit_local = 75;
+
   /********************/
  /*   CONTROL LOOP   */
 /********************/
@@ -126,7 +126,7 @@ void control_loop_chassis() {
     chassis.x[2] = CM_Chassis_Motor[2].Data.Velocity * radius_wheel;
     chassis.x[3] = CM_Chassis_Motor[3].Data.Velocity * radius_wheel;
 
-    chassis.x[4] = nearest_target_angle_from_start_angle(DM_Yaw_Motor.Data.Position - GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD, 0);
+    chassis.x[4] = nearest_target_angle_from_start_angle(DM_Yaw_Motor.Data.Position - YAW_ZERO, 0);
 		
 		//Forward kinematics: wheel angular velocities to chassis linear velocities ---
 	  vx = ( chassis.x[0] + chassis.x[1] - chassis.x[2] - chassis.x[3]) / (4.0f * c);
@@ -208,8 +208,7 @@ void control_loop_chassis() {
                 break;
             }
 
-            else if (is_rotating == 1 && ((DM_Yaw_Motor.Data.Angle_sum > (GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD + 1000)) ||
-                                          (DM_Yaw_Motor.Data.Angle_sum < (GIMBAL_YAW_ENCODER_ANGLE_MECH_ZERO_RAD)))) {
+            else if (is_rotating == 1 && ((DM_Yaw_Motor.Data.Position > (YAW_ZERO + 3.0f)) ||(DM_Yaw_Motor.Data.Position < (YAW_ZERO + 2.0f)))) {
 							r_ang_vel_wheel_1_bwd_fwd       = (vx_ref * c / radius_wheel) * cos(- chassis.x[4] + pi/4);
 							r_ang_vel_wheel_2_bwd_fwd       = (vx_ref * c / radius_wheel) * sin(- chassis.x[4] + pi/4);
 							r_ang_vel_wheel_3_bwd_fwd       = (vx_ref * c / radius_wheel) * cos(- chassis.x[4] + pi/4);
@@ -286,10 +285,8 @@ void control_loop_chassis() {
 		
 		// Competition Power Limit
 		#if IS_POWER_LIMIT_ENABLED
-			//chassis_power_limit_local	= robot_status.chassis_power_limit-20;
-		  float chassis_power_limit_local = 1000.0f;
-			chassis_power_control( 50 , chassis.r_x, &MIT_kd);
-		//chassis_power_limit_local	= robot_status.chassis_power_limit-20;
-	
+		  if (Referee_System_Info.robot_status.chassis_power_limit != 0) chassis_power_limit_local	= Referee_System_Info.robot_status.chassis_power_limit;
+			else chassis_power_limit_local = 120;
+			chassis_power_control(chassis_power_limit_local , chassis.r_x, &MIT_kd);
 		#endif
 }

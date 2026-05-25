@@ -31,14 +31,6 @@ controlled_system_t gimbal = {
     .n          = 2,
     .m          = 2,
     .p          = 2,
-    .x          = {0},
-    .x_prev     = {0},
-    .u          = {0},
-    .u_prev     = {0},
-    .ud         = {0},
-    .ud_prev    = {0},
-    .r_x        = {0},
-    .r_x_prev   = {0},
 };
 
   /*******************/
@@ -65,6 +57,10 @@ static float yaw_command_from_cv_prev;
 static float pitch_command_from_cv_prev;
 
 float k_ff_yaw = 0.7f;
+
+float KD_yaw = 0.8f;//0.8f;
+float KD_pitch = 1.0f;
+float KP_pitch = 20.0f;
 
 static bool is_first_iter = true;
 static bool is_homing = true;
@@ -145,21 +141,21 @@ void control_loop_gimbal() {
 													 gimbal.r_x[0] += (remote_commands_yaw / MAX_RC_TILT) * 0.25f * DEG_TO_RAD;
 												}
 												if (is_homing == 0){
-													gimbal.r_x[1] = pitch_zero + (remote_commands_pitch / MAX_RC_TILT) * 20 * DEG_TO_RAD;
-													saturate_in_range(&gimbal.r_x[1], pitch_zero - 15*DEG_TO_RAD ,pitch_zero + 25*DEG_TO_RAD );
+													gimbal.r_x[1] = pitch_zero + (remote_commands_pitch / MAX_RC_TILT) * 25 * DEG_TO_RAD;
 												}
                     break;
 
                 case COMMANDS_KEYBOARD_MOUSE:						
-                     remote_commands_yaw   = RC_info.Mouse.X;
+                    remote_commands_yaw   = RC_info.Mouse.X;
                     remote_commands_pitch = RC_info.Mouse.Y;
+										saturate(&remote_commands_yaw, 100000);
+										saturate(&remote_commands_pitch, 100000);
                     
                     // Mouse movement should be accumulated (delta)
                     // Mouse movement (sensitivity drastically reduced for 1ms loop)
                     gimbal.r_x[0] -= (remote_commands_yaw * 0.00002f);
                     gimbal.r_x[1] -= (remote_commands_pitch * 0.00001f); // Inverted Y for standard mouse feel
                     
-                    saturate_in_range(&gimbal.r_x[1], pitch_zero - 15*DEG_TO_RAD ,pitch_zero + 25*DEG_TO_RAD );
 								break;
 
                 default:
@@ -211,7 +207,6 @@ void control_loop_gimbal() {
 							}
 							
 							//else gimbal.r_x[1] = -pitch_command_from_cv;
-							saturate_in_range(&gimbal.r_x[1], pitch_zero - 5*DEG_TO_RAD ,pitch_zero + 20*DEG_TO_RAD );
 							
 							gimbal.r_x[0] = LowPassFilter1p_Update(&lpf_yaw_cv, gimbal.r_x[0]);
 							gimbal.r_x[1] = LowPassFilter1p_Update(&lpf_pitch_cv, gimbal.r_x[1]);
@@ -227,5 +222,7 @@ void control_loop_gimbal() {
 
 	float pid_yaw_out = PID_Calculate(&pid_yaw_pos, gimbal.r_x[0], gimbal.x[0]);
 	gimbal.u[0] = pid_yaw_out - ( k_ff_yaw * w );
+		
+	if (is_homing == 0) saturate_in_range(&gimbal.r_x[1],pitch_zero - 20*DEG_TO_RAD , 1*DEG_TO_RAD);
 
 }

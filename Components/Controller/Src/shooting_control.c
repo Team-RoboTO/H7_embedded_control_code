@@ -52,13 +52,13 @@ static float pid_ll_vel_params[PID_PARAMETER_NUM] = {1.0f,  0.0f, 0.0f, 0.0f, 0.
  /*   CONTROL VARIABLES   */
 /*************************/
 #if IS_STD || IS_SENTRY
-float r_shoot_wheels_ang_vel                       = 660;  // [rad/s]ACCEL_CS_GPIO_Port
+float r_shoot_wheels_ang_vel                       = 500;//660;  // [rad/s]
 #elif IS_HERO
-float r_shoot_wheels_ang_vel                       = 400;  // [rad/s]ACCEL_CS_GPIO_Port
+float r_shoot_wheels_ang_vel                       = 480;  // [rad/s]
 #endif
 
 static uint8_t need_to_set_rev_ang_pos_reference   = true;
-static float rev_shooting_frequency                = 10;  // Bullets per second [Hz]
+static float rev_shooting_frequency                = 15;  // Bullets per second [Hz]
 
 static uint8_t is_first_iter                       = true;
 bool unstuck_rev_enabled                           = 0;
@@ -69,9 +69,10 @@ float CALIBRATION_SPEED =  10; // rad/s
 float SETPOINT_DISTANCE = 105.0f;
 
 bool has_shooted = 0;
-float vel_up_rev = 3.0f;
+float vel_up_rev = 5.0f;
 float vel_down_rev = 15.0f;
 
+float unstuck_rev_counter = 0;
 
 
   /********************/
@@ -90,7 +91,6 @@ void control_loop_shooting(void)
 		#endif
 
     is_first_iter = false;
-		DJI_M3508_M2006_TxMessage(&FDCAN1_TxFrame, shoot_wheels_and_rev.ud[0], shoot_wheels_and_rev.ud[1], shoot_wheels_and_rev.ud[2], lidar_lifter.ud[0]);
 }
 
   /*********************************/
@@ -190,7 +190,7 @@ void _control_loop_rev(void)
     }
 
     // Clear unstuck flag once error is small enough
-    if (unstuck_rev_enabled && fabs(shoot_wheels_and_rev.r_x[2] - shoot_wheels_and_rev.x[2]) < 1 * pi / 180) {
+    if (unstuck_rev_enabled && fabs(shoot_wheels_and_rev.r_x[2] - shoot_wheels_and_rev.x[2]) < 1 * pi / 180){ 
         unstuck_rev_enabled = 0;
     }
 
@@ -199,7 +199,8 @@ void _control_loop_rev(void)
 
         case REV_UNSTUCK:
             if (!unstuck_rev_enabled) {
-                shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.x[2] - 23 * pi / 180;
+                shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.x[2] - 15 * pi / 180;
+								unstuck_rev_counter += 1;
                 unstuck_rev_enabled = 1;
             }
             break;
@@ -244,63 +245,6 @@ void _control_loop_rev(void)
 		
 	  shoot_wheels_and_rev.ud[2] = shoot_wheels_and_rev.u[2]*DJI_Motor_ADC[DJI_M2006]; //M2006_ADC_CONVERTION;
 	
-}
-
-void _control_loop_lidar_lifter(void)
-{
-			if (is_first_iter == 1) {
-			PID_Init(&pid_ll_pos,  PID_POSITION, pid_ll_pos_params);
-			PID_Init(&pid_ll_vel, PID_POSITION, pid_ll_vel_params);
-			}
-			
-					 // On STOP: zero output and reset PIDs
-			if (state_remote_commands == COMMANDS_STOP) {
-					lidar_lifter.ud[0] = 0;
-					pid_rev_pos.PID_Calc_Clear(&pid_ll_pos);
-					pid_rev_vel.PID_Calc_Clear(&pid_ll_vel);
-					return;
-			}
-		
-			lidar_lifter.x[0] = (float) DJI_Lidar_Motor.Data.Angle_sum;           // [rad]
-			lidar_lifter.x[1] = (float) DJI_Lidar_Motor.Data.Velocity_rads;		  	// [rad/s]
-
-				
-			if( lidar_home_position < 0 ){
-				if( abs(DJI_Lidar_Motor.Data.Current) > LIDAR_CURRENT_TRESHOLD ){
-					lidar_home_position = DJI_Lidar_Motor.Data.Angle_sum;
-					lidar_lifter.r_x[0] = lidar_home_position; 					// Set home as base position
-										
-				} else {
-					lidar_lifter.r_x[0] += CALIBRATION_SPEED/1000;
-				}
-			}
-			
-			if( lidar_home_position > 0 ){
-				switch (state_lidar_lifter) {
-					case LIDAR_UP:
-						lidar_lifter.r_x[0] = lidar_home_position - SETPOINT_DISTANCE;
-						break;
-						
-					case LIDAR_DOWN:
-						lidar_lifter.r_x[0] = lidar_home_position - 1;
-						break;
-				}
-			}
-			
-			
-			// --- OUTER LOOP: Position Control ---
-			// Output is the desired LL velocity setpoint
-			lidar_lifter.u[0] = PID_Calculate(&pid_ll_pos, lidar_lifter.r_x[0], lidar_lifter.x[0]);
-			saturate(&lidar_lifter.u[0], 20);
-	
-			// --- INNER LOOP: Velocity Control ---
-			// Output is the motor current command
-
-			lidar_lifter.u[1] = PID_Calculate(&pid_ll_vel, lidar_lifter.u[0], lidar_lifter.x[1]);
-			lidar_lifter.ud[0] = lidar_lifter.u[1]*DJI_Motor_ADC[DJI_M2006]; //M2006_ADC_CONVERTION;
-	
-		return;
-			
 }
 
 #elif IS_HERO
@@ -366,3 +310,65 @@ void _control_loop_lidar_lifter(void)
 	}
 
 #endif
+
+
+
+
+
+
+void _control_loop_lidar_lifter(void)
+{
+			if (is_first_iter == 1) {
+			PID_Init(&pid_ll_pos,  PID_POSITION, pid_ll_pos_params);
+			PID_Init(&pid_ll_vel, PID_POSITION, pid_ll_vel_params);
+			}
+			
+					 // On STOP: zero output and reset PIDs
+			if (state_remote_commands == COMMANDS_STOP) {
+					lidar_lifter.ud[0] = 0;
+					pid_rev_pos.PID_Calc_Clear(&pid_ll_pos);
+					pid_rev_vel.PID_Calc_Clear(&pid_ll_vel);
+					return;
+			}
+		
+			lidar_lifter.x[0] = (float) DJI_Lidar_Motor.Data.Angle_sum;           // [rad]
+			lidar_lifter.x[1] = (float) DJI_Lidar_Motor.Data.Velocity_rads;		  	// [rad/s]
+
+				
+			if( lidar_home_position < 0 ){
+				if( abs(DJI_Lidar_Motor.Data.Current) > LIDAR_CURRENT_TRESHOLD ){
+					lidar_home_position = DJI_Lidar_Motor.Data.Angle_sum;
+					lidar_lifter.r_x[0] = lidar_home_position; 					// Set home as base position
+										
+				} else {
+					lidar_lifter.r_x[0] += CALIBRATION_SPEED/1000;
+				}
+			}
+			
+			if( lidar_home_position > 0 ){
+				switch (state_lidar_lifter) {
+					case LIDAR_UP:
+						lidar_lifter.r_x[0] = lidar_home_position - SETPOINT_DISTANCE;
+						break;
+						
+					case LIDAR_DOWN:
+						lidar_lifter.r_x[0] = lidar_home_position - 1;
+						break;
+				}
+			}
+			
+			
+			// --- OUTER LOOP: Position Control ---
+			// Output is the desired LL velocity setpoint
+			lidar_lifter.u[0] = PID_Calculate(&pid_ll_pos, lidar_lifter.r_x[0], lidar_lifter.x[0]);
+			saturate(&lidar_lifter.u[0], 20);
+	
+			// --- INNER LOOP: Velocity Control ---
+			// Output is the motor current command
+
+			lidar_lifter.u[1] = PID_Calculate(&pid_ll_vel, lidar_lifter.u[0], lidar_lifter.x[1]);
+			lidar_lifter.ud[0] = lidar_lifter.u[1]*DJI_Motor_ADC[DJI_M2006]; //M2006_ADC_CONVERTION;
+	
+		return;
+			
+}

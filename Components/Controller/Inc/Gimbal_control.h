@@ -10,6 +10,9 @@
 /*************************/
 
 extern controlled_system_t gimbal;
+extern float KD_yaw;
+extern float KD_pitch;
+extern float KP_pitch;
 
   /********************/
  /*   CONTROL LOOP   */

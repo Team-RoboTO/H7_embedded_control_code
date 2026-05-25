@@ -1,6 +1,7 @@
 #include "state_machine.h"
 
 #include "Remote_Control.h"
+#include "shooting_control.h"
 #include "stm32h7xx_hal.h"
 #include "math_utils.h"
 #include <stdlib.h>
@@ -240,14 +241,21 @@ uint8_t _state_machine_rev() {
 }
 
 uint8_t _state_machine_rev_remote_controller() {
-
-    // --- Jam detection: if motor is stalled for too long, trigger unstuck ---
+	
+		// --- Jam detection: if motor is stalled for too long, trigger unstuck ---
     if (abs(DJI_Rev_Motor.Data.Current) < 6000)
         rev_spin.time_rev_locked = HAL_GetTick();  // reset stall timer (raw ms ticks)
 
-    if (HAL_GetTick() - rev_spin.time_rev_locked > 300)  // 300 ms stall threshold
+		
+		if (HAL_GetTick() - rev_spin.time_rev_locked > 1000){ // 300 ms stall threshold
+        return REV_STOP;
+				unstuck_rev_enabled = 0;
+				rev_spin.time_rev_locked = HAL_GetTick();
+		}
+		
+		else if (HAL_GetTick() - rev_spin.time_rev_locked > 300)  // 300 ms stall threshold
         return REV_UNSTUCK;
-
+		
     // --- Normal rev control via wheel axis ---
     if (RC_info.RC.Wheel >= 300) {
         rev_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3f;

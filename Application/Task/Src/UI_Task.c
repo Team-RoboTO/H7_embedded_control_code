@@ -28,7 +28,7 @@ extern CM_Motor_Info_Typedef        CM_Pitch_Motor;
 extern INS_Info_Typedef             INS_Info;
 
 /* Provided by chassis / aim / state machine layers */
-extern uint8_t is_rotating;
+extern bool is_rotating;
 
 /* ============================================================================
  * GLOBAL UI STATE (driven by other tasks)
