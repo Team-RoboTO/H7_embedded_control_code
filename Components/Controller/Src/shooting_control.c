@@ -5,6 +5,7 @@
 #include "state_machine.h"
 #include "control_utils.h"
 #include "Remote_Control.h"
+#include "state_machine.h"
 
   /*************************/
  /*   CONTROLLED SYSTEM   */
@@ -58,7 +59,7 @@ float r_shoot_wheels_ang_vel                       = 400;  // [rad/s]ACCEL_CS_GP
 #endif
 
 static uint8_t need_to_set_rev_ang_pos_reference   = true;
-static float rev_shooting_frequency                = 10;  // Bullets per second [Hz]
+static float rev_shooting_frequency                = 15;  // Bullets per second [Hz]
 
 static uint8_t is_first_iter                       = true;
 bool unstuck_rev_enabled                           = 0;
@@ -72,7 +73,8 @@ bool has_shooted = 0;
 float vel_up_rev = 3.0f;
 float vel_down_rev = 15.0f;
 
-
+float time_start_multiple = 0;
+float is_multiple = 0;
 
   /********************/
  /*   CONTROL LOOP   */
@@ -198,6 +200,7 @@ void _control_loop_rev(void)
     switch (state_rev) {
 
         case REV_UNSTUCK:
+						is_multiple=0;
             if (!unstuck_rev_enabled) {
                 shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.x[2] - 23 * pi / 180;
                 unstuck_rev_enabled = 1;
@@ -205,14 +208,17 @@ void _control_loop_rev(void)
             break;
 
         case REV_STOP:
+						is_multiple=0;
             shoot_wheels_and_rev.r_x[3] = 0;
             need_to_set_rev_ang_pos_reference = true;
             break;
 
         case REV_SINGLE_SHOOTING:
+						is_multiple=0;
             if (need_to_set_rev_ang_pos_reference && !unstuck_rev_enabled) {
                 shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.x[2] + pi / 4;
                 need_to_set_rev_ang_pos_reference = false;
+								referee_heat_limit.current_heat_virtual += 10;
             }
             break;
 
@@ -221,6 +227,15 @@ void _control_loop_rev(void)
                 shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.x[2];
                 shoot_wheels_and_rev.r_x[3] = rev_shooting_frequency * pi / 4;
                 need_to_set_rev_ang_pos_reference = false;
+								if(is_multiple == 0){
+									is_multiple = 1;
+									time_start_multiple = HAL_GetTick();
+								}
+							
+								if((HAL_GetTick() - time_start_multiple) > (1000 /rev_shooting_frequency)){
+									referee_heat_limit.current_heat_virtual += 10;
+									time_start_multiple += 1000/rev_shooting_frequency;
+								}
             }
             break;
 

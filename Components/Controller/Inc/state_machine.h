@@ -77,6 +77,23 @@ typedef struct rev_spin {
 
 extern rev_spin_t rev_spin;
 
+  /***********************/
+ /*   HEAT LIMIT STRUCT   */
+/***********************/
+
+typedef struct referee_heat_limit {
+    
+    float cooling_rate;
+		float heat_limit;
+		float current_heat_ref;
+		float current_heat_virtual;
+		float time;
+	
+    
+} referee_heat_limit_t;
+
+extern referee_heat_limit_t referee_heat_limit;
+
   /************************/
  /*   STATES FUNCTIONS   */
 /************************/

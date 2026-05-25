@@ -18,6 +18,7 @@ uint8_t state_shoot_wheels     = SHOOT_WHEELS_STOP;
 uint8_t state_rev              = REV_STOP;
 uint8_t state_lidar_lifter     = DOWN;
 
+
 extern int g_spinspin_mode;
  uint16_t last_shift_state = 0;
 
@@ -36,6 +37,19 @@ shoot_wheels_spin_t shoot_wheels_spin = {
     .timestamp_last_shoot_command                             = 0.0f,  // [s]
     .time_without_shoot_commands_before_stopping_shoot_wheels = TIME_SHOOTING_WHEELS
 };
+
+  /***********************/
+ /*   HEAT LIMITER STRUCT */
+/***********************/
+float heat_reference = 0;
+referee_heat_limit_t referee_heat_limit = {
+	  .cooling_rate = 20.0f,
+		.heat_limit = 100.0f,
+		.current_heat_ref = 0.0f,
+		.current_heat_virtual = 0.0f,
+		.time = 0.0f
+};
+
 
   /***********************/
  /*   REV SPIN STRUCT   */
@@ -230,6 +244,24 @@ uint8_t _state_machine_shoot_wheels_autonomus() {
 /*******************/
 
 uint8_t _state_machine_rev() {
+	
+		if(Referee_System_Info.robot_status.shooter_barrel_heat_limit) referee_heat_limit.heat_limit = 			Referee_System_Info.robot_status.shooter_barrel_heat_limit - 20;
+		if(Referee_System_Info.robot_status.shooter_barrel_cooling_value) referee_heat_limit.cooling_rate = Referee_System_Info.robot_status.shooter_barrel_cooling_value;
+		
+		if(IS_STD || IS_SENTRY){
+			referee_heat_limit.current_heat_ref = Referee_System_Info.power_heat_data.shooter_17mm_barrel_heat;
+		} else if(IS_HERO){
+			referee_heat_limit.current_heat_ref = Referee_System_Info.power_heat_data.shooter_42mm_barrel_heat;
+		}
+	
+		if(HAL_GetTick() - referee_heat_limit.time > 100){
+				referee_heat_limit.current_heat_virtual -= referee_heat_limit.cooling_rate/10;
+				referee_heat_limit.time = HAL_GetTick();
+				if(referee_heat_limit.current_heat_virtual < 0 ) referee_heat_limit.current_heat_virtual = 0;
+		}
+		
+		heat_reference = (referee_heat_limit.current_heat_ref != 0) ? referee_heat_limit.current_heat_ref : referee_heat_limit.current_heat_virtual;
+	
 
     switch (state_remote_commands) {
         case COMMANDS_REMOTE_CONTROLLER: return _state_machine_rev_remote_controller();
@@ -240,7 +272,7 @@ uint8_t _state_machine_rev() {
 }
 
 uint8_t _state_machine_rev_remote_controller() {
-
+		if(heat_reference > referee_heat_limit.heat_limit - 10) return REV_STOP;
     // --- Jam detection: if motor is stalled for too long, trigger unstuck ---
     if (abs(DJI_Rev_Motor.Data.Current) < 6000)
         rev_spin.time_rev_locked = HAL_GetTick();  // reset stall timer (raw ms ticks)
@@ -264,6 +296,7 @@ uint8_t _state_machine_rev_remote_controller() {
 
 uint8_t _state_machine_rev_keyboard_mouse() {
 
+		if(heat_reference > referee_heat_limit.heat_limit - 10) return REV_STOP;
     // TODO: add jam detection (REV_UNSTUCK) like in remote controller mode
 
     float now_s        = HAL_GetTick() * 1e-3f;
@@ -289,7 +322,7 @@ uint8_t _state_machine_rev_keyboard_mouse() {
 }
 
 uint8_t _state_machine_rev_autonomus() {
-
+		if(heat_reference >= referee_heat_limit.heat_limit - 10) return REV_STOP;
     // --- Jam detection: if motor is stalled for too long, trigger unstuck ---
     if (abs(DJI_Rev_Motor.Data.Current) < 6000)
         rev_spin.time_rev_locked = HAL_GetTick();  // reset stall timer (raw ms ticks)
@@ -322,7 +355,7 @@ uint8_t _state_machine_rev() {
 }
 
 uint8_t _state_machine_rev_remote_controller() {
-
+		if(heat_reference >= referee_heat_limit.heat_limit - 10) return REV_STOP;
     // --- Jam detection: if motor is stalled for too long, trigger unstuck ---
 //    if (abs(DJI_Rev_Motor.Data.Current) < 6000)
 //        rev_spin.time_rev_locked = HAL_GetTick();  // reset stall timer (raw ms ticks)
@@ -345,7 +378,7 @@ uint8_t _state_machine_rev_remote_controller() {
 }
 
 uint8_t _state_machine_rev_keyboard_mouse() {
-
+		if(heat_reference >= referee_heat_limit.heat_limit - 10) return REV_STOP;
     // TODO: add jam detection (REV_UNSTUCK) like in remote controller mode
 
     float now_s        = HAL_GetTick() * 1e-3f;
@@ -371,7 +404,7 @@ uint8_t _state_machine_rev_keyboard_mouse() {
 }
 
 uint8_t _state_machine_rev_autonomus() {
-
+		if(heat_reference >= referee_heat_limit.heat_limit - 10) return REV_STOP;
     // --- Jam detection: if motor is stalled for too long, trigger unstuck ---
 //    if (abs(DM_Rev_Motor.Data.Current) < 6000)
 //        rev_spin.time_rev_locked = HAL_GetTick();  // reset stall timer (raw ms ticks)
