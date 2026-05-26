@@ -4,22 +4,21 @@
 #include "Damiao_Motor.h"
 #include "state_machine.h"
 #include "control_utils.h"
-#include "Remote_Control.h"
 
   /*************************/
  /*   CONTROLLED SYSTEM   */
 /*************************/
 
-controlled_system_t shoot_wheels_and_rev = {
-    .n          = 4,			// Number of system states
-    .m          = 3,			// Number of system inputs
-    .p          = 4,			// Number of system outputs
+controlled_system_t shoot_wheels = {
+    .n = 2,  														 
+    .m = 2,   													
+    .p = 2,   													
 };
 
-controlled_system_t lidar_lifter = {
-    .n          = 1,			// Number of system states	
-    .m          = 2,			// Number of system inputs
-    .p          = 1,			// Number of system outputs
+controlled_system_t rev_and_push = {
+    .n = 3,   													
+    .m = 2,   													
+    .p = 3,  														 
 };
 
   /*******************/
@@ -30,197 +29,191 @@ static PID_Info_TypeDef pid_shoot_wheel_left;
 static PID_Info_TypeDef pid_shoot_wheel_right;
 static PID_Info_TypeDef pid_rev_pos;
 static PID_Info_TypeDef pid_rev_vel;
-static PID_Info_TypeDef pid_ll_pos;
-static PID_Info_TypeDef pid_ll_vel;
 
-// Shoot wheel velocity PIDs: KP, KI, KD, Alpha, Deadband, LimitIntegral, LimitOutput
-static float pid_shoot_wheel_params[PID_PARAMETER_NUM]  = {0.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10.0f};
+/* KP, KI, KD, Alpha, Deadband, LimitIntegral, LimitOutput */
+static float pid_shoot_wheel_params[PID_PARAMETER_NUM] =
+    {0.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10.0f};
 
-// REV position PID (outer loop): KP is overwritten at runtime per shooting mode
-static float pid_rev_pos_params[PID_PARAMETER_NUM] = {27.0f, 5.0f, 0.0f, 0.0f, 0.0f, 1.0f, 10000.0f};
+static float pid_rev_pos_params[PID_PARAMETER_NUM] =
+    {27.0f, 5.0f, 0.0f, 0.0f, 0.0f, 1.0f, 10000.0f};
 
-// REV velocity PID (inner loop)
-static float pid_rev_vel_params[PID_PARAMETER_NUM] = {7.0f,  1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 8.0f};
-
-// LL position PID (outer loop): KP is overwritten at runtime per shooting mode
-static float pid_ll_pos_params[PID_PARAMETER_NUM] = {5.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 20.0f}; // TODO: tune
-
-// LL velocity PID (inner loop)
-static float pid_ll_vel_params[PID_PARAMETER_NUM] = {1.0f,  0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 5.0f}; // TODO: tune
+static float pid_rev_vel_params[PID_PARAMETER_NUM] =
+    {7.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 8.0f};
 
   /*************************/
  /*   CONTROL VARIABLES   */
 /*************************/
+
 #if IS_STD || IS_SENTRY
-float r_shoot_wheels_ang_vel                       = 500;//660;  // [rad/s]
+float r_shoot_wheels_ang_vel = 500.0f;   /* [rad/s] */
 #elif IS_HERO
-float r_shoot_wheels_ang_vel                       = 480;  // [rad/s]
+float r_shoot_wheels_ang_vel = 480.0f;   /* [rad/s] */
 #endif
 
-static uint8_t need_to_set_rev_ang_pos_reference   = true;
-static float rev_shooting_frequency                = 15;  // Bullets per second [Hz]
+static uint8_t need_to_set_rev_ang_pos_reference = true;
+static float   rev_shooting_frequency            = 15.0f;  /* [Hz] */
+static bool is_first_iter = true;
 
-static uint8_t is_first_iter                       = true;
-bool unstuck_rev_enabled                           = 0;
+bool  unstuck_rev_enabled = false;
+float unstuck_rev_counter = 0.0f;
 
-float lidar_home_position = -1;
-float LIDAR_CURRENT_TRESHOLD = 1000;
-float CALIBRATION_SPEED =  10; // rad/s
-float SETPOINT_DISTANCE = 105.0f;
+#if IS_HERO
+static bool  has_shooted  = false;
+static float vel_up_rev   = 5.0f;
+static float vel_down_rev = 15.0f;
+#endif
 
-bool has_shooted = 0;
-float vel_up_rev = 5.0f;
-float vel_down_rev = 15.0f;
+  /*************************/
+ /*         INIT          */
+/*************************/
 
-float unstuck_rev_counter = 0;
-
-
-  /********************/
- /*   CONTROL LOOP   */
-/********************/
-
-void control_loop_shooting(void)
+void _shooting_control_init(void)
 {
-    _control_loop_shoot_wheels();
-		#if IS_STD || IS_SENTRY
-			_control_loop_rev();
-			_control_loop_lidar_lifter();
-		#elif IS_HERO
-			_control_loop_rev();
-			_control_loop_push();
-		#endif
+    /* Shoot wheels */
+    PID_Init(&pid_shoot_wheel_left,  PID_POSITION, pid_shoot_wheel_params);
+    PID_Init(&pid_shoot_wheel_right, PID_POSITION, pid_shoot_wheel_params);
 
-    is_first_iter = false;
+    /* REV — latch current position as initial setpoint */
+#if IS_STD || IS_SENTRY
+    PID_Init(&pid_rev_pos, PID_POSITION, pid_rev_pos_params);
+    PID_Init(&pid_rev_vel, PID_POSITION, pid_rev_vel_params);
+
+    /* Sensor read needed before we can latch — do one read here */
+    rev_and_push.x[0] = (float)DJI_Rev_Motor.Data.Angle_sum;
+    rev_and_push.x[1] = (float)DJI_Rev_Motor.Data.Velocity_rads;
+    rev_and_push.r_x[0] = rev_and_push.x[0];
+    rev_and_push.r_x[1] = 0.0f;
+
+#elif IS_HERO
+    rev_and_push.x[0]   = DM_Rev_Motor.Data.Position;
+    rev_and_push.r_x[0] = rev_and_push.x[0];
+    rev_and_push.r_x[1] = rev_and_push.x[0]; /* slew starts at current pos */
+#endif
+	is_first_iter = 0;
+}
+
+  /*************************/
+ /*   MAIN CONTROL LOOP   */
+/*************************/
+
+void control_loop_shooting(void){
+		if (is_first_iter == true) _shooting_control_init();
+    _control_loop_shoot_wheels();
+    _control_loop_rev();
+#if IS_HERO
+    _control_loop_push();
+#endif
+	
 }
 
   /*********************************/
  /*   SHOOT WHEELS CONTROL LOOP   */
 /*********************************/
 
-void _control_loop_shoot_wheels(void){
-		
-		if (is_first_iter == 1) {
-			PID_Init(&pid_shoot_wheel_left,  PID_POSITION, pid_shoot_wheel_params);
-			PID_Init(&pid_shoot_wheel_right, PID_POSITION, pid_shoot_wheel_params);
-		}
-		
-		// STOP command
+void _control_loop_shoot_wheels(void)
+{
     if (state_remote_commands == COMMANDS_STOP) {
-        shoot_wheels_and_rev.ud[0] = 0;
-        shoot_wheels_and_rev.ud[1] = 0;
-
-        // Reset PIDs to clean integral and avoid windup after stop
+        shoot_wheels.ud[0] = 0;
+        shoot_wheels.ud[1] = 0;
         pid_shoot_wheel_left.PID_Calc_Clear(&pid_shoot_wheel_left);
         pid_shoot_wheel_right.PID_Calc_Clear(&pid_shoot_wheel_right);
-				
-				return;
-    }
-		
-	
-    // Update state from sensors
-    for (uint8_t i = 0; i < 2; i++) {
-        shoot_wheels_and_rev.x_prev[i] = shoot_wheels_and_rev.x[i];
-    }
-    shoot_wheels_and_rev.x[0] = (float) DJI_Shooting_Motor[0].Data.Velocity_rads;  // Left wheel angular velocity  [rad/s]
-    shoot_wheels_and_rev.x[1] = (float) DJI_Shooting_Motor[1].Data.Velocity_rads;  // Right wheel angular velocity [rad/s]
-
-    // Update reference history
-    for (uint8_t i = 0; i < 2; i++) {
-        shoot_wheels_and_rev.r_x_prev[i] = shoot_wheels_and_rev.r_x[i];
+        return;
     }
 
-    // Set velocity setpoints based on state machine
+    /* Update state */
+    for (uint8_t i = 0; i < 2; i++) {
+        shoot_wheels.x_prev[i]   = shoot_wheels.x[i];
+        shoot_wheels.r_x_prev[i] = shoot_wheels.r_x[i];
+    }
+    shoot_wheels.x[0] = (float)DJI_Shooting_Motor[0].Data.Velocity_rads;
+    shoot_wheels.x[1] = (float)DJI_Shooting_Motor[1].Data.Velocity_rads;
+
+    /* Setpoint */
     switch (state_shoot_wheels) {
         case SHOOT_WHEELS_SPIN:
-            shoot_wheels_and_rev.r_x[0] = +r_shoot_wheels_ang_vel;
-            shoot_wheels_and_rev.r_x[1] = -r_shoot_wheels_ang_vel;
+            shoot_wheels.r_x[0] = +r_shoot_wheels_ang_vel;
+            shoot_wheels.r_x[1] = -r_shoot_wheels_ang_vel;
             break;
-				
         case SHOOT_WHEELS_STOP:
-					
         default:
-            shoot_wheels_and_rev.r_x[0] = 0;
-            shoot_wheels_and_rev.r_x[1] = 0;
+            shoot_wheels.r_x[0] = 0.0f;
+            shoot_wheels.r_x[1] = 0.0f;
             break;
     }
 
-    // PID_Calculate(pid, Target, Measure) handles error/integral/derivative internally
-    shoot_wheels_and_rev.u[0] = PID_Calculate(&pid_shoot_wheel_left, shoot_wheels_and_rev.r_x[0], shoot_wheels_and_rev.x[0]);
+    /* Control */
+    shoot_wheels.u[0] = PID_Calculate(&pid_shoot_wheel_left,
+                            shoot_wheels.r_x[0], shoot_wheels.x[0]);
+    shoot_wheels.u[1] = PID_Calculate(&pid_shoot_wheel_right,
+                            shoot_wheels.r_x[1], shoot_wheels.x[1]);
 
-    shoot_wheels_and_rev.u[1] = PID_Calculate(&pid_shoot_wheel_right, shoot_wheels_and_rev.r_x[1], shoot_wheels_and_rev.x[1]);
-
-    // ADC conversion and output saturation
     for (uint8_t i = 0; i < 2; i++) {
-        shoot_wheels_and_rev.ud[i] = shoot_wheels_and_rev.u[i]*DJI_Motor_ADC[DJI_M3508];
+        shoot_wheels.ud[i] = shoot_wheels.u[i] * DJI_Motor_ADC[DJI_M3508];
     }
-
 }
+
 #if IS_STD || IS_SENTRY
-  /************************/
- /*   REV CONTROL LOOP   */
-/************************/
+
+        /************************************/
+			 /*   _____  _______  _____          */
+			/*   / ____||__   __||  __ \        */
+		 /*		| (___     | |   | |  | |      */
+		/*     \___ \    | |   | |  | |     */
+	 /*		    ___) |   | |   | |__| |    */
+	/*		   |_____/   |_|   |_____/    */
+ /*	                                 */
+/************************************/ 		
 
 void _control_loop_rev(void)
 {
-    // Update state from sensors
-    for (uint8_t i = 2; i < shoot_wheels_and_rev.p; i++) {
-        shoot_wheels_and_rev.x_prev[i] = shoot_wheels_and_rev.x[i];
+    /* Update state */
+    for (uint8_t i = 0; i < 2; i++) {
+        rev_and_push.x_prev[i]   = rev_and_push.x[i];
+        rev_and_push.r_x_prev[i] = rev_and_push.r_x[i];
     }
-    shoot_wheels_and_rev.x[2] = (float) DJI_Rev_Motor.Data.Angle_sum;           // REV angular position [rad]
-    shoot_wheels_and_rev.x[3] = (float) DJI_Rev_Motor.Data.Velocity_rads;       // REV angular velocity [rad/s]
+    rev_and_push.x[0] = (float)DJI_Rev_Motor.Data.Angle_sum;
+    rev_and_push.x[1] = (float)DJI_Rev_Motor.Data.Velocity_rads;
 
-    // Update reference history
-    for (uint8_t i = 2; i < shoot_wheels_and_rev.n; i++) {
-        shoot_wheels_and_rev.r_x_prev[i] = shoot_wheels_and_rev.r_x[i];
-    }
-
-    // One-time init: latch current position as initial setpoint
-    if (is_first_iter == 1) {
-				PID_Init(&pid_rev_pos, PID_POSITION, pid_rev_pos_params);
-				PID_Init(&pid_rev_vel, PID_POSITION, pid_rev_vel_params);
-        shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.x[2];
-    }
-		
-		   // On STOP: zero output and reset PIDs
     if (state_remote_commands == COMMANDS_STOP) {
-        shoot_wheels_and_rev.ud[2] = 0;
+        rev_and_push.ud[0] = 0;
         pid_rev_pos.PID_Calc_Clear(&pid_rev_pos);
         pid_rev_vel.PID_Calc_Clear(&pid_rev_vel);
         return;
     }
 
-    // Clear unstuck flag once error is small enough
-    if (unstuck_rev_enabled && fabs(shoot_wheels_and_rev.r_x[2] - shoot_wheels_and_rev.x[2]) < 1 * pi / 180){ 
-        unstuck_rev_enabled = 0;
+    /* Clear unstuck flag once position error is small enough */
+    if (unstuck_rev_enabled &&
+        fabsf(rev_and_push.r_x[0] - rev_and_push.x[0]) < (1.0f * pi / 180.0f)) {
+        unstuck_rev_enabled = false;
     }
 
-    // Setpoint generation based on REV state machine
+    /* Setpoint generation */
     switch (state_rev) {
 
         case REV_UNSTUCK:
             if (!unstuck_rev_enabled) {
-                shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.x[2] - 15 * pi / 180;
-								unstuck_rev_counter += 1;
-                unstuck_rev_enabled = 1;
+                rev_and_push.r_x[0] = rev_and_push.x[0] - (15.0f * pi / 180.0f);
+                unstuck_rev_counter++;
+                unstuck_rev_enabled = true;
             }
             break;
 
         case REV_STOP:
-            shoot_wheels_and_rev.r_x[3] = 0;
+            rev_and_push.r_x[1] = 0.0f;
             need_to_set_rev_ang_pos_reference = true;
             break;
 
         case REV_SINGLE_SHOOTING:
             if (need_to_set_rev_ang_pos_reference && !unstuck_rev_enabled) {
-                shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.x[2] + pi / 4;
+                rev_and_push.r_x[0] = rev_and_push.x[0] + (pi / 4.0f);
                 need_to_set_rev_ang_pos_reference = false;
             }
             break;
 
         case REV_MULTIPLE_SHOOTING:
             if (!unstuck_rev_enabled) {
-                shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.x[2];
-                shoot_wheels_and_rev.r_x[3] = rev_shooting_frequency * pi / 4;
+                rev_and_push.r_x[0] = rev_and_push.x[0];  /* track current pos */
+                rev_and_push.r_x[1] = rev_shooting_frequency * (pi / 4.0f);
                 need_to_set_rev_ang_pos_reference = false;
             }
             break;
@@ -229,146 +222,66 @@ void _control_loop_rev(void)
             break;
     }
 
-    // --- OUTER LOOP: Position Control ---
-    // Output is the desired REV velocity setpoint
-    shoot_wheels_and_rev.r_x[3] = PID_Calculate(&pid_rev_pos, shoot_wheels_and_rev.r_x[2], shoot_wheels_and_rev.x[2]);
+    /* Outer loop: position ? velocity setpoint */
+    rev_and_push.r_x[1] = PID_Calculate(&pid_rev_pos,
+                               rev_and_push.r_x[0], rev_and_push.x[0]);
 
-    // In MULTIPLE_SHOOTING the velocity reference is set directly by the state machine,
-    // so we override the position PID output in that case
+    /* MULTIPLE_SHOOTING overrides position PID output with direct velocity */
     if (state_rev == REV_MULTIPLE_SHOOTING) {
-        shoot_wheels_and_rev.r_x[3] = rev_shooting_frequency * pi / 4;
+        rev_and_push.r_x[1] = rev_shooting_frequency * (pi / 4.0f);
     }
 
-    // --- INNER LOOP: Velocity Control ---
-    // Output is the motor current command
-    shoot_wheels_and_rev.u[2] = PID_Calculate(&pid_rev_vel, shoot_wheels_and_rev.r_x[3], shoot_wheels_and_rev.x[3]);
-		
-	  shoot_wheels_and_rev.ud[2] = shoot_wheels_and_rev.u[2]*DJI_Motor_ADC[DJI_M2006]; //M2006_ADC_CONVERTION;
-	
+    /* Inner loop: velocity ? current */
+    rev_and_push.u[0]  = PID_Calculate(&pid_rev_vel,
+                              rev_and_push.r_x[1], rev_and_push.x[1]);
+    rev_and_push.ud[0] = rev_and_push.u[0] * DJI_Motor_ADC[DJI_M2006];
 }
 
 #elif IS_HERO
-	void _control_loop_rev(void){
-		
-    // Update state from sensors
-    for (uint8_t i = 2; i < shoot_wheels_and_rev.p; i++) {
-        shoot_wheels_and_rev.x_prev[i] = shoot_wheels_and_rev.x[i];
+
+        /*******************************************/
+			 /*   _    _  ______  _____    ____         */
+			/*   | |  | ||  ____||  __ \  / __ \       */
+		 /*		 | |__| || |__   | |__) || |  | |     */
+		/*     |  __  ||  __|  |  _  / | |  | |    */
+	 /*		   | |  | || |____ | | \ \ | |__| |   */
+	/*		   |_|  |_||______||_|  \_\ \____/   */
+ /*	                                        */
+/*******************************************/ 	
+
+void _control_loop_rev(void)
+{
+    /* Update state */
+    for (uint8_t i = 0; i < rev_and_push.p; i++) {
+        rev_and_push.x_prev[i]   = rev_and_push.x[i];
+        rev_and_push.r_x_prev[i] = rev_and_push.r_x[i];
     }
-    shoot_wheels_and_rev.x[2] = (float) DM_Rev_Motor.Data.Position;    // REV angular position [rad]
+    rev_and_push.x[0] = (float)DM_Rev_Motor.Data.Position;
 
-    // Update reference history
-    for (uint8_t i = 2; i < shoot_wheels_and_rev.n; i++) {
-        shoot_wheels_and_rev.r_x_prev[i] = shoot_wheels_and_rev.r_x[i];
-    }
-
-    // One-time init: latch current position as initial setpoint
-    if (is_first_iter == 1) {
-        shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.x[2];
-				shoot_wheels_and_rev.r_x[3] = shoot_wheels_and_rev.x[2];
-    }
-
-//    // Clear unstuck flag once error is small enough
-//    if (unstuck_rev_enabled && fabs(shoot_wheels_and_rev.r_x[2] - shoot_wheels_and_rev.x[2]) < 1 * pi / 180) {
-//        unstuck_rev_enabled = 0;
-//    }
-
-    // Setpoint generation based on REV state machine
     switch (state_rev) {
-
-//        case REV_UNSTUCK:
-//            if (!unstuck_rev_enabled) {
-//                shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.x[2] - 23 * pi / 180;
-//                unstuck_rev_enabled = 1;
-//            }
-//            break;
-
         case REV_STOP:
-						has_shooted = 0;
+            has_shooted = false;
             break;
 
         case REV_SINGLE_SHOOTING:
-						if (has_shooted == 0){
-							shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.r_x[2] - (6*pi)/7;
-							has_shooted = 1;
-						}
+            if (!has_shooted) {
+                rev_and_push.r_x[0] -= (6.0f * pi) / 7.0f;
+                has_shooted = true;
+            }
             break;
-
-//        case REV_MULTIPLE_SHOOTING:
-//            if (!unstuck_rev_enabled) {
-//                shoot_wheels_and_rev.r_x[2] = shoot_wheels_and_rev.x[2];
-//                shoot_wheels_and_rev.r_x[3] = rev_shooting_frequency * pi / 4;
-//                need_to_set_rev_ang_pos_reference = false;
-//            }
-//            break;
 
         default:
             break;
     }
-	slewRateControl(&shoot_wheels_and_rev.r_x[3], shoot_wheels_and_rev.r_x[2], vel_up_rev, vel_down_rev, 0.001f);
-	}
-	void _control_loop_push(void){
-	}
+
+    /* Slew rate limits the position reference to avoid current spikes */
+    slewRateControl(&rev_and_push.ud[1], rev_and_push.r_x[0], vel_up_rev, vel_down_rev, 0.001f);
+}
+
+void _control_loop_push(void)
+{
+    /* TODO: implement push control for HERO */
+    (void)0;
+}
 
 #endif
-
-
-
-
-
-
-void _control_loop_lidar_lifter(void)
-{
-			if (is_first_iter == 1) {
-			PID_Init(&pid_ll_pos,  PID_POSITION, pid_ll_pos_params);
-			PID_Init(&pid_ll_vel, PID_POSITION, pid_ll_vel_params);
-			}
-			
-					 // On STOP: zero output and reset PIDs
-			if (state_remote_commands == COMMANDS_STOP) {
-					lidar_lifter.ud[0] = 0;
-					pid_rev_pos.PID_Calc_Clear(&pid_ll_pos);
-					pid_rev_vel.PID_Calc_Clear(&pid_ll_vel);
-					return;
-			}
-		
-			lidar_lifter.x[0] = (float) DJI_Lidar_Motor.Data.Angle_sum;           // [rad]
-			lidar_lifter.x[1] = (float) DJI_Lidar_Motor.Data.Velocity_rads;		  	// [rad/s]
-
-				
-			if( lidar_home_position < 0 ){
-				if( abs(DJI_Lidar_Motor.Data.Current) > LIDAR_CURRENT_TRESHOLD ){
-					lidar_home_position = DJI_Lidar_Motor.Data.Angle_sum;
-					lidar_lifter.r_x[0] = lidar_home_position; 					// Set home as base position
-										
-				} else {
-					lidar_lifter.r_x[0] += CALIBRATION_SPEED/1000;
-				}
-			}
-			
-			if( lidar_home_position > 0 ){
-				switch (state_lidar_lifter) {
-					case LIDAR_UP:
-						lidar_lifter.r_x[0] = lidar_home_position - SETPOINT_DISTANCE;
-						break;
-						
-					case LIDAR_DOWN:
-						lidar_lifter.r_x[0] = lidar_home_position - 1;
-						break;
-				}
-			}
-			
-			
-			// --- OUTER LOOP: Position Control ---
-			// Output is the desired LL velocity setpoint
-			lidar_lifter.u[0] = PID_Calculate(&pid_ll_pos, lidar_lifter.r_x[0], lidar_lifter.x[0]);
-			saturate(&lidar_lifter.u[0], 20);
-	
-			// --- INNER LOOP: Velocity Control ---
-			// Output is the motor current command
-
-			lidar_lifter.u[1] = PID_Calculate(&pid_ll_vel, lidar_lifter.u[0], lidar_lifter.x[1]);
-			lidar_lifter.ud[0] = lidar_lifter.u[1]*DJI_Motor_ADC[DJI_M2006]; //M2006_ADC_CONVERTION;
-	
-		return;
-			
-}

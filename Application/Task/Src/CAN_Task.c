@@ -18,6 +18,7 @@
 #include "chassis_control.h"
 #include "gimbal_control.h"
 #include "Remote_Control.h"
+#include "lidar_lifter_control.h"
 
 static bool is_first_iter = 1;
 static bool is_init = 1;
@@ -61,12 +62,8 @@ void CAN_Task(void const * argument)
 							DM_Motor_Command(&FDCAN3_TxFrame, &DM_Rev_Motor, Motor_Save_Zero_Position);
 							osDelay(30);
 						#endif
-					  
-            is_init = 0;
-					
 						CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Save_Zero_Position);
             osDelay(30);
-					  
             is_init = 0;
         }
 
@@ -131,7 +128,7 @@ void CAN_Task(void const * argument)
             #if IS_GIMBAL_ENABLED
                 DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &DM_Yaw_Motor, 0, gimbal.u[0], 0, KD_yaw, 0);
 								#if IS_HERO
-									DM_Motor_CAN_TxMessage(&FDCAN3_TxFrame, &DM_Rev_Motor, shoot_wheels_and_rev.r_x[3], 0 , 10, 1, 0);
+									DM_Motor_CAN_TxMessage(&FDCAN3_TxFrame, &DM_Rev_Motor, rev_and_push.ud[1], 0 , 10, 1, 0);
 								#endif
             #endif
             #if IS_CHASSIS_ENABLED
@@ -155,7 +152,7 @@ void CAN_Task(void const * argument)
         }
 				
 				#if IS_SHOOTING_ENABLED
-						DJI_M3508_M2006_TxMessage(&FDCAN1_TxFrame, shoot_wheels_and_rev.ud[0], shoot_wheels_and_rev.ud[1], shoot_wheels_and_rev.ud[2], lidar_lifter.ud[0]);
+						DJI_M3508_M2006_TxMessage(&FDCAN1_TxFrame, shoot_wheels.ud[0], shoot_wheels.ud[1], rev_and_push.ud[0], lidar_lifter.ud[0]);
         #else
             shoot_wheels_and_rev.ud[0] = 0;
             shoot_wheels_and_rev.ud[1] = 0;

@@ -10,7 +10,7 @@
       <TargetName>COD_H7_Template</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
-      <pCCUsed>6220000::V6.22::.\ARM_Compiler_6.22</pCCUsed>
+      <pCCUsed>6190000::V6.19::ARMCLANG</pCCUsed>
       <uAC6>1</uAC6>
       <TargetOption>
         <TargetCommonOption>
@@ -961,6 +961,11 @@
               <FileName>mouse_keyboard_command.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Components\Controller\Src\mouse_keyboard_command.c</FilePath>
+            </File>
+            <File>
+              <FileName>lidar_lifter_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Controller\Src\lidar_lifter_control.c</FilePath>
             </File>
           </Files>
         </Group>
