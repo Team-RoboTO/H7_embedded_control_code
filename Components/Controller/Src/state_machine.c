@@ -272,7 +272,19 @@ uint8_t _state_machine_rev_remote_controller() {
 
 uint8_t _state_machine_rev_keyboard_mouse() {
 
-    // TODO: add jam detection (REV_UNSTUCK) like in remote controller mode
+    // --- Jam detection: if motor is stalled for too long, trigger unstuck ---
+    if (abs(DJI_Rev_Motor.Data.Current) < 6000)
+        rev_spin.time_rev_locked = HAL_GetTick();  // reset stall timer (raw ms ticks)
+
+		
+		if (HAL_GetTick() - rev_spin.time_rev_locked > 1000){ // 300 ms stall threshold
+        return REV_STOP;
+				unstuck_rev_enabled = 0;
+				rev_spin.time_rev_locked = HAL_GetTick();
+		}
+		
+		else if (HAL_GetTick() - rev_spin.time_rev_locked > 300)  // 300 ms stall threshold
+        return REV_UNSTUCK;
 
     float now_s        = HAL_GetTick() * 1e-3f;
     float held_time_s  = now_s - rev_spin.timestamp_last_shoot_command;
@@ -302,7 +314,14 @@ uint8_t _state_machine_rev_autonomus() {
     if (abs(DJI_Rev_Motor.Data.Current) < 6000)
         rev_spin.time_rev_locked = HAL_GetTick();  // reset stall timer (raw ms ticks)
 
-    if (HAL_GetTick() - rev_spin.time_rev_locked > 300)  // 300 ms stall threshold
+		
+		if (HAL_GetTick() - rev_spin.time_rev_locked > 1000){ // 300 ms stall threshold
+        return REV_STOP;
+				unstuck_rev_enabled = 0;
+				rev_spin.time_rev_locked = HAL_GetTick();
+		}
+		
+		else if (HAL_GetTick() - rev_spin.time_rev_locked > 300)  // 300 ms stall threshold
         return REV_UNSTUCK;
 
     // --- Normal rev control via wheel axis ---
