@@ -78,6 +78,8 @@ static LowPassFilter1p_Info_TypeDef lpf_yaw_cv;
 
 float pitch_cv_filtered = 0;
 
+float acc_yaw = 350.0f;
+
   /********************/
  /*   CONTROL LOOP   */
 /********************/
@@ -148,7 +150,7 @@ void control_loop_gimbal() {
                 case COMMANDS_KEYBOARD_MOUSE:						
                     remote_commands_yaw   = RC_info.Mouse.X;
                     remote_commands_pitch = RC_info.Mouse.Y;
-										saturate(&remote_commands_yaw, 100000);
+										saturate(&remote_commands_yaw, acc_yaw);
 										saturate(&remote_commands_pitch, 100000);
                     
                     // Mouse movement should be accumulated (delta)

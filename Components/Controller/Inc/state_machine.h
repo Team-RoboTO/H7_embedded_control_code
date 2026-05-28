@@ -78,10 +78,10 @@ typedef struct rev_spin {
 extern rev_spin_t rev_spin;
 
 typedef struct {
-    uint16_t heat_limit;           // Q0: Limite massimo dal Referee System
-    uint16_t current_heat;         // Q1: Calore attuale dal Referee System
-    uint16_t cooling_rate;         // Velocit� di raffreddamento al secondo dal Referee System
-    uint16_t heat_per_projectile;  // 10 per proiettili 17mm, 100 per 42mm
+    float heat_limit;           // Q0: Limite massimo dal Referee System
+    float current_heat;         // Q1: Calore attuale dal Referee System
+    float cooling_rate;         // Velocit� di raffreddamento al secondo dal Referee System
+		float heat_per_projectile;  // 10 per proiettili 17mm, 100 per 42mm
     
     uint16_t safe_threshold;       // Soglia oltre la quale attivare la riduzione (es. limite - 2 colpi)
 
