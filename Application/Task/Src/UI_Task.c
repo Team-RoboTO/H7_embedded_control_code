@@ -1,6 +1,13 @@
 /**
  * @file    UI_Task.c
  * @brief   HUD interface for the operator (Referee System Client UI).
+ *
+ * MODIFICA PRINCIPALE:
+ *   L'inizializzazione della UI e' distribuita su piu' cicli del task (100ms ciascuno)
+ *   tramite una state machine. Ogni ciclo manda UN SOLO pacchetto, rispettando
+ *   il rate limit hardware del referee system (10Hz su cmd_id 0x0301).
+ *   Il REF_DELAY interno e' stato abbassato a 20ms perche' il rate e' controllato
+ *   a livello di task period, non piu' con busy-wait dentro ref_send.
  */
 
 #include "UI_Task.h"
@@ -74,9 +81,12 @@ static int prev_feeder_state  = -1;
 static int motor_fault_enabled  = 0;
 static int feeder_state_enabled = 0;
 
-/* TX synchronization: semaphore released on DMA TxCplt */
-static osSemaphoreId ui_tx_done_sem  = NULL;  /* signaled when DMA completes */
-static osSemaphoreId ui_send_mtx     = NULL;  /* protects ref_send / seq */
+/* Init state machine */
+static init_state_e g_init_state = INIT_IDLE;
+
+/* TX synchronization */
+static osSemaphoreId ui_tx_done_sem = NULL;
+static osSemaphoreId ui_send_mtx    = NULL;
 
 /* DMA TX buffer: must be in AXI_SRAM, 32-byte aligned for D-Cache */
 __attribute__((section(".AXI_SRAM"), aligned(32)))
@@ -87,6 +97,9 @@ volatile uint32_t tx_cplt_count = 0;
 volatile uint32_t tx_start_count = 0;
 
 int g_spinspin_mode = 0;
+
+/* Cache angoli major per riuso nei label (calcolati in draw_pitch_ticks_major) */
+static float g_angles_maj[5] = {0};
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
     if (huart == &huart1) {
@@ -100,9 +113,9 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
  * ============================================================================ */
 static void map_robot_id(uint16_t robot_id)
 {
-    if (robot_id == 0)               g_client_id = 0;
-    else if (robot_id < 100)         g_client_id = 0x0100 + robot_id;
-    else                             g_client_id = 0x0164 + (robot_id - 100);
+    if (robot_id == 0)           g_client_id = 0;
+    else if (robot_id < 100)     g_client_id = 0x0100 + robot_id;
+    else                         g_client_id = 0x0164 + (robot_id - 100);
 }
 
 /* ============================================================================
@@ -110,9 +123,8 @@ static void map_robot_id(uint16_t robot_id)
  * ============================================================================ */
 void UI_NotifyTxComplete(void)
 {
-    if (ui_tx_done_sem != NULL) {
+    if (ui_tx_done_sem != NULL)
         osSemaphoreRelease(ui_tx_done_sem);
-    }
 }
 
 /* ============================================================================
@@ -281,7 +293,7 @@ static void send_char_graphic(const char *text, uint8_t name_a, uint8_t name_b, 
 {
     uint8_t tx_buffer[128];
     char    char_buffer[30];
-    
+
     memset(tx_buffer, 0, sizeof(tx_buffer));
     memset(char_buffer, 0, sizeof(char_buffer));
 
@@ -355,8 +367,7 @@ static void draw_supercap_text(uint8_t op)
 }
 
 /* ============================================================================
- * DYNAMIC: SPIN BORDER ARC + SUPERCAP ARC + CURRENT PITCH + BULLET BAR
- * (all packed into one multi-graphic packet)
+ * DYNAMIC GRAPHICS (5 grafici in un pacchetto)
  * ============================================================================ */
 static void fill_spin_border(graphic_data_struct_t *g, uint8_t op)
 {
@@ -460,7 +471,7 @@ static void draw_dynamic(uint8_t op)
 {
     uint8_t tx_buffer[256];
     memset(tx_buffer, 0, sizeof(tx_buffer));
-    
+
     uint16_t pos = build_graphic_header(tx_buffer, 5);
     if (pos == 0) return;
 
@@ -474,15 +485,14 @@ static void draw_dynamic(uint8_t op)
 }
 
 /* ============================================================================
- * CROSSHAIR (static, sent once on connect)
+ * CROSSHAIR (3 pacchetti separati, chiamati uno per ciclo)
  * ============================================================================ */
-static void draw_crosshair(uint8_t op)
+static void draw_crosshair_pkt1(uint8_t op)
 {
     uint8_t  tx_buffer[256];
     uint16_t pos;
     graphic_data_struct_t *g;
 
-    /* --- Packet 1: framework (5 graphics) --- */
     memset(tx_buffer, 0, sizeof(tx_buffer));
     pos = build_graphic_header(tx_buffer, 5);
     if (pos == 0) return;
@@ -523,8 +533,14 @@ static void draw_crosshair(uint8_t op)
     pos += sizeof(graphic_data_struct_t);
 
     ref_send(tx_buffer, pos);
+}
 
-    /* --- Packet 2: tracks + corner brackets (5 graphics) --- */
+static void draw_crosshair_pkt2(uint8_t op)
+{
+    uint8_t  tx_buffer[256];
+    uint16_t pos;
+    graphic_data_struct_t *g;
+
     memset(tx_buffer, 0, sizeof(tx_buffer));
     pos = build_graphic_header(tx_buffer, 5);
     if (pos == 0) return;
@@ -567,11 +583,19 @@ static void draw_crosshair(uint8_t op)
     pos += sizeof(graphic_data_struct_t);
 
     ref_send(tx_buffer, pos);
+}
 
-    /* --- Packet 3: CBR + drop compensator ticks (5 graphics) --- */
+static void draw_crosshair_pkt3(uint8_t op)
+{
+    uint8_t  tx_buffer[256];
+    uint16_t pos;
+    graphic_data_struct_t *g;
+
     memset(tx_buffer, 0, sizeof(tx_buffer));
     pos = build_graphic_header(tx_buffer, 5);
     if (pos == 0) return;
+
+    uint32_t cd = 110, cl = 35;
 
     g = (graphic_data_struct_t *)(tx_buffer + pos);
     set_name(g, 'C', 'B', 'R'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
@@ -597,19 +621,25 @@ static void draw_crosshair(uint8_t op)
 /* ============================================================================
  * PITCH SCALE (static)
  * ============================================================================ */
-static void draw_pitch_ticks(uint8_t op)
+static void draw_pitch_ticks_major(uint8_t op)
 {
     uint8_t  tx_buffer[256];
     uint16_t pos;
     graphic_data_struct_t *g;
 
-    /* Major ticks (5) */
+    /* Calcola e salva gli angoli per riuso nei label */
+    g_angles_maj[0] =  ANGLE_LIMIT;
+    g_angles_maj[1] =  ANGLE_LIMIT / 2.0f;
+    g_angles_maj[2] =  0.0f;
+    g_angles_maj[3] = -ANGLE_LIMIT / 2.0f;
+    g_angles_maj[4] = -ANGLE_LIMIT;
+
     memset(tx_buffer, 0, sizeof(tx_buffer));
     pos = build_graphic_header(tx_buffer, 5);
     if (pos == 0) return;
-    float angles_maj[5] = { ANGLE_LIMIT, ANGLE_LIMIT/2.0f, 0.0f, -ANGLE_LIMIT/2.0f, -ANGLE_LIMIT };
+
     for (int i = 0; i < 5; i++) {
-        float a = angles_maj[i] * 0.0174533f;
+        float a = g_angles_maj[i] * 0.0174533f;
         uint32_t x = CENTER_X + (int)(RADIAL_DIAMETER * cosf(a));
         uint32_t y = CENTER_Y + (int)(RADIAL_DIAMETER * sinf(a));
         g = (graphic_data_struct_t *)(tx_buffer + pos);
@@ -622,13 +652,21 @@ static void draw_pitch_ticks(uint8_t op)
         pos += sizeof(graphic_data_struct_t);
     }
     ref_send(tx_buffer, pos);
+}
 
-    /* Minor ticks (5 graphics) */
+static void draw_pitch_ticks_minor(uint8_t op)
+{
+    uint8_t  tx_buffer[256];
+    uint16_t pos;
+    graphic_data_struct_t *g;
+
+    float gap = ANGLE_LIMIT / 4.0f;
+    float angles_min[5] = { gap * 3.0f, gap, 0.0f, -gap, -gap * 3.0f };
+
     memset(tx_buffer, 0, sizeof(tx_buffer));
     pos = build_graphic_header(tx_buffer, 5);
     if (pos == 0) return;
-    float gap = ANGLE_LIMIT / 4.0f;
-    float angles_min[5] = { gap * 3.0f, gap, 0.0f, -gap, -gap * 3.0f };
+
     for (int i = 0; i < 5; i++) {
         float a = angles_min[i] * 0.0174533f;
         uint32_t x = CENTER_X + (int)(RADIAL_DIAMETER * cosf(a));
@@ -643,20 +681,23 @@ static void draw_pitch_ticks(uint8_t op)
         pos += sizeof(graphic_data_struct_t);
     }
     ref_send(tx_buffer, pos);
+}
 
-    /* Pitch labels (one CHAR per send, 5 total) */
-    int tick_num = 2;
-    for (int i = 0; i < 5; i++) {
-        char buf[16];
-        snprintf(buf, sizeof(buf), "%d", tick_num * TICK_INTERVALS * 2);
-        tick_num--;
-        float a = angles_maj[i] * 0.0174533f;
-        uint32_t x = CENTER_X + (int)(RADIAL_DIAMETER * cosf(a));
-        uint32_t y = CENTER_Y + (int)(RADIAL_DIAMETER * sinf(a));
-        send_char_graphic(buf, 'L', 'A', (uint8_t)(i + 1), 1, TICK_COLOUR,
-                          FONT_SIZE_SMALL, CHAR_WIDTH_SMALL,
-                          x + PITCH_LABEL_DIST, y + CHAR_Y_OFFSET, op);
-    }
+/* Un label per volta — idx 0..4 */
+static void draw_pitch_label(uint8_t idx, uint8_t op)
+{
+    /* tick_num va da 2 a -2 (indice 0 = +2, indice 4 = -2) */
+    int tick_num = 2 - (int)idx;
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%d", tick_num * TICK_INTERVALS * 2);
+
+    float a = g_angles_maj[idx] * 0.0174533f;
+    uint32_t x = CENTER_X + (int)(RADIAL_DIAMETER * cosf(a));
+    uint32_t y = CENTER_Y + (int)(RADIAL_DIAMETER * sinf(a));
+
+    send_char_graphic(buf, 'L', 'A', (uint8_t)(idx + 1), 1, TICK_COLOUR,
+                      FONT_SIZE_SMALL, CHAR_WIDTH_SMALL,
+                      x + PITCH_LABEL_DIST, y + CHAR_Y_OFFSET, op);
 }
 
 static void draw_pitch_limits(uint8_t op)
@@ -664,7 +705,7 @@ static void draw_pitch_limits(uint8_t op)
     uint8_t  tx_buffer[128];
     uint16_t pos;
     graphic_data_struct_t *g;
-    
+
     memset(tx_buffer, 0, sizeof(tx_buffer));
 
     float graphic_edge = TICK_INTERVALS * 4 * 0.0174533f;
@@ -674,6 +715,7 @@ static void draw_pitch_limits(uint8_t op)
 
     pos = build_graphic_header(tx_buffer, 2);
     if (pos == 0) return;
+
     for (int i = 0; i < 2; i++) {
         float a = angs[i] * 0.0174533f;
         uint32_t x = CENTER_X + (int)(RADIAL_DIAMETER * cosf(a));
@@ -687,6 +729,39 @@ static void draw_pitch_limits(uint8_t op)
         g->details_d = x + MAJOR_TICK_LENGTH/2; g->details_e = y;
         pos += sizeof(graphic_data_struct_t);
     }
+    ref_send(tx_buffer, pos);
+}
+
+/* ============================================================================
+ * TEST SHAPES
+ * ============================================================================ */
+static void draw_test_shapes(uint8_t op)
+{
+    uint8_t  tx_buffer[128];
+    uint16_t pos;
+    graphic_data_struct_t *g;
+
+    memset(tx_buffer, 0, sizeof(tx_buffer));
+    pos = build_graphic_header(tx_buffer, 2);
+    if (pos == 0) return;
+
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'T', 'S', 'C');
+    g->layer = 8; g->color = GRAPHIC_COLOUR_PINK;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_CIRCLE;
+    g->width = 5; g->start_x = CENTER_X; g->start_y = CENTER_Y;
+    g->details_c = 150;
+    pos += sizeof(graphic_data_struct_t);
+
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'T', 'S', 'B');
+    g->layer = 8; g->color = GRAPHIC_COLOUR_YELLOW;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_RECTANGLE;
+    g->width = 4;
+    g->start_x = CENTER_X - 180; g->start_y = CENTER_Y - 180;
+    g->details_d = CENTER_X + 180; g->details_e = CENTER_Y + 180;
+    pos += sizeof(graphic_data_struct_t);
+
     ref_send(tx_buffer, pos);
 }
 
@@ -823,72 +898,8 @@ static void update_feeder(void)
 }
 
 /* ============================================================================
- * SIMPLE TEST GRAPHIC (Sent once on connect)
+ * UPDATE TEXT SE CAMBIATO
  * ============================================================================ */
-static void draw_test_shapes(uint8_t op)
-{
-    uint8_t  tx_buffer[128];
-    uint16_t pos;
-    graphic_data_struct_t *g;
-
-    // Clear the buffer to prevent random memory corruption
-    memset(tx_buffer, 0, sizeof(tx_buffer));
-
-    // We are drawing exactly 2 graphics, so we use count=2 (cmd_id 0x0102)
-    pos = build_graphic_header(tx_buffer, 2);
-    if (pos == 0) return;
-
-    /* Graphic 1: A prominent Pink Circle in the center */
-    g = (graphic_data_struct_t *)(tx_buffer + pos);
-    set_name(g, 'T', 'S', 'C');             // Name: TeSt Circle
-    g->layer = 8;                           // High layer to stay on top
-    g->color = GRAPHIC_COLOUR_PINK;         // Highly visible color
-    g->operation_type = op;
-    g->graphic_type = GRAPHIC_TYPE_CIRCLE;  
-    g->width = 5;                           // Line thickness
-    g->start_x = CENTER_X;                  // Center X
-    g->start_y = CENTER_Y;                  // Center Y
-    g->details_c = 150;                     // Radius of the circle
-    pos += sizeof(graphic_data_struct_t);
-
-    /* Graphic 2: A Yellow Rectangle around the circle */
-    g = (graphic_data_struct_t *)(tx_buffer + pos);
-    set_name(g, 'T', 'S', 'B');             // Name: TeSt Box
-    g->layer = 8;
-    g->color = GRAPHIC_COLOUR_YELLOW;
-    g->operation_type = op;
-    g->graphic_type = GRAPHIC_TYPE_RECTANGLE;
-    g->width = 4;
-    g->start_x = CENTER_X - 180;            // Bottom-Left X
-    g->start_y = CENTER_Y - 180;            // Bottom-Left Y
-    g->details_d = CENTER_X + 180;          // Top-Right X
-    g->details_e = CENTER_Y + 180;          // Top-Right Y
-    pos += sizeof(graphic_data_struct_t);
-
-    // Send the packet to the DMA
-    ref_send(tx_buffer, pos);
-}
-
-
-/* ============================================================================
- * HIGH-LEVEL: ADD-ALL / MODIFY-ALL
- * ============================================================================ */
-static void draw_all_static(uint8_t op)
-{
-		draw_test_shapes(op);
-    draw_crosshair(op);
-    draw_pitch_ticks(op);
-    draw_pitch_limits(op);
-}
-
-static void draw_all_text(uint8_t op)
-{
-    draw_spin_text(op);
-    draw_gear_text(op);
-    draw_aim_text(op);
-    draw_supercap_text(op);
-}
-
 static void update_text_if_changed(void)
 {
     if (prev_spinspin != is_rotating) {
@@ -910,7 +921,7 @@ static void update_text_if_changed(void)
 }
 
 /* ============================================================================
- * STATE INGEST (read sensors -> UI globals)
+ * STATE INGEST
  * ============================================================================ */
 static void poll_inputs(void)
 {
@@ -925,16 +936,109 @@ static void poll_inputs(void)
 }
 
 /* ============================================================================
+ * INIT STATE MACHINE: esegue UN SOLO step per ciclo task
+ * Restituisce 1 se l'init e' completato, 0 se ancora in corso.
+ * ============================================================================ */
+static int run_init_step(void)
+{
+    switch (g_init_state)
+    {
+        case INIT_CLEAR:
+            clear_hud();
+            break;
+
+        case INIT_STATIC_1:
+            draw_test_shapes(GRAPHIC_ADD);
+            break;
+
+        case INIT_STATIC_2:
+            draw_crosshair_pkt1(GRAPHIC_ADD);
+            break;
+
+        case INIT_STATIC_3:
+            draw_crosshair_pkt2(GRAPHIC_ADD);
+            break;
+
+        case INIT_STATIC_4:
+            draw_crosshair_pkt3(GRAPHIC_ADD);
+            break;
+
+        case INIT_TICKS_MAJ:
+            draw_pitch_ticks_major(GRAPHIC_ADD);
+            break;
+
+        case INIT_TICKS_MIN:
+            draw_pitch_ticks_minor(GRAPHIC_ADD);
+            break;
+
+        case INIT_TICKS_L0:
+            draw_pitch_label(0, GRAPHIC_ADD);
+            break;
+
+        case INIT_TICKS_L1:
+            draw_pitch_label(1, GRAPHIC_ADD);
+            break;
+
+        case INIT_TICKS_L2:
+            draw_pitch_label(2, GRAPHIC_ADD);
+            break;
+
+        case INIT_TICKS_L3:
+            draw_pitch_label(3, GRAPHIC_ADD);
+            break;
+
+        case INIT_TICKS_L4:
+            draw_pitch_label(4, GRAPHIC_ADD);
+            break;
+
+        case INIT_LIMITS:
+            draw_pitch_limits(GRAPHIC_ADD);
+            break;
+
+        case INIT_TEXT_SPIN:
+            draw_spin_text(GRAPHIC_ADD);
+            break;
+
+        case INIT_TEXT_GEAR:
+            draw_gear_text(GRAPHIC_ADD);
+            break;
+
+        case INIT_TEXT_AIM:
+            draw_aim_text(GRAPHIC_ADD);
+            break;
+
+        case INIT_TEXT_CAP:
+            draw_supercap_text(GRAPHIC_ADD);
+            break;
+
+        case INIT_DYNAMIC:
+            draw_dynamic(GRAPHIC_ADD);
+            break;
+
+        case INIT_DONE:
+            return 1;  /* gia' finito */
+
+        default:
+            g_init_state = INIT_DONE;
+            return 1;
+    }
+
+    /* Avanza allo step successivo */
+    g_init_state++;
+    return (g_init_state == INIT_DONE) ? 1 : 0;
+}
+
+/* ============================================================================
  * MAIN TASK
  * ============================================================================ */
 void UI_Task(void const * argument)
 {
     (void)argument;
 
-    /* Period strictly set to match the 10Hz limit */
+    /* Task period: 100ms = 10Hz, allineato al rate limit del referee */
     const TickType_t xPeriod = 100 / portTICK_PERIOD_MS;
 
-    /* Init synchronization primitives */
+    /* Init semafori */
     osSemaphoreDef(UI_TX_DONE);
     ui_tx_done_sem = osSemaphoreCreate(osSemaphore(UI_TX_DONE), 1);
     osSemaphoreWait(ui_tx_done_sem, 0);
@@ -944,34 +1048,56 @@ void UI_Task(void const * argument)
 
     set_top_coordinates();
 
+    /* Pre-calcola gli angoli major (usati anche dai label) */
+    g_angles_maj[0] =  ANGLE_LIMIT;
+    g_angles_maj[1] =  ANGLE_LIMIT / 2.0f;
+    g_angles_maj[2] =  0.0f;
+    g_angles_maj[3] = -ANGLE_LIMIT / 2.0f;
+    g_angles_maj[4] = -ANGLE_LIMIT;
+
     uint16_t current_robot_id = 0;
 
     for (;;)
     {
+        TickType_t xLastWakeTime = xTaskGetTickCount();
+
         uint16_t rid = Referee_System_Info.robot_status.robot_id;
 
-        if (rid != 0 && rid != current_robot_id) {
+        /* ----------------------------------------------------------------
+         * Nuovo robot ID rilevato: reset e avvio state machine
+         * ---------------------------------------------------------------- */
+        if (rid != 0 && rid != current_robot_id)
+        {
             current_robot_id = rid;
             map_robot_id(current_robot_id);
 
-            osDelay(500);
-            clear_hud();
-
-            draw_all_static(GRAPHIC_ADD);
-            draw_all_text(GRAPHIC_ADD);
-            draw_dynamic(GRAPHIC_ADD);
-
-            prev_spinspin      = -1;
-            prev_aimbot        = -1;
-            prev_supercap_dash = -1;
-            prev_gear          = -1;
-            prev_spin_warning  = -1;
-            prev_motor_error   = -1;
-            prev_feeder_state  = -1;
+            /* Reset stati precedenti */
+            prev_spinspin        = -1;
+            prev_aimbot          = -1;
+            prev_supercap_dash   = -1;
+            prev_gear            = -1;
+            prev_spin_warning    = -1;
+            prev_motor_error     = -1;
+            prev_feeder_state    = -1;
             motor_fault_enabled  = 0;
             feeder_state_enabled = 0;
+
+            /* Attendi che il referee sia pronto, poi avvia la state machine */
+            osDelay(500);
+            g_init_state = INIT_CLEAR;
         }
-        else if (current_robot_id != 0) {
+        /* ----------------------------------------------------------------
+         * Init in corso: esegui un solo step per ciclo
+         * ---------------------------------------------------------------- */
+        else if (current_robot_id != 0 && g_init_state != INIT_DONE && g_init_state != INIT_IDLE)
+        {
+            run_init_step();
+        }
+        /* ----------------------------------------------------------------
+         * Init completato: funzionamento normale
+         * ---------------------------------------------------------------- */
+        else if (current_robot_id != 0 && g_init_state == INIT_DONE)
+        {
             poll_inputs();
 
             draw_dynamic(GRAPHIC_MODIFY);
@@ -981,6 +1107,7 @@ void UI_Task(void const * argument)
             update_feeder();
         }
 
-        vTaskDelay(xPeriod);
+        /* Attendi fino al prossimo periodo (garantisce esattamente 100ms per ciclo) */
+        vTaskDelayUntil(&xLastWakeTime, xPeriod);
     }
 }

@@ -96,9 +96,38 @@
 /* ============================================================================
  * TIMING
  * ============================================================================ */
-/* Referee system enforces ~10Hz per cmd_id. Keep send spacing >= 110ms when bursting. */
-#define REF_DELAY           110
+/* Delay interno a ref_send: basso perche' il rate e' controllato dalla state machine */
+#define REF_DELAY           20
 
+/* ============================================================================
+ * INIT STATE MACHINE
+ * ============================================================================ */
+typedef enum {
+    INIT_IDLE        = 0,
+    INIT_CLEAR,           /*  1 - delete all */
+    INIT_STATIC_1,        /*  2 - test shapes */
+    INIT_STATIC_2,        /*  3 - crosshair pkt 1 (framework) */
+    INIT_STATIC_3,        /*  4 - crosshair pkt 2 (tracks + corner) */
+    INIT_STATIC_4,        /*  5 - crosshair pkt 3 (CBR + drop ticks) */
+    INIT_TICKS_MAJ,       /*  6 - major pitch ticks */
+    INIT_TICKS_MIN,       /*  7 - minor pitch ticks */
+    INIT_TICKS_L0,        /*  8 - pitch label 0 */
+    INIT_TICKS_L1,        /*  9 - pitch label 1 */
+    INIT_TICKS_L2,        /* 10 - pitch label 2 */
+    INIT_TICKS_L3,        /* 11 - pitch label 3 */
+    INIT_TICKS_L4,        /* 12 - pitch label 4 */
+    INIT_LIMITS,          /* 13 - pitch limits */
+    INIT_TEXT_SPIN,       /* 14 - spin text */
+    INIT_TEXT_GEAR,       /* 15 - gear text */
+    INIT_TEXT_AIM,        /* 16 - aim text */
+    INIT_TEXT_CAP,        /* 17 - supercap text */
+    INIT_DYNAMIC,         /* 18 - dynamic graphics (arcs, bar, pitch line) */
+    INIT_DONE,            /* 19 - init completo */
+} init_state_e;
+
+/* ============================================================================
+ * PACKED STRUCTS
+ * ============================================================================ */
 #pragma pack(1)
 
 typedef struct __attribute__((packed)) {
