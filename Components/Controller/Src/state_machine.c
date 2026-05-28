@@ -47,6 +47,16 @@ rev_spin_t rev_spin = {
     .time_threshold_hold_mouse_key_multiple_shooting = 0.2f   // [s]
 };
 
+barrel_heat_management_t barrel_heat = {
+	.heat_limit = 70,           // Q0: Limite massimo dal Referee System
+    .current_heat = 0,         // Q1: Calore attuale dal Referee System
+    .cooling_rate = 12,         // Velocità di raffreddamento al secondo dal Referee System
+    .heat_per_projectile = 10, // 10 per proiettili 17mm, 100 per 42mm
+    .last_shooting_position = 0,
+    .last_cool_time = 0
+};
+
+
   /************************/
  /*   STATES FUNCTIONS   */
 /************************/
@@ -59,6 +69,28 @@ void robot_states_update_state_machine() {
     state_rev             = _state_machine_rev();
 		state_lidar_lifter 		= _state_machine_lidar_lifter();
 }
+
+
+void _update_barrel_heat_logic(void) {
+    if( ( (float)DJI_Rev_Motor.Data.Angle_sum - barrel_heat.last_shooting_position) > pi/4 - 0.01){
+			barrel_heat.last_shooting_position = (float)DJI_Rev_Motor.Data.Angle_sum;
+			barrel_heat.current_heat += 10;
+		}
+		 if (HAL_GetTick() - barrel_heat.last_cool_time >= 100) {
+
+        barrel_heat.last_cool_time = HAL_GetTick();
+
+        if (barrel_heat.current_heat > 0) {
+            barrel_heat.current_heat -= (barrel_heat.cooling_rate / 10.0f);
+        }
+
+        /* Avoid negative heat */
+        if (barrel_heat.current_heat < 0) {
+            barrel_heat.current_heat = 0;
+        }
+    }
+}
+
 
   /******************************/
  /*   REMOTE COMMANDS STATES   */
@@ -242,6 +274,8 @@ uint8_t _state_machine_rev() {
 
 uint8_t _state_machine_rev_remote_controller() {
 	
+		if(barrel_heat.current_heat > barrel_heat.heat_limit - barrel_heat.heat_per_projectile) return REV_STOP;
+	
 		// --- Jam detection: if motor is stalled for too long, trigger unstuck ---
     if (abs(DJI_Rev_Motor.Data.Current) < 6000)
         rev_spin.time_rev_locked = HAL_GetTick();  // reset stall timer (raw ms ticks)
@@ -271,6 +305,8 @@ uint8_t _state_machine_rev_remote_controller() {
 }
 
 uint8_t _state_machine_rev_keyboard_mouse() {
+
+    if(barrel_heat.current_heat > barrel_heat.heat_limit - barrel_heat.heat_per_projectile) return REV_STOP;
 
     // --- Jam detection: if motor is stalled for too long, trigger unstuck ---
     if (abs(DJI_Rev_Motor.Data.Current) < 6000)
@@ -309,6 +345,8 @@ uint8_t _state_machine_rev_keyboard_mouse() {
 }
 
 uint8_t _state_machine_rev_autonomus() {
+
+    if(barrel_heat.current_heat > barrel_heat.heat_limit - barrel_heat.heat_per_projectile) return REV_STOP;
 
     // --- Jam detection: if motor is stalled for too long, trigger unstuck ---
     if (abs(DJI_Rev_Motor.Data.Current) < 6000)
@@ -350,6 +388,8 @@ uint8_t _state_machine_rev() {
 
 uint8_t _state_machine_rev_remote_controller() {
 
+    if(barrel_heat.current_heat > barrel_heat.heat_limit - barrel_heat.heat_per_projectile) return REV_STOP;
+
     // --- Jam detection: if motor is stalled for too long, trigger unstuck ---
 //    if (abs(DJI_Rev_Motor.Data.Current) < 6000)
 //        rev_spin.time_rev_locked = HAL_GetTick();  // reset stall timer (raw ms ticks)
@@ -372,6 +412,8 @@ uint8_t _state_machine_rev_remote_controller() {
 }
 
 uint8_t _state_machine_rev_keyboard_mouse() {
+
+    if(barrel_heat.current_heat > barrel_heat.heat_limit - barrel_heat.heat_per_projectile) return REV_STOP;
 
     // TODO: add jam detection (REV_UNSTUCK) like in remote controller mode
 
@@ -398,6 +440,8 @@ uint8_t _state_machine_rev_keyboard_mouse() {
 }
 
 uint8_t _state_machine_rev_autonomus() {
+
+    if(barrel_heat.current_heat > barrel_heat.heat_limit - barrel_heat.heat_per_projectile) return REV_STOP;
 
     // --- Jam detection: if motor is stalled for too long, trigger unstuck ---
 //    if (abs(DM_Rev_Motor.Data.Current) < 6000)
