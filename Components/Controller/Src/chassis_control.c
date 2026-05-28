@@ -129,8 +129,13 @@ void control_loop_chassis() {
     chassis.x[4] = nearest_target_angle_from_start_angle(DM_Yaw_Motor.Data.Position - YAW_ZERO, 0);
 		
 		//Forward kinematics: wheel angular velocities to chassis linear velocities ---
-	  vx = ( chassis.x[0] + chassis.x[1] - chassis.x[2] - chassis.x[3]) / (4.0f * c);
-    vy = (-chassis.x[0] + chassis.x[1] + chassis.x[2] - chassis.x[3]) / (4.0f * c);
+	  // Body-frame FK (what you already have)
+		float vx_body = ( chassis.x[0] + chassis.x[1] - chassis.x[2] - chassis.x[3]) / (4.0f * c);
+		float vy_body = (-chassis.x[0] + chassis.x[1] + chassis.x[2] - chassis.x[3]) / (4.0f * c);
+
+		// Rotate to world frame using current yaw
+		vx = vx_body * cosf(chassis.x[4]) - vy_body * sinf(chassis.x[4]);
+		vy = vx_body * sinf(chassis.x[4]) + vy_body * cosf(chassis.x[4]);
 		w  = ( chassis.x[0] + chassis.x[1] + chassis.x[2] + chassis.x[3]) / (4.0f * radius_robot);
 		
     // Remote commands
