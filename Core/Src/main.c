@@ -33,7 +33,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "bsp_mcu.h"
-
+#include "buzzer.h"
 #include "SEGGER_SYSVIEW.h"
 
 //#include "EventRecorder.h"
@@ -142,6 +142,9 @@ int main(void)
 	
 	//EventRecorderInitialize(EventRecordAll, 1U);
 	//EventRecorderStart();
+
+  //Buzzer as a starting melody for robots
+  Buzzer_Init();
   /* USER CODE END 2 */
 
   /* Call init function for freertos objects (in cmsis_os2.c) */

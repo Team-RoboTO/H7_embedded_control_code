@@ -4,9 +4,8 @@
   * @brief   Passive buzzer — PB15 / TIM12 CH2
   ******************************************************************************
   */
-
+// os_delay has been changed with HAL_Delay for start since task scheduler has not started during the execution
 #include "buzzer.h"
-
 void Buzzer_Init(void)
 {
     __HAL_TIM_SET_PRESCALER(&BUZZER_TIM, BUZZER_PSC);
@@ -19,7 +18,8 @@ void Buzzer_PlayNote(uint32_t freq_hz, uint32_t duration_ms)
     if (freq_hz == 0)
     {
         Buzzer_Stop();
-        osDelay(duration_ms);
+        
+				osDelay(duration_ms);
         return;
     }
 
@@ -29,8 +29,9 @@ void Buzzer_PlayNote(uint32_t freq_hz, uint32_t duration_ms)
     __HAL_TIM_SET_COMPARE(&BUZZER_TIM, BUZZER_TIM_CHANNEL, arr / 2); /* 50% = max volume */
 
     osDelay(duration_ms);
+  
 }
-uint32_t current_bpm = 120;
+uint32_t current_bpm = 200;
 
 // Adapt durations on bpm
 static uint32_t TokenToMs(uint32_t duration_token)
@@ -67,7 +68,7 @@ void Buzzer_PlayMelody(const uint32_t *notes, const uint32_t *durations)
         
         uint32_t actual_duration = TokenToMs(*durations);
         
-        Buzzer_PlayNote(*notes, actual_duration);
+        Buzzer_PlayNote(*notes, (actual_duration/PLAY_RATE));
         
         Buzzer_PlayNote(0, 10); 
     }
@@ -79,8 +80,6 @@ void Buzzer_Stop(void)
 {
     __HAL_TIM_SET_COMPARE(&BUZZER_TIM, BUZZER_TIM_CHANNEL, 0);
 }
-
-
 
 /* ============================================================
    MELODIES 

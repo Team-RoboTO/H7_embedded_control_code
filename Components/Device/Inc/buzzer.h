@@ -137,7 +137,7 @@
 #define SIXTEENTH        16
 #define DOTTED_QUARTER   5  
 #define DOTTED_EIGHTH    9   
-
+#define PLAY_RATE        1 //1= Slow, 2=Fast. Try to keep between 1-2 for best run
 
 extern uint32_t current_bpm;
 void Buzzer_SetBPM(uint32_t bpm);
