@@ -25,6 +25,8 @@ controlled_system_t rev_and_push = {
  /*   CONTROLLERS   */
 /*******************/
 
+float is_on_reset = 0;
+
 static PID_Info_TypeDef pid_shoot_wheel_left;
 static PID_Info_TypeDef pid_shoot_wheel_right;
 static PID_Info_TypeDef pid_rev_pos;
@@ -59,7 +61,7 @@ float unstuck_rev_counter = 0.0f;
 
 #if IS_HERO
 static bool  has_shooted  = false;
-static float vel_up_rev   = 5.0f;
+static float vel_up_rev   = 10.0f;
 static float vel_down_rev = 15.0f;
 #endif
 
@@ -73,12 +75,12 @@ void _shooting_control_init(void)
     PID_Init(&pid_shoot_wheel_left,  PID_POSITION, pid_shoot_wheel_params);
     PID_Init(&pid_shoot_wheel_right, PID_POSITION, pid_shoot_wheel_params);
 
-    /* REV — latch current position as initial setpoint */
+    /* REV ï¿½ latch current position as initial setpoint */
 #if IS_STD || IS_SENTRY
     PID_Init(&pid_rev_pos, PID_POSITION, pid_rev_pos_params);
     PID_Init(&pid_rev_vel, PID_POSITION, pid_rev_vel_params);
 
-    /* Sensor read needed before we can latch — do one read here */
+    /* Sensor read needed before we can latch ï¿½ do one read here */
     rev_and_push.x[0] = (float)DJI_Rev_Motor.Data.Angle_sum;
     rev_and_push.x[1] = (float)DJI_Rev_Motor.Data.Velocity_rads;
     rev_and_push.r_x[0] = rev_and_push.x[0];
@@ -86,7 +88,6 @@ void _shooting_control_init(void)
 
 #elif IS_HERO
     rev_and_push.x[0]   = DM_Rev_Motor.Data.Position;
-    rev_and_push.r_x[0] = rev_and_push.x[0];
     rev_and_push.r_x[1] = rev_and_push.x[0]; /* slew starts at current pos */
 #endif
 	is_first_iter = 0;
@@ -265,7 +266,14 @@ void _control_loop_rev(void)
 
         case REV_SINGLE_SHOOTING:
             if (!has_shooted) {
-                rev_and_push.r_x[0] -= (6.0f * pi) / 7.0f;
+								if( fabs(rev_and_push.r_x[0] -(6.0f * pi) / 7.0f) >= 90 || is_on_reset){
+										is_on_reset = 1;
+										rev_and_push.r_x[0] = 0;
+
+								} else {
+									if( fabs(rev_and_push.r_x[0] - DM_Rev_Motor.Data.Position) < 0.05)
+										rev_and_push.r_x[0] -= (6.0f * pi) / 7.0f;
+								}
                 has_shooted = true;
             }
             break;
@@ -273,9 +281,12 @@ void _control_loop_rev(void)
         default:
             break;
     }
-
-    /* Slew rate limits the position reference to avoid current spikes */
-    slewRateControl(&rev_and_push.ud[1], rev_and_push.r_x[0], vel_up_rev, vel_down_rev, 0.001f);
+		if(!is_on_reset){
+			/* Slew rate limits the position reference to avoid current spikes */
+			slewRateControl(&rev_and_push.ud[1], rev_and_push.r_x[0], vel_up_rev, vel_down_rev, 0.001f);
+		} else {
+			rev_and_push.ud[1] = 0;
+		}
 }
 
 void _control_loop_push(void)

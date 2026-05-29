@@ -24,4 +24,6 @@ void _control_loop_shoot_wheels(void);
 void _control_loop_rev(void);
 void _control_loop_push(void);
 
+extern float is_on_reset;
+
 #endif

@@ -128,7 +128,15 @@ void CAN_Task(void const * argument)
             #if IS_GIMBAL_ENABLED
                 DM_Motor_CAN_TxMessage(&FDCAN2_TxFrame, &DM_Yaw_Motor, 0, gimbal.u[0], 0, KD_yaw, 0);
 								#if IS_HERO
-									DM_Motor_CAN_TxMessage(&FDCAN3_TxFrame, &DM_Rev_Motor, rev_and_push.ud[1], 0 , 10, 1, 0);
+									if(is_on_reset){
+										DM_Motor_CAN_TxMessage(&FDCAN3_TxFrame, &DM_Rev_Motor, 0, 0 , 0, 0, 0);
+										osDelay(1);
+										DM_Motor_Command(&FDCAN3_TxFrame, &DM_Rev_Motor, Motor_Save_Zero_Position);
+										osDelay(30);
+										is_on_reset = 0;
+									} else {
+										DM_Motor_CAN_TxMessage(&FDCAN3_TxFrame, &DM_Rev_Motor, rev_and_push.ud[1], 0 , 10, 1, 0);
+									}
 								#endif
             #endif
             #if IS_CHASSIS_ENABLED
