@@ -482,115 +482,271 @@ static void draw_crosshair(uint8_t op)
     uint16_t pos;
     graphic_data_struct_t *g;
 
-    /* --- Packet 1: framework (5 graphics) --- */
+    /* ============================================================================
+     * PACKET 1: THE CORE RETICLE (7 graphics)
+     * ============================================================================ */
     memset(tx_buffer, 0, sizeof(tx_buffer));
-    pos = build_graphic_header(tx_buffer, 5);
+    pos = build_graphic_header(tx_buffer, 7);
     if (pos == 0) return;
 
+    // 1. Circle Outer (Sleek cyan scope ring)
     g = (graphic_data_struct_t *)(tx_buffer + pos);
-    set_name(g, 'W', 'L', 'B'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
-    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 5;
-    g->start_x = CENTER_X - 180; g->start_y = CENTER_Y - 30;
-    g->details_d = CENTER_X - 180; g->details_e = CENTER_Y + 30;
+    set_name(g, 'C', 'O', 'R'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_CIRCLE; g->width = 1;
+    g->start_x = CENTER_X; g->start_y = CENTER_Y;
+    g->details_c = 120;
     pos += sizeof(graphic_data_struct_t);
 
+    // 2. Circle Inner (Small focal ring)
     g = (graphic_data_struct_t *)(tx_buffer + pos);
-    set_name(g, 'W', 'R', 'B'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
-    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 5;
-    g->start_x = CENTER_X + 180; g->start_y = CENTER_Y - 30;
-    g->details_d = CENTER_X + 180; g->details_e = CENTER_Y + 30;
+    set_name(g, 'C', 'I', 'N'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_CIRCLE; g->width = 1;
+    g->start_x = CENTER_X; g->start_y = CENTER_Y;
+    g->details_c = 30;
     pos += sizeof(graphic_data_struct_t);
 
+    // 3. Center Dot (Lethal red laser dot)
     g = (graphic_data_struct_t *)(tx_buffer + pos);
-    set_name(g, 'H', 'O', 'R'); g->layer = 0; g->color = CROSSHAIR_COLOR;
-    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 4;
-    g->start_x = CENTER_X - 160; g->start_y = CENTER_Y;
-    g->details_d = CENTER_X + 160; g->details_e = CENTER_Y;
+    set_name(g, 'D', 'O', 'T'); g->layer = 0; g->color = GRAPHIC_COLOUR_PURPLISH_RED;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_CIRCLE; g->width = 4;
+    g->start_x = CENTER_X; g->start_y = CENTER_Y;
+    g->details_c = 2;
     pos += sizeof(graphic_data_struct_t);
 
+    // 4. Horizontal Left Crosshair Bar
     g = (graphic_data_struct_t *)(tx_buffer + pos);
-    set_name(g, 'V', 'E', 'T'); g->layer = 0; g->color = CROSSHAIR_COLOR;
-    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 4;
-    g->start_x = CENTER_X; g->start_y = CENTER_Y + 40;
-    g->details_d = CENTER_X; g->details_e = CENTER_Y + 140;
+    set_name(g, 'H', 'O', 'L'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 2;
+    g->start_x = CENTER_X - 180; g->start_y = CENTER_Y;
+    g->details_d = CENTER_X - 45;  g->details_e = CENTER_Y;
     pos += sizeof(graphic_data_struct_t);
 
+    // 5. Horizontal Right Crosshair Bar
     g = (graphic_data_struct_t *)(tx_buffer + pos);
-    set_name(g, 'D', 'I', 'A'); g->layer = 0; g->color = GRAPHIC_COLOUR_ORANGE;
-    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_RECTANGLE; g->width = 3;
-    g->start_x = CENTER_X - 6; g->start_y = CENTER_Y - 6;
-    g->details_d = CENTER_X + 6; g->details_e = CENTER_Y + 6;
+    set_name(g, 'H', 'O', 'R'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 2;
+    g->start_x = CENTER_X + 45;  g->start_y = CENTER_Y;
+    g->details_d = CENTER_X + 180; g->details_e = CENTER_Y;
+    pos += sizeof(graphic_data_struct_t);
+
+    // 6. Vertical Top Crosshair Bar
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'V', 'E', 'T'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 2;
+    g->start_x = CENTER_X;        g->start_y = CENTER_Y + 45;
+    g->details_d = CENTER_X;      g->details_e = CENTER_Y + 180;
+    pos += sizeof(graphic_data_struct_t);
+
+    // 7. Vertical Bottom Crosshair Bar (Full BDC drop line extending to bottom)
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'V', 'E', 'B'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 2;
+    g->start_x = CENTER_X;        g->start_y = CENTER_Y - 45;
+    g->details_d = CENTER_X;      g->details_e = 50; // all the way to bottom (y=50)
     pos += sizeof(graphic_data_struct_t);
 
     ref_send(tx_buffer, pos);
 
-    /* --- Packet 2: tracks + corner brackets (5 graphics) --- */
+    /* ============================================================================
+     * PACKET 2: TACTICAL BRACKETS PART 1 (7 graphics)
+     * ============================================================================ */
+    memset(tx_buffer, 0, sizeof(tx_buffer));
+    pos = build_graphic_header(tx_buffer, 7);
+    if (pos == 0) return;
+
+    // Top-Left Corner Bracket (Horizontal & Vertical)
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'T', 'L', 'H'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 2;
+    g->start_x = CENTER_X - 240; g->start_y = CENTER_Y + 200;
+    g->details_d = CENTER_X - 200; g->details_e = CENTER_Y + 200;
+    pos += sizeof(graphic_data_struct_t);
+
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'T', 'L', 'V'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 2;
+    g->start_x = CENTER_X - 240; g->start_y = CENTER_Y + 200;
+    g->details_d = CENTER_X - 240; g->details_e = CENTER_Y + 160;
+    pos += sizeof(graphic_data_struct_t);
+
+    // Top-Right Corner Bracket (Horizontal & Vertical)
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'T', 'R', 'H'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 2;
+    g->start_x = CENTER_X + 240; g->start_y = CENTER_Y + 200;
+    g->details_d = CENTER_X + 200; g->details_e = CENTER_Y + 200;
+    pos += sizeof(graphic_data_struct_t);
+
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'T', 'R', 'V'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 2;
+    g->start_x = CENTER_X + 240; g->start_y = CENTER_Y + 200;
+    g->details_d = CENTER_X + 240; g->details_e = CENTER_Y + 160;
+    pos += sizeof(graphic_data_struct_t);
+
+    // Bottom-Left Corner Bracket (Horizontal & Vertical)
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'B', 'L', 'H'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 2;
+    g->start_x = CENTER_X - 240; g->start_y = CENTER_Y - 200;
+    g->details_d = CENTER_X - 200; g->details_e = CENTER_Y - 200;
+    pos += sizeof(graphic_data_struct_t);
+
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'B', 'L', 'V'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 2;
+    g->start_x = CENTER_X - 240; g->start_y = CENTER_Y - 200;
+    g->details_d = CENTER_X - 240; g->details_e = CENTER_Y - 160;
+    pos += sizeof(graphic_data_struct_t);
+
+    // Bottom-Right Corner Bracket (Horizontal part)
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'B', 'R', 'H'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 2;
+    g->start_x = CENTER_X + 240; g->start_y = CENTER_Y - 200;
+    g->details_d = CENTER_X + 200; g->details_e = CENTER_Y - 200;
+    pos += sizeof(graphic_data_struct_t);
+
+    ref_send(tx_buffer, pos);
+
+    /* ============================================================================
+     * PACKET 3: BR BRACKET + TOP BDC TICKS (5 graphics)
+     * ============================================================================ */
     memset(tx_buffer, 0, sizeof(tx_buffer));
     pos = build_graphic_header(tx_buffer, 5);
     if (pos == 0) return;
 
+    // Bottom-Right Corner Bracket (Vertical part)
     g = (graphic_data_struct_t *)(tx_buffer + pos);
-    set_name(g, 'T', 'R', 'L'); g->layer = 0; g->color = GRAPHIC_COLOUR_GREEN;
-    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 3;
+    set_name(g, 'B', 'R', 'V'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 2;
+    g->start_x = CENTER_X + 240; g->start_y = CENTER_Y - 200;
+    g->details_d = CENTER_X + 240; g->details_e = CENTER_Y - 160;
+    pos += sizeof(graphic_data_struct_t);
+
+    // BDC Ticks 1 to 4 (Spanning from center downwards)
+    // Tick 1
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'T', 'K', '1'); g->layer = 0; g->color = GRAPHIC_COLOUR_WHITE;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 1;
+    g->start_x = CENTER_X - 7;    g->start_y = CENTER_Y - 40 - 40;
+    g->details_d = CENTER_X + 7;  g->details_e = CENTER_Y - 40 - 40;
+    pos += sizeof(graphic_data_struct_t);
+
+    // Tick 2
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'T', 'K', '2'); g->layer = 0; g->color = GRAPHIC_COLOUR_WHITE;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 1;
+    g->start_x = CENTER_X - 7;    g->start_y = CENTER_Y - 40 - 80;
+    g->details_d = CENTER_X + 7;  g->details_e = CENTER_Y - 40 - 80;
+    pos += sizeof(graphic_data_struct_t);
+
+    // Tick 3
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'T', 'K', '3'); g->layer = 0; g->color = GRAPHIC_COLOUR_WHITE;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 1;
+    g->start_x = CENTER_X - 7;    g->start_y = CENTER_Y - 40 - 120;
+    g->details_d = CENTER_X + 7;  g->details_e = CENTER_Y - 40 - 120;
+    pos += sizeof(graphic_data_struct_t);
+
+    // Tick 4 (Major Tick, wider)
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'T', 'K', '4'); g->layer = 0; g->color = GRAPHIC_COLOUR_WHITE;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 2;
+    g->start_x = CENTER_X - 12;   g->start_y = CENTER_Y - 40 - 160;
+    g->details_d = CENTER_X + 12; g->details_e = CENTER_Y - 40 - 160;
+    pos += sizeof(graphic_data_struct_t);
+
+    ref_send(tx_buffer, pos);
+
+    /* ============================================================================
+     * PACKET 4: REMAINING BDC TICKS (7 graphics)
+     * ============================================================================ */
+    memset(tx_buffer, 0, sizeof(tx_buffer));
+    pos = build_graphic_header(tx_buffer, 7);
+    if (pos == 0) return;
+
+    // Tick 5
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'T', 'K', '5'); g->layer = 0; g->color = GRAPHIC_COLOUR_WHITE;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 1;
+    g->start_x = CENTER_X - 7;    g->start_y = CENTER_Y - 40 - 200;
+    g->details_d = CENTER_X + 7;  g->details_e = CENTER_Y - 40 - 200;
+    pos += sizeof(graphic_data_struct_t);
+
+    // Tick 6
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'T', 'K', '6'); g->layer = 0; g->color = GRAPHIC_COLOUR_WHITE;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 1;
+    g->start_x = CENTER_X - 7;    g->start_y = CENTER_Y - 40 - 240;
+    g->details_d = CENTER_X + 7;  g->details_e = CENTER_Y - 40 - 240;
+    pos += sizeof(graphic_data_struct_t);
+
+    // Tick 7
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'T', 'K', '7'); g->layer = 0; g->color = GRAPHIC_COLOUR_WHITE;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 1;
+    g->start_x = CENTER_X - 7;    g->start_y = CENTER_Y - 40 - 280;
+    g->details_d = CENTER_X + 7;  g->details_e = CENTER_Y - 40 - 280;
+    pos += sizeof(graphic_data_struct_t);
+
+    // Tick 8 (Major Tick, wider)
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'T', 'K', '8'); g->layer = 0; g->color = GRAPHIC_COLOUR_WHITE;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 2;
+    g->start_x = CENTER_X - 14;   g->start_y = CENTER_Y - 40 - 320;
+    g->details_d = CENTER_X + 14; g->details_e = CENTER_Y - 40 - 320;
+    pos += sizeof(graphic_data_struct_t);
+
+    // Tick 9
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'T', 'K', '9'); g->layer = 0; g->color = GRAPHIC_COLOUR_WHITE;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 1;
+    g->start_x = CENTER_X - 7;    g->start_y = CENTER_Y - 40 - 360;
+    g->details_d = CENTER_X + 7;  g->details_e = CENTER_Y - 40 - 360;
+    pos += sizeof(graphic_data_struct_t);
+
+    // Tick 10 (Tick A)
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'T', 'K', 'A'); g->layer = 0; g->color = GRAPHIC_COLOUR_WHITE;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 1;
+    g->start_x = CENTER_X - 7;    g->start_y = CENTER_Y - 40 - 400;
+    g->details_d = CENTER_X + 7;  g->details_e = CENTER_Y - 40 - 400;
+    pos += sizeof(graphic_data_struct_t);
+
+    // Tick 11 (Tick B, Major Tick near bottom)
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'T', 'K', 'B'); g->layer = 0; g->color = GRAPHIC_COLOUR_WHITE;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 2;
+    g->start_x = CENTER_X - 16;   g->start_y = CENTER_Y - 40 - 440;
+    g->details_d = CENTER_X + 16; g->details_e = CENTER_Y - 40 - 440;
+    pos += sizeof(graphic_data_struct_t);
+
+    ref_send(tx_buffer, pos);
+
+    /* ============================================================================
+     * PACKET 5: CHASSIS ORIENTATION GUIDE LINES (2 graphics)
+     * ============================================================================ */
+    memset(tx_buffer, 0, sizeof(tx_buffer));
+    pos = build_graphic_header(tx_buffer, 2);
+    if (pos == 0) return;
+
+    // Track Left Guide Line (Sleek cyan line)
+    g = (graphic_data_struct_t *)(tx_buffer + pos);
+    set_name(g, 'T', 'R', 'L'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 1;
     g->start_x = CENTER_X - 40;  g->start_y = CENTER_Y - 80;
     g->details_d = CENTER_X - 350; g->details_e = CENTER_Y - 540;
     pos += sizeof(graphic_data_struct_t);
 
+    // Track Right Guide Line (Sleek cyan line)
     g = (graphic_data_struct_t *)(tx_buffer + pos);
-    set_name(g, 'T', 'R', 'R'); g->layer = 0; g->color = GRAPHIC_COLOUR_GREEN;
-    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 3;
+    set_name(g, 'T', 'R', 'R'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 1;
     g->start_x = CENTER_X + 40;  g->start_y = CENTER_Y - 80;
     g->details_d = CENTER_X + 350; g->details_e = CENTER_Y - 540;
     pos += sizeof(graphic_data_struct_t);
 
-    uint32_t cd = 110, cl = 35;
-
-    g = (graphic_data_struct_t *)(tx_buffer + pos);
-    set_name(g, 'C', 'T', 'L'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
-    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 2;
-    g->start_x = CENTER_X - cd; g->start_y = CENTER_Y + cd;
-    g->details_d = CENTER_X - cd + cl; g->details_e = CENTER_Y + cd - cl;
-    pos += sizeof(graphic_data_struct_t);
-
-    g = (graphic_data_struct_t *)(tx_buffer + pos);
-    set_name(g, 'C', 'T', 'R'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
-    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 2;
-    g->start_x = CENTER_X + cd; g->start_y = CENTER_Y + cd;
-    g->details_d = CENTER_X + cd - cl; g->details_e = CENTER_Y + cd - cl;
-    pos += sizeof(graphic_data_struct_t);
-
-    g = (graphic_data_struct_t *)(tx_buffer + pos);
-    set_name(g, 'C', 'B', 'L'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
-    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 2;
-    g->start_x = CENTER_X - cd; g->start_y = CENTER_Y - cd;
-    g->details_d = CENTER_X - cd + cl; g->details_e = CENTER_Y - cd + cl;
-    pos += sizeof(graphic_data_struct_t);
-
-    ref_send(tx_buffer, pos);
-
-    /* --- Packet 3: CBR + drop compensator ticks (5 graphics) --- */
-    memset(tx_buffer, 0, sizeof(tx_buffer));
-    pos = build_graphic_header(tx_buffer, 5);
-    if (pos == 0) return;
-
-    g = (graphic_data_struct_t *)(tx_buffer + pos);
-    set_name(g, 'C', 'B', 'R'); g->layer = 0; g->color = GRAPHIC_COLOUR_CYAN;
-    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 2;
-    g->start_x = CENTER_X + cd; g->start_y = CENTER_Y - cd;
-    g->details_d = CENTER_X + cd - cl; g->details_e = CENTER_Y - cd + cl;
-    pos += sizeof(graphic_data_struct_t);
-
-    for (int i = 0; i < 4; i++) {
-        int y_offset = (i + 1) * SCALE_TICK_STEP;
-        int tick_w   = 10 + (i * 2);
-        g = (graphic_data_struct_t *)(tx_buffer + pos);
-        set_name(g, 'T', 'K', (uint8_t)('A' + i));
-        g->layer = 0; g->color = CROSSHAIR_COLOR;
-        g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_LINE; g->width = 1;
-        g->start_x   = CENTER_X - (tick_w / 2); g->start_y = CENTER_Y - y_offset;
-        g->details_d = CENTER_X + (tick_w / 2); g->details_e = CENTER_Y - y_offset;
-        pos += sizeof(graphic_data_struct_t);
-    }
     ref_send(tx_buffer, pos);
 }
 
@@ -825,49 +981,49 @@ static void update_feeder(void)
 /* ============================================================================
  * SIMPLE TEST GRAPHIC (Sent once on connect)
  * ============================================================================ */
-static void draw_test_shapes(uint8_t op)
-{
-    uint8_t  tx_buffer[128];
-    uint16_t pos;
-    graphic_data_struct_t *g;
+//static void draw_test_shapes(uint8_t op)
+//{
+//    uint8_t  tx_buffer[128];
+//    uint16_t pos;
+//    graphic_data_struct_t *g;
 
-    // Clear the buffer to prevent random memory corruption
-    memset(tx_buffer, 0, sizeof(tx_buffer));
+//    // Clear the buffer to prevent random memory corruption
+//    memset(tx_buffer, 0, sizeof(tx_buffer));
 
-    // We are drawing exactly 2 graphics, so we use count=2 (cmd_id 0x0102)
-    pos = build_graphic_header(tx_buffer, 2);
-    if (pos == 0) return;
+//    // We are drawing exactly 2 graphics, so we use count=2 (cmd_id 0x0102)
+//    pos = build_graphic_header(tx_buffer, 2);
+//    if (pos == 0) return;
 
-    /* Graphic 1: A prominent Pink Circle in the center */
-    g = (graphic_data_struct_t *)(tx_buffer + pos);
-    set_name(g, 'T', 'S', 'C');             // Name: TeSt Circle
-    g->layer = 8;                           // High layer to stay on top
-    g->color = GRAPHIC_COLOUR_PINK;         // Highly visible color
-    g->operation_type = op;
-    g->graphic_type = GRAPHIC_TYPE_CIRCLE;  
-    g->width = 5;                           // Line thickness
-    g->start_x = CENTER_X;                  // Center X
-    g->start_y = CENTER_Y;                  // Center Y
-    g->details_c = 150;                     // Radius of the circle
-    pos += sizeof(graphic_data_struct_t);
+//    /* Graphic 1: A prominent Pink Circle in the center */
+//    g = (graphic_data_struct_t *)(tx_buffer + pos);
+//    set_name(g, 'T', 'S', 'C');             // Name: TeSt Circle
+//    g->layer = 8;                           // High layer to stay on top
+//    g->color = GRAPHIC_COLOUR_PINK;         // Highly visible color
+//    g->operation_type = op;
+//    g->graphic_type = GRAPHIC_TYPE_CIRCLE;  
+//    g->width = 5;                           // Line thickness
+//    g->start_x = CENTER_X;                  // Center X
+//    g->start_y = CENTER_Y;                  // Center Y
+//    g->details_c = 150;                     // Radius of the circle
+//    pos += sizeof(graphic_data_struct_t);
 
-    /* Graphic 2: A Yellow Rectangle around the circle */
-    g = (graphic_data_struct_t *)(tx_buffer + pos);
-    set_name(g, 'T', 'S', 'B');             // Name: TeSt Box
-    g->layer = 8;
-    g->color = GRAPHIC_COLOUR_YELLOW;
-    g->operation_type = op;
-    g->graphic_type = GRAPHIC_TYPE_RECTANGLE;
-    g->width = 4;
-    g->start_x = CENTER_X - 180;            // Bottom-Left X
-    g->start_y = CENTER_Y - 180;            // Bottom-Left Y
-    g->details_d = CENTER_X + 180;          // Top-Right X
-    g->details_e = CENTER_Y + 180;          // Top-Right Y
-    pos += sizeof(graphic_data_struct_t);
+//    /* Graphic 2: A Yellow Rectangle around the circle */
+//    g = (graphic_data_struct_t *)(tx_buffer + pos);
+//    set_name(g, 'T', 'S', 'B');             // Name: TeSt Box
+//    g->layer = 8;
+//    g->color = GRAPHIC_COLOUR_YELLOW;
+//    g->operation_type = op;
+//    g->graphic_type = GRAPHIC_TYPE_RECTANGLE;
+//    g->width = 4;
+//    g->start_x = CENTER_X - 180;            // Bottom-Left X
+//    g->start_y = CENTER_Y - 180;            // Bottom-Left Y
+//    g->details_d = CENTER_X + 180;          // Top-Right X
+//    g->details_e = CENTER_Y + 180;          // Top-Right Y
+//    pos += sizeof(graphic_data_struct_t);
 
-    // Send the packet to the DMA
-    ref_send(tx_buffer, pos);
-}
+//    // Send the packet to the DMA
+//    ref_send(tx_buffer, pos);
+//}
 
 
 /* ============================================================================
@@ -875,7 +1031,7 @@ static void draw_test_shapes(uint8_t op)
  * ============================================================================ */
 static void draw_all_static(uint8_t op)
 {
-		draw_test_shapes(op);
+		//draw_test_shapes(op);
     draw_crosshair(op);
     draw_pitch_ticks(op);
     draw_pitch_limits(op);
