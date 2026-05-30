@@ -63,6 +63,19 @@ float unstuck_rev_counter = 0.0f;
 static bool  has_shooted  = false;
 static float vel_up_rev   = 10.0f;
 static float vel_down_rev = 15.0f;
+
+static PID_Info_TypeDef pid_push_pos;
+static PID_Info_TypeDef pid_push_vel;
+
+/* KP, KI, KD, Alpha, Deadband, LimitIntegral, LimitOutput */
+static float pid_push_pos_params[PID_PARAMETER_NUM] =
+    {27.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10000.0f};
+
+static float pid_push_vel_params[PID_PARAMETER_NUM] =
+    {7.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 8.0f};
+
+static uint8_t need_to_set_push_ang_pos_reference = true;
+bool unstuck_push_enabled = false;
 #endif
 
   /*************************/
@@ -87,10 +100,13 @@ void _shooting_control_init(void)
     rev_and_push.r_x[1] = 0.0f;
 
 #elif IS_HERO
+		PID_Init(&pid_push_pos, PID_POSITION, pid_push_pos_params);
+    PID_Init(&pid_push_vel, PID_POSITION, pid_push_vel_params);
+	
     rev_and_push.x[0]   = DM_Rev_Motor.Data.Position;
     rev_and_push.r_x[1] = rev_and_push.x[0]; /* slew starts at current pos */
 #endif
-	is_first_iter = 0;
+	is_first_iter = false;
 }
 
   /*************************/
@@ -239,7 +255,6 @@ void _control_loop_rev(void)
 }
 
 #elif IS_HERO
-
         /*******************************************/
 			 /*   _    _  ______  _____    ____         */
 			/*   | |  | ||  ____||  __ \  / __ \       */
@@ -271,7 +286,7 @@ void _control_loop_rev(void)
 										rev_and_push.r_x[0] = 0;
 
 								} else {
-									if( fabs(rev_and_push.r_x[0] - DM_Rev_Motor.Data.Position) < 0.05)
+									if( fabs(rev_and_push.r_x[0] - DM_Rev_Motor.Data.Position) < 0.15f)
 										rev_and_push.r_x[0] -= (6.0f * pi) / 7.0f;
 								}
                 has_shooted = true;
@@ -291,8 +306,49 @@ void _control_loop_rev(void)
 
 void _control_loop_push(void)
 {
-    /* TODO: implement push control for HERO */
-    (void)0;
+    /* Update state (slot [2] in rev_and_push) */
+    rev_and_push.x_prev[2]   = rev_and_push.x[2];
+    rev_and_push.r_x_prev[2] = rev_and_push.r_x[2];
+
+    rev_and_push.x[2] = (float)DJI_Push_Motor.Data.Angle_sum;   /* cumulative angle */
+
+    if (state_remote_commands == COMMANDS_STOP) {
+        rev_and_push.ud[0] = 0;
+        pid_push_pos.PID_Calc_Clear(&pid_push_pos);
+        pid_push_vel.PID_Calc_Clear(&pid_push_vel);
+        return;
+    }
+
+    /* Latch position reference on first iteration */
+    if (is_first_iter) {
+        rev_and_push.r_x[2] = rev_and_push.x[2];
+    }
+
+    /* Setpoint generation */
+    switch (state_push) {
+
+        case PUSH_STOP:
+            need_to_set_push_ang_pos_reference = true;
+            break;
+
+        case PUSH_SINGLE_SHOOTING:
+            if (need_to_set_push_ang_pos_reference && !unstuck_push_enabled) {
+                rev_and_push.r_x[2] = rev_and_push.x[2] + (float)(2.0f * pi / 2.0f);
+                need_to_set_push_ang_pos_reference = false;
+            }
+            break;
+
+        default:
+            break;
+    }
+
+    /* Outer loop: position → velocity setpoint */
+    float vel_setpoint = PID_Calculate(&pid_push_pos, rev_and_push.r_x[2], rev_and_push.x[2]);
+
+    /* Inner loop: velocity → current */
+    float vel_actual = (float)DJI_Push_Motor.Data.Velocity_rads;
+    rev_and_push.u[1]  = PID_Calculate(&pid_push_vel, vel_setpoint, vel_actual);
+    rev_and_push.ud[0] = rev_and_push.u[1] * DJI_Motor_ADC[DJI_M2006];
 }
 
 #endif
