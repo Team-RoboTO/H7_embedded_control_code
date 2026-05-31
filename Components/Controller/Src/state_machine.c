@@ -31,7 +31,7 @@ static uint16_t last_shift_state = 0;  // file-local; no need to be global
 #if IS_MATCH_MODE_ENABLED
     #define TIME_SHOOTING_WHEELS  60.0f  // [s]
 #else
-    #define TIME_SHOOTING_WHEELS   3.0f  // [s]
+    #define TIME_SHOOTING_WHEELS   60.0f  // [s]
 #endif
 
 shoot_wheels_spin_t shoot_wheels_spin = {
@@ -340,7 +340,7 @@ uint8_t _state_machine_rev_keyboard_mouse(void) {
     float now_s       = HAL_GetTick() * 1e-3f;
     float held_time_s = now_s - rev_spin.timestamp_last_shoot_command;
 
-    if (RC_info.Mouse.Press_L) {
+    if (RC_info.Mouse.Press_L || (RC_info.Mouse.Press_R && (shoot_flag_cv && (now_s - rev_spin.timestamp_last_shoot_command) >= 0.2f))) {
         if (rev_spin.timestamp_last_shoot_command == 0.0f) {
             // Rising edge: record press timestamp
             rev_spin.timestamp_last_shoot_command = now_s;
@@ -371,8 +371,7 @@ uint8_t _state_machine_rev_autonomus(void) {
 
     // FIX: original checked `timestamp_last_shoot_command > 0.2f` (absolute value, meaningless).
     //      Correct intent: fire when CV requests it AND enough time has elapsed since last shot.
-    if (shoot_flag_cv &&
-        (now_s - rev_spin.timestamp_last_shoot_command) >= 0.2f) {
+    if (shoot_flag_cv && (now_s - rev_spin.timestamp_last_shoot_command) >= 0.2f) {
         rev_spin.timestamp_last_shoot_command = now_s;
         return REV_SINGLE_SHOOTING;
     }

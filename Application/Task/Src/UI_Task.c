@@ -439,8 +439,8 @@ static void fill_bullet_bar_border(graphic_data_struct_t *g, uint8_t op)
 static void fill_bullet_bar_level(graphic_data_struct_t *g, uint8_t op)
 {
     uint16_t bullets = Referee_System_Info.projectile_allowance.projectile_allowance_17mm;
-    if (bullets > 500) bullets = 500;
-    uint32_t bar_h = (bullets * 350) / 500;
+    if (bullets > 200) bullets = 200;
+    uint32_t bar_h = (bullets * 350) / 200;
 
     uint8_t color = GRAPHIC_COLOUR_GREEN;
     if      (bullets < 50)  color = GRAPHIC_COLOUR_PURPLISH_RED;
@@ -530,7 +530,7 @@ static void draw_italy_flag_spqr(uint8_t op)
 
     ref_send(tx_buffer, pos);
 
-    send_char_graphic("SPQR",
+    send_char_graphic("DIOFA",
                       'S', 'P', 'Q',
                       FLAG_LAYER,
                       GRAPHIC_COLOUR_WHITE,

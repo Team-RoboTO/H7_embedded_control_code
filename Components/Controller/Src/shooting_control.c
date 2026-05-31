@@ -47,7 +47,7 @@ static float pid_rev_vel_params[PID_PARAMETER_NUM] =
 /*************************/
 
 #if IS_STD || IS_SENTRY
-float r_shoot_wheels_ang_vel = 500.0f;   /* [rad/s] */
+float r_shoot_wheels_ang_vel = 640.0f;   /* [rad/s] */
 #elif IS_HERO
 float r_shoot_wheels_ang_vel = 480.0f;   /* [rad/s] */
 #endif
