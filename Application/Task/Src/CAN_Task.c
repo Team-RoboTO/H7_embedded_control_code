@@ -55,15 +55,15 @@ void CAN_Task(void const * argument)
 //            can_task_freq_iters = 0;
 //            can_task_freq_start_ms = now;
 //        }
-
+			
         /* One-time init */
         if (is_init) {
 						#if IS_HERO
 							DM_Motor_Command(&FDCAN3_TxFrame, &DM_Rev_Motor, Motor_Save_Zero_Position);
 							osDelay(30);
 						#endif
-						CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Save_Zero_Position);
-            osDelay(30);
+//						CM_Motor_Command(&FDCAN2_TxFrame, &CM_Pitch_Motor, CM_Motor_Save_Zero_Position);
+//            osDelay(30);
             is_init = 0;
         }
 

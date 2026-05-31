@@ -343,7 +343,7 @@ static void FDCAN1_RxFifo0RxHandler(FDCAN_RxHeaderTypeDef *RxHeader, uint8_t Dat
 							DJI_Motor_Info_Update(&id, Data, &DJI_Lidar_Motor);
 							break;
 				#elif IS_HERO
-					case DM_REV_RX_ID:
+					case DJI_PUSH_RX_ID:
 							DJI_Motor_Info_Update(&id, Data, &DJI_Push_Motor);
 							break;
 				#endif
