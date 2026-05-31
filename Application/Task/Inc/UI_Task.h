@@ -30,6 +30,7 @@
 #define GRAPHIC_COLOUR_CYAN          6
 #define GRAPHIC_COLOUR_BLACK         7
 #define GRAPHIC_COLOUR_WHITE         8
+#define GRAPHIC_COLOUR_RED		       9
 
 /* ============================================================================
  * SCREEN LAYOUT

@@ -412,7 +412,7 @@ static void fill_curr_pitch(graphic_data_struct_t *g, uint8_t op)
 
     /* INS_Info.Roll_Angle is in degrees. Scale the physical range ±PITCH_RANGE_DEG
      * to fill the full arc ±ANGLE_LIMIT displayed on screen. */
-    float curr_ang = -PITCH_INVERT * INS_Info.Roll_Angle * (ANGLE_LIMIT / PITCH_RANGE_DEG);
+    float curr_ang = PITCH_INVERT * INS_Info.Roll_Angle * (ANGLE_LIMIT / PITCH_RANGE_DEG);
     uint32_t xpos = CENTER_X + (int)(RADIAL_DIAMETER * cosf(curr_ang * 0.0174533f));
     uint32_t ypos = CENTER_Y + (int)(RADIAL_DIAMETER * sinf(curr_ang * 0.0174533f));
 
@@ -461,12 +461,12 @@ static void fill_bullet_bar_level(graphic_data_struct_t *g, uint8_t op)
 /* ============================================================================
  * ITALIAN FLAG + SPQR LABEL (above the bullet bar, static)
  *========================================================================== */
-#define FLAG_X_LEFT   1855u
-#define FLAG_X_MID    1875u
-#define FLAG_X_MID2   1895u
-#define FLAG_X_RIGHT  1915u
-#define FLAG_Y_BOT    730u
-#define FLAG_Y_TOP    780u
+#define FLAG_X_LEFT   1820u
+#define FLAG_X_MID    1840u
+#define FLAG_X_MID2   1860u
+#define FLAG_X_RIGHT  1880u
+#define FLAG_Y_BOT    750u
+#define FLAG_Y_TOP    800u
 #define FLAG_LAYER    5
 
 static void draw_italy_flag_spqr(uint8_t op)
@@ -479,52 +479,52 @@ static void draw_italy_flag_spqr(uint8_t op)
     pos = build_graphic_header(tx_buffer, 2);
     if (pos == 0) return;
 
-    /* Green stripe */
+    /* Striscia Verde */
     g = (graphic_data_struct_t *)(tx_buffer + pos);
     set_name(g, 'I', 'T', 'G');
     g->layer          = FLAG_LAYER;
     g->color          = GRAPHIC_COLOUR_GREEN;
     g->operation_type = op;
-    g->graphic_type   = GRAPHIC_TYPE_RECTANGLE;
-    g->width          = 4;
-    g->start_x        = FLAG_X_LEFT;
+    g->graphic_type   = GRAPHIC_TYPE_LINE;   // Modificato in LINE
+    g->width          = 20;                  // Lo spessore riempie i 20 pixel
+    g->start_x        = 1830u;               // Centro della striscia
     g->start_y        = FLAG_Y_BOT;
-    g->details_d      = FLAG_X_MID;
+    g->details_d      = 1830u;               // Centro della striscia
     g->details_e      = FLAG_Y_TOP;
     pos += sizeof(graphic_data_struct_t);
 
-    /* White stripe */
+    /* Striscia Bianca */
     g = (graphic_data_struct_t *)(tx_buffer + pos);
     set_name(g, 'I', 'T', 'W');
     g->layer          = FLAG_LAYER;
     g->color          = GRAPHIC_COLOUR_WHITE;
     g->operation_type = op;
-    g->graphic_type   = GRAPHIC_TYPE_RECTANGLE;
-    g->width          = 4;
-    g->start_x        = FLAG_X_MID;
+    g->graphic_type   = GRAPHIC_TYPE_LINE;   // Modificato in LINE
+    g->width          = 20;
+    g->start_x        = 1850u;               // Centro della striscia
     g->start_y        = FLAG_Y_BOT;
-    g->details_d      = FLAG_X_MID2;
+    g->details_d      = 1850u;               // Centro della striscia
     g->details_e      = FLAG_Y_TOP;
     pos += sizeof(graphic_data_struct_t);
 
     ref_send(tx_buffer, pos);
 
-    /* Packet 2: Red stripe + SPQR text label */
+    /* Pacchetto 2: Striscia Rossa + Testo SPQR */
     memset(tx_buffer, 0, sizeof(tx_buffer));
     pos = build_graphic_header(tx_buffer, 1);
     if (pos == 0) return;
 
-    /* Red stripe 
+    /* Striscia Rossa */
     g = (graphic_data_struct_t *)(tx_buffer + pos);
     set_name(g, 'I', 'T', 'R');
     g->layer          = FLAG_LAYER;
-    g->color          = GRAPHIC_COLOUR_PURPLISH_RED;
+    g->color          = GRAPHIC_COLOUR_OWN_COLOR; 
     g->operation_type = op;
-    g->graphic_type   = GRAPHIC_TYPE_RECTANGLE;
-    g->width          = 4;
-    g->start_x        = FLAG_X_MID2;
+    g->graphic_type   = GRAPHIC_TYPE_LINE;   // Modificato in LINE
+    g->width          = 20;
+    g->start_x        = 1870u;               // Centro della striscia
     g->start_y        = FLAG_Y_BOT;
-    g->details_d      = FLAG_X_RIGHT;
+    g->details_d      = 1870u;               // Centro della striscia
     g->details_e      = FLAG_Y_TOP;
     pos += sizeof(graphic_data_struct_t);
 
@@ -534,9 +534,9 @@ static void draw_italy_flag_spqr(uint8_t op)
                       'S', 'P', 'Q',
                       FLAG_LAYER,
                       GRAPHIC_COLOUR_WHITE,
-                      FONT_SIZE, CHAR_WIDTH,
-                      (FLAG_X_LEFT + FLAG_X_RIGHT) / 2 - CHAR_X_OFFSET * 2,
-                      FLAG_Y_BOT - 20,   /* just below the flag */
+                      FONT_SIZE, CHAR_WIDTH, 
+                      FLAG_X_LEFT - 5,
+                      FLAG_Y_BOT - 20,       
                       op);
 }
 
