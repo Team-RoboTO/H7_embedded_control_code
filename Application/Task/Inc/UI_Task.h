@@ -69,6 +69,10 @@
 #define PITCH_LABEL_DIST    20
 #define TICK_INTERVALS      15
 #define PITCH_INVERT        1
+/* Physical pitch range in degrees (±PITCH_RANGE_DEG).
+ * Used to scale the arc indicator to cover the full ±ANGLE_LIMIT arc. */
+#define PITCH_RANGE_DEG     30.0f
+
 
 #define PITCH_BOUNDARY_COLOUR   GRAPHIC_COLOUR_PURPLISH_RED
 #define PITCH_BOUNDARY_WIDTH    3
