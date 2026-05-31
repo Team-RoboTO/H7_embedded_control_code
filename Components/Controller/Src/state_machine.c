@@ -8,6 +8,7 @@
 #include "DJI_Motor.h"
 #include "Damiao_Motor.h"
 #include "Minipc.h"
+#include "Referee_System.h"
 
   /**************/
  /*   STATES   */
@@ -61,13 +62,13 @@ push_spin_t push_spin = {
 /******************************/
 
 barrel_heat_management_t barrel_heat = {
-    .heat_limit            = 80.0f,
-    .current_heat          = 0.0f,
-    .cooling_rate          = 12.0f,
-    .heat_per_projectile   = 10.0f,
-    .safe_threshold        = 0,
+    .heat_limit             = 80.0f,
+    .current_heat           = 0.0f,
+    .cooling_rate           = 12.0f,
+    .heat_per_projectile    = 10.0f,
+    .safe_threshold         = 0,
     .last_shooting_position = 0.0f,
-    .last_cool_time        = 0.0f
+    .last_cool_time         = 0.0f
 };
 
 /**
@@ -82,7 +83,8 @@ barrel_heat_management_t barrel_heat = {
  * estimator stays anchored to ground truth.
  */
 void _update_barrel_heat_logic(void) {
-
+	if (Referee_System_Info.robot_status.shooter_barrel_heat_limit > 0) barrel_heat.heat_limit = Referee_System_Info.robot_status.shooter_barrel_heat_limit;
+	if (Referee_System_Info.robot_status.shooter_barrel_cooling_value > 0) barrel_heat.cooling_rate = Referee_System_Info.robot_status.shooter_barrel_cooling_value;
     // --- Shot detection via revolver encoder ---
     float angle_delta = (float)DJI_Rev_Motor.Data.Angle_sum
                         - barrel_heat.last_shooting_position;

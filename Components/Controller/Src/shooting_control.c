@@ -222,7 +222,7 @@ void _control_loop_rev(void)
 
         case REV_SINGLE_SHOOTING:
             if (need_to_set_rev_ang_pos_reference && !unstuck_rev_enabled) {
-                rev_and_push.r_x[0] = rev_and_push.x[0] + (pi / 4.0f);
+                rev_and_push.r_x[0] = rev_and_push.x[0] + (2.0f * pi / 7.0f);
                 need_to_set_rev_ang_pos_reference = false;
             }
             break;
