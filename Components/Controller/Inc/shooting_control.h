@@ -12,8 +12,6 @@
 extern controlled_system_t shoot_wheels;
 extern controlled_system_t rev_and_push;
 
-extern bool unstuck_rev_enabled;
-
   /********************/
  /*   CONTROL LOOP   */
 /********************/

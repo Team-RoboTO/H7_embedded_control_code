@@ -33,14 +33,11 @@ static PID_Info_TypeDef pid_rev_pos;
 static PID_Info_TypeDef pid_rev_vel;
 
 /* KP, KI, KD, Alpha, Deadband, LimitIntegral, LimitOutput */
-static float pid_shoot_wheel_params[PID_PARAMETER_NUM] =
-    {0.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10.0f};
+static float pid_shoot_wheel_params[PID_PARAMETER_NUM] = {0.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10.0f};
 
-static float pid_rev_pos_params[PID_PARAMETER_NUM] =
-    {27.0f, 5.0f, 0.0f, 0.0f, 0.0f, 1.0f, 10000.0f};
+static float pid_rev_pos_params[PID_PARAMETER_NUM] = {27.0f, 5.0f, 0.0f, 0.0f, 0.0f, 1.0f, 10000.0f};
 
-static float pid_rev_vel_params[PID_PARAMETER_NUM] =
-    {7.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 8.0f};
+static float pid_rev_vel_params[PID_PARAMETER_NUM] = {7.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 8.0f};
 
   /*************************/
  /*   CONTROL VARIABLES   */
@@ -53,11 +50,8 @@ float r_shoot_wheels_ang_vel = 480.0f;   /* [rad/s] */
 #endif
 
 static uint8_t need_to_set_rev_ang_pos_reference = true;
-static float   rev_shooting_frequency            = 15.0f;  /* [Hz] */
 static bool is_first_iter = true;
-
-bool  unstuck_rev_enabled = false;
-float unstuck_rev_counter = 0.0f;
+static bool unstuck_rev_enabled = false;
 
 #if IS_HERO
 static bool  has_shooted  = false;
@@ -198,19 +192,12 @@ void _control_loop_rev(void)
         return;
     }
 
-    /* Clear unstuck flag once position error is small enough */
-    if (unstuck_rev_enabled &&
-        fabsf(rev_and_push.r_x[0] - rev_and_push.x[0]) < (1.0f * pi / 180.0f)) {
-        unstuck_rev_enabled = false;
-    }
-
     /* Setpoint generation */
     switch (state_rev) {
 
         case REV_UNSTUCK:
             if (!unstuck_rev_enabled) {
-                rev_and_push.r_x[0] = rev_and_push.x[0] - (15.0f * pi / 180.0f);
-                unstuck_rev_counter++;
+                rev_and_push.r_x[0] = rev_and_push.x[0] - (pi / 4);
                 unstuck_rev_enabled = true;
             }
             break;
@@ -218,40 +205,28 @@ void _control_loop_rev(void)
         case REV_STOP:
             rev_and_push.r_x[1] = 0.0f;
             need_to_set_rev_ang_pos_reference = true;
+						unstuck_rev_enabled = false;
             break;
 
         case REV_SINGLE_SHOOTING:
-            if (need_to_set_rev_ang_pos_reference && !unstuck_rev_enabled) {
-                rev_and_push.r_x[0] = rev_and_push.x[0] + (2.0f * pi / 7.0f);
+            if (need_to_set_rev_ang_pos_reference) {
+                if (rev_and_push.r_x[0] - rev_and_push.x[0] < pi/2) rev_and_push.r_x[0] += (2.0f * pi / 8.0f);
                 need_to_set_rev_ang_pos_reference = false;
             }
-            break;
-
-        case REV_MULTIPLE_SHOOTING:
-            if (!unstuck_rev_enabled) {
-                rev_and_push.r_x[0] = rev_and_push.x[0];  /* track current pos */
-                rev_and_push.r_x[1] = rev_shooting_frequency * (pi / 4.0f);
-                need_to_set_rev_ang_pos_reference = false;
-            }
+						unstuck_rev_enabled = false;
             break;
 
         default:
             break;
     }
 
-    /* Outer loop: position ? velocity setpoint */
-    rev_and_push.r_x[1] = PID_Calculate(&pid_rev_pos,
-                               rev_and_push.r_x[0], rev_and_push.x[0]);
+    /* Outer loop: position -> velocity setpoint */
+    rev_and_push.r_x[1] = PID_Calculate(&pid_rev_pos, rev_and_push.r_x[0], rev_and_push.x[0]);
 
-    /* MULTIPLE_SHOOTING overrides position PID output with direct velocity */
-    if (state_rev == REV_MULTIPLE_SHOOTING) {
-        rev_and_push.r_x[1] = rev_shooting_frequency * (pi / 4.0f);
-    }
-
-    /* Inner loop: velocity ? current */
-    rev_and_push.u[0]  = PID_Calculate(&pid_rev_vel,
-                              rev_and_push.r_x[1], rev_and_push.x[1]);
+    /* Inner loop: velocity -> current */
+    rev_and_push.u[0]  = PID_Calculate(&pid_rev_vel, rev_and_push.r_x[1], rev_and_push.x[1]);
     rev_and_push.ud[0] = rev_and_push.u[0] * DJI_Motor_ADC[DJI_M2006];
+		saturate(&rev_and_push.ud[0], 9000);
 }
 
 #elif IS_HERO

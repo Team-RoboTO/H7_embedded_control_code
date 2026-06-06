@@ -11,7 +11,6 @@ void Shooting_Task(void const * argument)
     
     for(;;)
     {	
-				robot_states_update_state_machine();
         control_loop_shooting();
         vTaskDelay(xPeriod); // Wait 1ms
     }

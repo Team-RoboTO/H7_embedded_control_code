@@ -20,7 +20,7 @@ uint8_t state_gimbal          = GIMBAL_MANUAL_AIM;
 uint8_t state_shoot_wheels    = SHOOT_WHEELS_STOP;
 uint8_t state_rev             = REV_STOP;
 uint8_t state_push            = PUSH_STOP;
-uint8_t state_lidar_lifter    = LIDAR_DOWN;  // FIX: was bare `DOWN` (undefined symbol)
+uint8_t state_lidar_lifter    = LIDAR_DOWN;  
 
 extern int g_spinspin_mode;
 static uint16_t last_shift_state = 0;  // file-local; no need to be global
@@ -30,15 +30,15 @@ static uint16_t last_shift_state = 0;  // file-local; no need to be global
 /********************************/
 
 #if IS_MATCH_MODE_ENABLED
-    #define TIME_SHOOTING_WHEELS  60.0f  // [s]
+    #define TIME_SHOOTING_WHEELS  60000.0f  // [ms]
 #else
-    #define TIME_SHOOTING_WHEELS   60.0f  // [s]
+    #define TIME_SHOOTING_WHEELS   60000.0f  // [ms]
 #endif
 
 shoot_wheels_spin_t shoot_wheels_spin = {
-    .threshold_rc_wheel_released                              = 100,
-    .timestamp_last_shoot_command                             = 0.0f,
-    .time_without_shoot_commands_before_stopping_wheels       = TIME_SHOOTING_WHEELS
+    .threshold_rc_wheel_released            = 100,
+    .timestamp_last_shoot_command           = 0,
+    .time_before_stopping_wheels            = TIME_SHOOTING_WHEELS
 };
 
   /***************************/
@@ -46,17 +46,20 @@ shoot_wheels_spin_t shoot_wheels_spin = {
 /***************************/
 
 rev_spin_t rev_spin = {
-    .timestamp_last_shoot_command                    = 0.0f,
-    .time_threshold_hold_mouse_key_multiple_shooting = 0.2f,
-    .time_rev_locked                                 = 0.0f
+    .timestamp_last_shoot_command         = 0,
+	  .time_rev_locked                      = 0, 
+		.time_unstuck                         = 0, 
+	  .shooting_frequency                   = 12,
+	  .stuck_state                          = 0
 };
 
 push_spin_t push_spin = {
-    .timestamp_last_shoot_command                    = 0.0f,
-    .time_threshold_hold_mouse_key_multiple_shooting = 0.2f,
-    .time_rev_locked                                 = 0.0f
+    .timestamp_last_shoot_command                    = 0,
+    .time_threshold_hold_mouse_key_multiple_shooting = 200,
+    .time_rev_locked                                 = 0.0
 };
 
+uint8_t jam_state = 0;
   /******************************/
  /*   BARREL HEAT MANAGEMENT   */
 /******************************/
@@ -83,9 +86,10 @@ barrel_heat_management_t barrel_heat = {
  * estimator stays anchored to ground truth.
  */
 void _update_barrel_heat_logic(void) {
-	if (Referee_System_Info.robot_status.shooter_barrel_heat_limit > 0) barrel_heat.heat_limit = Referee_System_Info.robot_status.shooter_barrel_heat_limit;
+	//if (Referee_System_Info.robot_status.shooter_barrel_heat_limit > 0) barrel_heat.heat_limit = Referee_System_Info.robot_status.shooter_barrel_heat_limit;
 	if (Referee_System_Info.robot_status.shooter_barrel_cooling_value > 0) barrel_heat.cooling_rate = Referee_System_Info.robot_status.shooter_barrel_cooling_value;
-    // --- Shot detection via revolver encoder ---
+    barrel_heat.heat_limit = 10000000;
+	// --- Shot detection via revolver encoder ---
     float angle_delta = (float)DJI_Rev_Motor.Data.Angle_sum
                         - barrel_heat.last_shooting_position;
 
@@ -97,7 +101,7 @@ void _update_barrel_heat_logic(void) {
     // --- Cooling: drain at cooling_rate [units/s], sampled every 100 ms ---
     uint32_t now_ms = HAL_GetTick();
     if (now_ms - (uint32_t)barrel_heat.last_cool_time >= 100) {
-        barrel_heat.last_cool_time = (float)now_ms;
+        barrel_heat.last_cool_time = now_ms;
 
         barrel_heat.current_heat -= barrel_heat.cooling_rate / 10.0f;
         if (barrel_heat.current_heat < 0.0f) {
@@ -116,8 +120,11 @@ void robot_states_update_state_machine(void) {
     state_gimbal          = _state_machine_gimbal();
     state_shoot_wheels    = _state_machine_shoot_wheels();
     state_rev             = _state_machine_rev();
-    state_push            = _state_machine_push();
-    state_lidar_lifter    = _state_machine_lidar_lifter();
+	  #if IS_STD || IS_SENTRY
+			state_lidar_lifter    = _state_machine_lidar_lifter();
+		#elif IS_HERO
+			state_push            = _state_machine_push();
+		#endif
 }
 
   /******************************/
@@ -213,14 +220,12 @@ uint8_t _state_machine_shoot_wheels(void) {
 
 uint8_t _state_machine_shoot_wheels_remote_controller(void) {
 
-    float now_s = HAL_GetTick() * 1e-3f;
-
     if (abs(RC_info.RC.Wheel) >= shoot_wheels_spin.threshold_rc_wheel_released) {
-        shoot_wheels_spin.timestamp_last_shoot_command = now_s;
+        shoot_wheels_spin.timestamp_last_shoot_command = HAL_GetTick();
         return SHOOT_WHEELS_SPIN;
     }
-    if (now_s - shoot_wheels_spin.timestamp_last_shoot_command
-            >= shoot_wheels_spin.time_without_shoot_commands_before_stopping_wheels) {
+    if (HAL_GetTick() - shoot_wheels_spin.timestamp_last_shoot_command
+            >= shoot_wheels_spin.time_before_stopping_wheels) {
         return SHOOT_WHEELS_STOP;
     }
     return state_shoot_wheels;  // within spin-down window
@@ -228,14 +233,12 @@ uint8_t _state_machine_shoot_wheels_remote_controller(void) {
 
 uint8_t _state_machine_shoot_wheels_keyboard_mouse(void) {
 
-    float now_s = HAL_GetTick() * 1e-3f;
-
     if (RC_info.Mouse.Press_L || RC_info.Mouse.Press_R) {
-        shoot_wheels_spin.timestamp_last_shoot_command = now_s;
+        shoot_wheels_spin.timestamp_last_shoot_command = HAL_GetTick();
         return SHOOT_WHEELS_SPIN;
     }
-    if (now_s - shoot_wheels_spin.timestamp_last_shoot_command
-            >= shoot_wheels_spin.time_without_shoot_commands_before_stopping_wheels) {
+    if (HAL_GetTick() - shoot_wheels_spin.timestamp_last_shoot_command
+            >= shoot_wheels_spin.time_before_stopping_wheels) {
         return SHOOT_WHEELS_STOP;
     }
     return state_shoot_wheels;
@@ -243,14 +246,12 @@ uint8_t _state_machine_shoot_wheels_keyboard_mouse(void) {
 
 uint8_t _state_machine_shoot_wheels_autonomus(void) {
 
-    float now_s = HAL_GetTick() * 1e-3f;
-
     if (shoot_flag_cv) {
-        shoot_wheels_spin.timestamp_last_shoot_command = now_s;
+        shoot_wheels_spin.timestamp_last_shoot_command = HAL_GetTick();
         return SHOOT_WHEELS_SPIN;
     }
-    if (now_s - shoot_wheels_spin.timestamp_last_shoot_command
-            >= shoot_wheels_spin.time_without_shoot_commands_before_stopping_wheels) {
+    if (HAL_GetTick() - shoot_wheels_spin.timestamp_last_shoot_command
+            >= shoot_wheels_spin.time_before_stopping_wheels) {
         return SHOOT_WHEELS_STOP;
     }
     return state_shoot_wheels;
@@ -258,35 +259,28 @@ uint8_t _state_machine_shoot_wheels_autonomus(void) {
 
 #if IS_STD || IS_SENTRY
 /* ------------------------------------------------------------------ */
-/*   Shared jam-detection helper                                       */
-/*                                                                     */
+/*   Shared stuck-detection function                                  */
+/*                                                                    */
 /*   Monitors DJI_Rev_Motor.Data.Current and advances the stall timer */
-/*   when current is high (motor fighting a jam).                      */
-/*   Returns REV_UNSTUCK, REV_STOP (after prolonged stall), or        */
-/*   REV_STOP (no stall) via *out_state.                               */
-/*   Returns 1 if a stall override should take effect, 0 otherwise.   */
+/*   when current is high (motor fighting a jam).                     */
+/*                                                                    */
+/*   Returns 1 if an unstuck is required and zero otherwise           */
 /* ------------------------------------------------------------------ */
-static int _check_rev_jam(uint8_t *out_state) {
-
-    // Motor drawing low current → not stalled; reset timer
+int _check_rev_stuck(void) {
+	
     if (abs(DJI_Rev_Motor.Data.Current) < 6000) {
-        rev_spin.time_rev_locked = (float)HAL_GetTick();
-        return 0;
+        rev_spin.time_rev_locked = HAL_GetTick();
+        return 0; 
     }
 
-    uint32_t stall_ms = HAL_GetTick() - (uint32_t)rev_spin.time_rev_locked;
-
-    if (stall_ms > 1000) {
-        // Prolonged stall: give up and reset
-        unstuck_rev_enabled = 0;
-        rev_spin.time_rev_locked = (float)HAL_GetTick();
-        *out_state = REV_STOP;
-        return 1;
-    }
-
-    if (stall_ms > 300) {
-        *out_state = REV_UNSTUCK;
-        return 1;
+    uint32_t time_stuck = HAL_GetTick() - rev_spin.time_rev_locked;
+    if (time_stuck > 1000){
+			rev_spin.time_rev_locked = HAL_GetTick();
+			return 0;
+		}
+    if (time_stuck > 300) {
+				rev_spin.time_unstuck = HAL_GetTick();
+        return 1; 
     }
 
     return 0;
@@ -297,8 +291,9 @@ static int _check_rev_jam(uint8_t *out_state) {
 /*******************/
 
 uint8_t _state_machine_rev(void) {
+	
     _update_barrel_heat_logic();
-
+    
     switch (state_remote_commands) {
         case COMMANDS_REMOTE_CONTROLLER: return _state_machine_rev_remote_controller();
         case COMMANDS_KEYBOARD_MOUSE:    return _state_machine_rev_keyboard_mouse();
@@ -313,79 +308,74 @@ uint8_t _state_machine_rev_remote_controller(void) {
     if (barrel_heat.current_heat > barrel_heat.heat_limit - barrel_heat.heat_per_projectile)
         return REV_STOP;
 
-    // Jam detection
-    uint8_t jam_state;
-    if (_check_rev_jam(&jam_state)) return jam_state;
+    // Stuck detection
+    if (_check_rev_stuck()) return REV_UNSTUCK;
 
-    // Normal wheel control
     if (RC_info.RC.Wheel >= 300) {
-        rev_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3f;
-        return REV_MULTIPLE_SHOOTING;
+        if (HAL_GetTick() - rev_spin.timestamp_last_shoot_command >= (1000/rev_spin.shooting_frequency)) {
+            rev_spin.timestamp_last_shoot_command = HAL_GetTick();
+						return REV_SINGLE_SHOOTING;
+        } else {
+            return REV_STOP; 
+        }
     }
+		
     if (RC_info.RC.Wheel <= -300) {
-        rev_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3f;
+        rev_spin.timestamp_last_shoot_command = HAL_GetTick();
         return REV_SINGLE_SHOOTING;
     }
     return REV_STOP;
 }
 
 uint8_t _state_machine_rev_keyboard_mouse(void) {
-
-    // Heat guard
+		
+		// Heat guard
     if (barrel_heat.current_heat > barrel_heat.heat_limit - barrel_heat.heat_per_projectile)
         return REV_STOP;
 
-    // Jam detection
-    uint8_t jam_state;
-    if (_check_rev_jam(&jam_state)) return jam_state;
+    // Stuck detection
+    if (_check_rev_stuck()) return REV_UNSTUCK;
 
-    float now_s       = HAL_GetTick() * 1e-3f;
-    float held_time_s = now_s - rev_spin.timestamp_last_shoot_command;
-
-    if (RC_info.Mouse.Press_L || (RC_info.Mouse.Press_R && (shoot_flag_cv && (now_s - rev_spin.timestamp_last_shoot_command) >= 0.2f))) {
-        if (rev_spin.timestamp_last_shoot_command == 0.0f) {
-            // Rising edge: record press timestamp
-            rev_spin.timestamp_last_shoot_command = now_s;
-            return REV_SINGLE_SHOOTING;  // FIX: was missing a return for initial press
+    if (RC_info.Mouse.Press_L || (RC_info.Mouse.Press_R && shoot_flag_cv)) {
+        if (HAL_GetTick() - rev_spin.timestamp_last_shoot_command >= (1000/rev_spin.shooting_frequency)) {
+            rev_spin.timestamp_last_shoot_command = HAL_GetTick();
+						return REV_SINGLE_SHOOTING;
+        } else {
+            return REV_STOP; 
         }
-        if (held_time_s >= rev_spin.time_threshold_hold_mouse_key_multiple_shooting) {
-            return REV_MULTIPLE_SHOOTING;
-        }
-        return REV_SINGLE_SHOOTING;  // FIX: was falling off with no return → UB
     }
-
-    // Button released
-    rev_spin.timestamp_last_shoot_command = 0.0f;
+		
     return REV_STOP;
 }
 
 uint8_t _state_machine_rev_autonomus(void) {
 
-    // Heat guard
+		// Heat guard
     if (barrel_heat.current_heat > barrel_heat.heat_limit - barrel_heat.heat_per_projectile)
         return REV_STOP;
 
-    // Jam detection
-    uint8_t jam_state;
-    if (_check_rev_jam(&jam_state)) return jam_state;
+    // Stuck detection
+    if (_check_rev_stuck()) return REV_UNSTUCK;
 
-    float now_s = HAL_GetTick() * 1e-3f;
-
-    // FIX: original checked `timestamp_last_shoot_command > 0.2f` (absolute value, meaningless).
-    //      Correct intent: fire when CV requests it AND enough time has elapsed since last shot.
-    if (shoot_flag_cv && (now_s - rev_spin.timestamp_last_shoot_command) >= 0.2f) {
-        rev_spin.timestamp_last_shoot_command = now_s;
-        return REV_SINGLE_SHOOTING;
+    if (shoot_flag_cv) {
+        if (HAL_GetTick() - rev_spin.timestamp_last_shoot_command >= (1000/rev_spin.shooting_frequency)) {
+            rev_spin.timestamp_last_shoot_command = HAL_GetTick();
+						return REV_SINGLE_SHOOTING;
+        } else {
+            return REV_STOP; 
+        }
     }
+		
     return REV_STOP;
 }
 
-/* Push state machine is not used on STD/SENTRY; provide a stub to
-   satisfy the linker when building a unified binary. */
-uint8_t _state_machine_push(void)                    { return PUSH_STOP; }
-uint8_t _state_machine_push_remote_controller(void)  { return PUSH_STOP; }
-uint8_t _state_machine_push_keyboard_mouse(void)     { return PUSH_STOP; }
-uint8_t _state_machine_push_autonomus(void)          { return PUSH_STOP; }
+  /*************************/
+ /*   LIDAR LIFTER STATE  */
+/*************************/
+
+uint8_t _state_machine_lidar_lifter(void) {
+    return (RC_info.RC.Stop == 1) ? LIDAR_UP : LIDAR_DOWN;
+}
 
 #elif IS_HERO
 
@@ -512,12 +502,4 @@ uint8_t _state_machine_push_autonomus(void) {
     return PUSH_STOP;
 }
 
-#endif /* IS_HERO */
-
-  /*************************/
- /*   LIDAR LIFTER STATE  */
-/*************************/
-
-uint8_t _state_machine_lidar_lifter(void) {
-    return (RC_info.RC.Stop == 1) ? LIDAR_UP : LIDAR_DOWN;
-}
+#endif 

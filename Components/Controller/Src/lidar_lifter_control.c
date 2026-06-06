@@ -31,7 +31,7 @@ static float pid_ll_vel_params[PID_PARAMETER_NUM] = {1.0f,  0.0f, 0.0f, 0.0f, 0.
 static uint8_t is_first_iter                       = true;
 
 float lidar_home_position = -1;
-float LIDAR_CURRENT_TRESHOLD = 1000;
+float LIDAR_CURRENT_TRESHOLD = 2000;
 float CALIBRATION_SPEED =  10; // rad/s
 float SETPOINT_DISTANCE = 105.0f;
 
@@ -41,32 +41,32 @@ float SETPOINT_DISTANCE = 105.0f;
 
 void control_loop_lidar_lifter(void){
 	
-			if (is_first_iter == 1) {
-			PID_Init(&pid_ll_pos,  PID_POSITION, pid_ll_pos_params);
-			PID_Init(&pid_ll_vel, PID_POSITION, pid_ll_vel_params);
-			}
+	if (is_first_iter == 1) {
+		PID_Init(&pid_ll_pos,  PID_POSITION, pid_ll_pos_params);
+		PID_Init(&pid_ll_vel, PID_POSITION, pid_ll_vel_params);
+	}
 			
-					 // On STOP: zero output and reset PIDs
-			if (state_remote_commands == COMMANDS_STOP) {
-					lidar_lifter.ud[0] = 0;
-					pid_ll_pos.PID_Calc_Clear(&pid_ll_pos);
-					pid_ll_vel.PID_Calc_Clear(&pid_ll_vel);
-					return;
-			}
+	// On STOP: zero output and reset PIDs
+	if (state_remote_commands == COMMANDS_STOP) {
+			lidar_lifter.ud[0] = 0;
+			pid_ll_pos.PID_Calc_Clear(&pid_ll_pos);
+			pid_ll_vel.PID_Calc_Clear(&pid_ll_vel);
+			return;
+	}
 		
-			lidar_lifter.x[0] = (float) DJI_Lidar_Motor.Data.Angle_sum;           // [rad]
-			lidar_lifter.x[1] = (float) DJI_Lidar_Motor.Data.Velocity_rads;		  	// [rad/s]
+	lidar_lifter.x[0] = (float) DJI_Lidar_Motor.Data.Angle_sum;           // [rad]
+	lidar_lifter.x[1] = (float) DJI_Lidar_Motor.Data.Velocity_rads;		  	// [rad/s]
 
-				
-			if( lidar_home_position < 0 ){
-				if( abs(DJI_Lidar_Motor.Data.Current) > LIDAR_CURRENT_TRESHOLD ){
-					lidar_home_position = DJI_Lidar_Motor.Data.Angle_sum;
-					lidar_lifter.r_x[0] = lidar_home_position; 					// Set home as base position
-										
-				} else {
-					lidar_lifter.r_x[0] += CALIBRATION_SPEED/1000;
-				}
-			}
+	
+	if( lidar_home_position < 0 ){
+		if( abs(DJI_Lidar_Motor.Data.Current) > LIDAR_CURRENT_TRESHOLD ){
+			lidar_home_position = DJI_Lidar_Motor.Data.Angle_sum;
+			lidar_lifter.r_x[0] = lidar_home_position; 					// Set home as base position
+								
+		} else {
+			lidar_lifter.r_x[0] += CALIBRATION_SPEED/1000;
+		}
+	}
 			
 			if( lidar_home_position > 0 ){
 				switch (state_lidar_lifter) {

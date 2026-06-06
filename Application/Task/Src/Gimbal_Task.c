@@ -11,7 +11,6 @@ void Gimbal_Task(void const * argument)
 	
     for(;;)
     {
-				robot_states_update_state_machine();
         control_loop_gimbal();
 				control_loop_lidar_lifter();
         vTaskDelay(xPeriod); // Wait 1ms
