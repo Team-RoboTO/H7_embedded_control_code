@@ -86,16 +86,16 @@ barrel_heat_management_t barrel_heat = {
  * estimator stays anchored to ground truth.
  */
 void _update_barrel_heat_logic(void) {
-	if (Referee_System_Info.robot_status.shooter_barrel_heat_limit > 0) barrel_heat.heat_limit = Referee_System_Info.robot_status.shooter_barrel_heat_limit;
+	if (Referee_System_Info.robot_status.shooter_barrel_heat_limit > 0) barrel_heat.heat_limit = Referee_System_Info.robot_status.shooter_barrel_heat_limit - 3;
 	if (Referee_System_Info.robot_status.shooter_barrel_cooling_value > 0) barrel_heat.cooling_rate = Referee_System_Info.robot_status.shooter_barrel_cooling_value;
 	// --- Shot detection via revolver encoder ---
     float angle_delta = (float)DJI_Rev_Motor.Data.Angle_sum
                         - barrel_heat.last_shooting_position;
 
-    if (angle_delta > (float)pi / 4.0f - 0.01f) {
-        barrel_heat.last_shooting_position = (float)DJI_Rev_Motor.Data.Angle_sum;
-        barrel_heat.current_heat += barrel_heat.heat_per_projectile;
-    }
+//    if (angle_delta > (float)pi / 4.0f - 0.01f) {
+//        barrel_heat.last_shooting_position = (float)DJI_Rev_Motor.Data.Angle_sum;
+//        barrel_heat.current_heat += barrel_heat.heat_per_projectile;
+//    }
 
     // --- Cooling: drain at cooling_rate [units/s], sampled every 100 ms ---
     uint32_t now_ms = HAL_GetTick();
@@ -301,6 +301,7 @@ uint8_t _state_machine_rev(void) {
     }
 }
 
+
 uint8_t _state_machine_rev_remote_controller(void) {
 
     // Heat guard
@@ -313,6 +314,7 @@ uint8_t _state_machine_rev_remote_controller(void) {
     if (RC_info.RC.Wheel >= 300) {
         if (HAL_GetTick() - rev_spin.timestamp_last_shoot_command >= (1000/rev_spin.shooting_frequency)) {
             rev_spin.timestamp_last_shoot_command = HAL_GetTick();
+						barrel_heat.current_heat += barrel_heat.heat_per_projectile;
 						return REV_SINGLE_SHOOTING;
         } else {
             return REV_STOP; 
@@ -338,6 +340,7 @@ uint8_t _state_machine_rev_keyboard_mouse(void) {
     if (RC_info.Mouse.Press_L || (RC_info.Mouse.Press_R && shoot_flag_cv)) {
         if (HAL_GetTick() - rev_spin.timestamp_last_shoot_command >= (1000/rev_spin.shooting_frequency)) {
             rev_spin.timestamp_last_shoot_command = HAL_GetTick();
+						barrel_heat.current_heat += barrel_heat.heat_per_projectile;
 						return REV_SINGLE_SHOOTING;
         } else {
             return REV_STOP; 
@@ -359,6 +362,7 @@ uint8_t _state_machine_rev_autonomus(void) {
     if (shoot_flag_cv) {
         if (HAL_GetTick() - rev_spin.timestamp_last_shoot_command >= (1000/rev_spin.shooting_frequency)) {
             rev_spin.timestamp_last_shoot_command = HAL_GetTick();
+						barrel_heat.current_heat += barrel_heat.heat_per_projectile;
 						return REV_SINGLE_SHOOTING;
         } else {
             return REV_STOP; 
