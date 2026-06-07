@@ -56,7 +56,7 @@ static float time_stamp_cv_prev;
 static float yaw_command_from_cv_prev;
 static float pitch_command_from_cv_prev;
 
-float k_ff_yaw = 0.7f;
+float k_ff_yaw = 0.84f;
 
 float KD_yaw = 0.8f;//0.8f;
 float KD_pitch = 1.0f;

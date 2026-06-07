@@ -86,9 +86,8 @@ barrel_heat_management_t barrel_heat = {
  * estimator stays anchored to ground truth.
  */
 void _update_barrel_heat_logic(void) {
-	//if (Referee_System_Info.robot_status.shooter_barrel_heat_limit > 0) barrel_heat.heat_limit = Referee_System_Info.robot_status.shooter_barrel_heat_limit;
+	if (Referee_System_Info.robot_status.shooter_barrel_heat_limit > 0) barrel_heat.heat_limit = Referee_System_Info.robot_status.shooter_barrel_heat_limit;
 	if (Referee_System_Info.robot_status.shooter_barrel_cooling_value > 0) barrel_heat.cooling_rate = Referee_System_Info.robot_status.shooter_barrel_cooling_value;
-    barrel_heat.heat_limit = 10000000;
 	// --- Shot detection via revolver encoder ---
     float angle_delta = (float)DJI_Rev_Motor.Data.Angle_sum
                         - barrel_heat.last_shooting_position;

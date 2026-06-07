@@ -187,6 +187,7 @@ void _control_loop_rev(void)
 
     if (state_remote_commands == COMMANDS_STOP) {
         rev_and_push.ud[0] = 0;
+			  rev_and_push.r_x[0] = rev_and_push.x[0];
         pid_rev_pos.PID_Calc_Clear(&pid_rev_pos);
         pid_rev_vel.PID_Calc_Clear(&pid_rev_vel);
         return;
