@@ -86,27 +86,27 @@ barrel_heat_management_t barrel_heat = {
  * estimator stays anchored to ground truth.
  */
 void _update_barrel_heat_logic(void) {
-	if (Referee_System_Info.robot_status.shooter_barrel_heat_limit > 0) barrel_heat.heat_limit = Referee_System_Info.robot_status.shooter_barrel_heat_limit - 3;
-	if (Referee_System_Info.robot_status.shooter_barrel_cooling_value > 0) barrel_heat.cooling_rate = Referee_System_Info.robot_status.shooter_barrel_cooling_value;
-	// --- Shot detection via revolver encoder ---
-    float angle_delta = (float)DJI_Rev_Motor.Data.Angle_sum
-                        - barrel_heat.last_shooting_position;
+//	if (Referee_System_Info.robot_status.shooter_barrel_heat_limit > 0) barrel_heat.heat_limit = Referee_System_Info.robot_status.shooter_barrel_heat_limit - 3;
+//	if (Referee_System_Info.robot_status.shooter_barrel_cooling_value > 0) barrel_heat.cooling_rate = Referee_System_Info.robot_status.shooter_barrel_cooling_value;
+//	// --- Shot detection via revolver encoder ---
+//    float angle_delta = (float)DJI_Rev_Motor.Data.Angle_sum
+//                        - barrel_heat.last_shooting_position;
 
-//    if (angle_delta > (float)pi / 4.0f - 0.01f) {
-//        barrel_heat.last_shooting_position = (float)DJI_Rev_Motor.Data.Angle_sum;
-//        barrel_heat.current_heat += barrel_heat.heat_per_projectile;
+////    if (angle_delta > (float)pi / 4.0f - 0.01f) {
+////        barrel_heat.last_shooting_position = (float)DJI_Rev_Motor.Data.Angle_sum;
+////        barrel_heat.current_heat += barrel_heat.heat_per_projectile;
+////    }
+
+//    // --- Cooling: drain at cooling_rate [units/s], sampled every 100 ms ---
+//    uint32_t now_ms = HAL_GetTick();
+//    if (now_ms - (uint32_t)barrel_heat.last_cool_time >= 100) {
+//        barrel_heat.last_cool_time = now_ms;
+
+//        barrel_heat.current_heat -= barrel_heat.cooling_rate / 10.0f;
+//        if (barrel_heat.current_heat < 0.0f) {
+//            barrel_heat.current_heat = 0.0f;
+//        }
 //    }
-
-    // --- Cooling: drain at cooling_rate [units/s], sampled every 100 ms ---
-    uint32_t now_ms = HAL_GetTick();
-    if (now_ms - (uint32_t)barrel_heat.last_cool_time >= 100) {
-        barrel_heat.last_cool_time = now_ms;
-
-        barrel_heat.current_heat -= barrel_heat.cooling_rate / 10.0f;
-        if (barrel_heat.current_heat < 0.0f) {
-            barrel_heat.current_heat = 0.0f;
-        }
-    }
 }
 
   /************************/
@@ -387,7 +387,9 @@ uint8_t _state_machine_lidar_lifter(void) {
 /*******************/
 
 uint8_t _state_machine_rev(void) {
-
+	
+    _update_barrel_heat_logic();
+    
     switch (state_remote_commands) {
         case COMMANDS_REMOTE_CONTROLLER: return _state_machine_rev_remote_controller();
         case COMMANDS_KEYBOARD_MOUSE:    return _state_machine_rev_keyboard_mouse();
@@ -396,51 +398,69 @@ uint8_t _state_machine_rev(void) {
     }
 }
 
+
 uint8_t _state_machine_rev_remote_controller(void) {
 
-    // Hero fires one projectile per wheel click regardless of direction
-    if (RC_info.RC.Wheel >= 300 || RC_info.RC.Wheel <= -300) {
-        rev_spin.timestamp_last_shoot_command = HAL_GetTick() * 1e-3f;
+    // Heat guard
+    if (barrel_heat.current_heat > barrel_heat.heat_limit - barrel_heat.heat_per_projectile)
+        return REV_STOP;
+
+    // Stuck detection
+    //if (_check_rev_stuck()) return REV_UNSTUCK;
+
+    if (RC_info.RC.Wheel >= 300) {
+				rev_spin.timestamp_last_shoot_command = HAL_GetTick();
+        return REV_SINGLE_SHOOTING;
+    }
+		
+    if (RC_info.RC.Wheel <= -300) {
+        rev_spin.timestamp_last_shoot_command = HAL_GetTick();
         return REV_SINGLE_SHOOTING;
     }
     return REV_STOP;
 }
 
 uint8_t _state_machine_rev_keyboard_mouse(void) {
+		
+		// Heat guard
+    if (barrel_heat.current_heat > barrel_heat.heat_limit - barrel_heat.heat_per_projectile)
+        return REV_STOP;
 
-    // TODO: add jam detection (REV_UNSTUCK) as in remote-controller mode
-    float now_s       = HAL_GetTick() * 1e-3f;
-    float held_time_s = now_s - rev_spin.timestamp_last_shoot_command;
+    // Stuck detection
+//    if (_check_rev_stuck()) return REV_UNSTUCK;
 
-    if (RC_info.Mouse.Press_L) {
-        if (rev_spin.timestamp_last_shoot_command == 0.0f) {
-            rev_spin.timestamp_last_shoot_command = now_s;
-            return REV_SINGLE_SHOOTING;
+    if (RC_info.Mouse.Press_L || (RC_info.Mouse.Press_R && shoot_flag_cv)) {
+        if (HAL_GetTick() - rev_spin.timestamp_last_shoot_command >= (1000/rev_spin.shooting_frequency)) {
+            rev_spin.timestamp_last_shoot_command = HAL_GetTick();
+						barrel_heat.current_heat += barrel_heat.heat_per_projectile;
+						return REV_SINGLE_SHOOTING;
+        } else {
+            return REV_STOP; 
         }
-        if (held_time_s >= rev_spin.time_threshold_hold_mouse_key_multiple_shooting) {
-            return REV_SINGLE_SHOOTING;  // Hero: continuous-fire is still single-shot cadence
-        }
-        return REV_SINGLE_SHOOTING;
     }
-
-    rev_spin.timestamp_last_shoot_command = 0.0f;
+		
     return REV_STOP;
 }
 
 uint8_t _state_machine_rev_autonomus(void) {
 
-    // TODO: add jam detection
-    if (HAL_GetTick() - (uint32_t)rev_spin.time_rev_locked > 300)
-        return REV_UNSTUCK;
+		// Heat guard
+    if (barrel_heat.current_heat > barrel_heat.heat_limit - barrel_heat.heat_per_projectile)
+        return REV_STOP;
 
-    float now_s = HAL_GetTick() * 1e-3f;
+    // Stuck detection
+    //if (_check_rev_stuck()) return REV_UNSTUCK;
 
-    // FIX: same as STD — check elapsed time, not absolute timestamp
-    if (shoot_flag_cv &&
-        (now_s - rev_spin.timestamp_last_shoot_command) >= 0.2f) {
-        rev_spin.timestamp_last_shoot_command = now_s;
-        return REV_SINGLE_SHOOTING;
+    if (shoot_flag_cv) {
+        if (HAL_GetTick() - rev_spin.timestamp_last_shoot_command >= (1000/rev_spin.shooting_frequency)) {
+            rev_spin.timestamp_last_shoot_command = HAL_GetTick();
+						barrel_heat.current_heat += barrel_heat.heat_per_projectile;
+						return REV_SINGLE_SHOOTING;
+        } else {
+            return REV_STOP; 
+        }
     }
+		
     return REV_STOP;
 }
 

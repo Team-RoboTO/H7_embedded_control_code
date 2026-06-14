@@ -5,9 +5,9 @@
  /*   ROBOT SELECTION   */
 /***********************/
 
-#define IS_STD          1
+#define IS_STD          0
 #define IS_SENTRY       0
-#define IS_HERO         0
+#define IS_HERO         1
 
   /***************************/
  /*   ROBOT CONFIGURATION   */

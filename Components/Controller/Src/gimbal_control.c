@@ -90,7 +90,11 @@ void control_loop_gimbal() {
         gimbal.x_prev[i] = gimbal.x[i];
     }
     gimbal.x[0] = INS_Info.Yaw_TolAngle * DEG_TO_RAD;     // yaw position  [rad]
-    gimbal.x[1] = INS_Info.Roll_Angle * DEG_TO_RAD;   // pitch position [rad] (IMU is likely rotated 90deg)
+		#if IS_STD || IS_SENTRY
+			gimbal.x[1] = INS_Info.Roll_Angle * DEG_TO_RAD;   // pitch position [rad] (IMU is likely rotated 90deg)
+		#elif IS_HERO
+			gimbal.x[1] = INS_Info.Pitch_Angle * DEG_TO_RAD;   // pitch position [rad] (IMU is likely rotated 90deg)
+		#endif
 
     // update reference history
     for (uint8_t i = 0; i < 2; i++) {
@@ -122,11 +126,21 @@ void control_loop_gimbal() {
     }
 		
 		if (is_homing == 1) {
+			
 			gimbal.r_x[1] -= 0.01 * 	DEG_TO_RAD;
+			
+			#if IS_STD || IS_SENTRY
 		  if (gimbal.x[1] >= 0) {
 				pitch_zero = gimbal.r_x[1];
 				is_homing = 0;
 			}
+			#elif IS_HERO
+			if (gimbal.x[1] <= 0) {
+				pitch_zero = gimbal.r_x[1];
+				is_homing = 0;
+			}
+			#endif
+			
 		}
 			
 

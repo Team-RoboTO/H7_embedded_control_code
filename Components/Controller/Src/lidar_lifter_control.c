@@ -1,4 +1,7 @@
 #include "lidar_lifter_control.h"
+
+#if IS_STD || IS_SENTRY
+
 #include "PID.h"
 #include "DJI_motor.h"
 #include "state_machine.h"
@@ -95,3 +98,5 @@ void control_loop_lidar_lifter(void){
 		return;
 	is_first_iter = 0;
 }
+
+#endif

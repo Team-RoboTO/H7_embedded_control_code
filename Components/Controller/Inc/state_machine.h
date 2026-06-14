@@ -125,7 +125,7 @@ uint8_t _state_machine_rev_autonomus(void);
 	uint8_t _state_machine_lidar_lifter(void);
 	
 #elif IS_HERO
-	extern uint8_t state_rev;
+	extern uint8_t state_push;
 	uint8_t _state_machine_push(void);
 	uint8_t _state_machine_push_remote_controller(void);
 	uint8_t _state_machine_push_keyboard_mouse(void);

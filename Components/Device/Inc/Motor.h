@@ -41,9 +41,16 @@
 	#define DM_YAW_RX_ID       0x11
 #endif
 
+
+#if IS_STD || IS_SENTRY
 /* Pitch Motor (CubeMars AK40-10) */
 #define CM_PITCH_TX_ID     2
 #define CM_PITCH_RX_ID     0x00000002
+#elif IS_HERO
+/* Pitch Motor (CubeMars AK40-10) */
+#define CM_PITCH_TX_ID     124
+#define CM_PITCH_RX_ID     0x0000007C
+#endif
 
 /* Shooting Motors (DJI M3508) */
 #define DJI_SHOOTING_TX_ID 0x200

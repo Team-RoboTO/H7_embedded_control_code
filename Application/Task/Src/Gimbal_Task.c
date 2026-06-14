@@ -12,7 +12,9 @@ void Gimbal_Task(void const * argument)
     for(;;)
     {
         control_loop_gimbal();
+				#if IS_STD || IS_SENTRY
 				control_loop_lidar_lifter();
+			  #endif
         vTaskDelay(xPeriod); // Wait 1ms
     }
 }

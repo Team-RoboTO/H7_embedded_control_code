@@ -1,6 +1,8 @@
 #ifndef LIDAR_LIFTER_CONTROL_H   
 #define LIDAR_LIFTER_CONTROL_H
 
+#if IS_STD || IS_SENTRY
+
 #include "robot_config.h"
 #include "controlled_system.h"
 
@@ -16,4 +18,5 @@ extern controlled_system_t lidar_lifter;
 
 void control_loop_lidar_lifter(void);
 
+#endif
 #endif
