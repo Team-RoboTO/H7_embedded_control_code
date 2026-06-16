@@ -931,21 +931,36 @@ static void draw_pitch_limits(uint8_t op)
 /* ============================================================================
  * ALARMS: SPIN WARNING, MOTOR FAULT, FEEDER STATE
  * ============================================================================ */
+
+uint8_t  spin_warning_color = 0;
+uint8_t  change_color = 0;
+static TickType_t last_blink_tick = 0;
+
 static void draw_spin_warning_op(uint8_t op)
 {
-    send_char_graphic("RUOTAAA!", 'W', 'R', 'N', 9, GRAPHIC_COLOUR_PURPLISH_RED,
-                      60, 5,
-                      CENTER_X - (25 * 8),
-                      CENTER_Y + 180, op);
+    send_char_graphic("RUOTAAA!", 'W', 'R', 'N', 9, spin_warning_color,
+                      100, 5,
+                      CENTER_X - (42 * 8),
+                      CENTER_Y + 310, op);
 }
 
 static void update_spin_warning(void)
 {
     int current = !is_rotating;
-    if (current == prev_spin_warning) return;
 
-    if (current)  draw_spin_warning_op(GRAPHIC_ADD);
-    else          draw_spin_warning_op(GRAPHIC_DELETE);
+    if (current) {
+        if ((xTaskGetTickCount() - last_blink_tick) >= pdMS_TO_TICKS(200)) {
+            last_blink_tick = xTaskGetTickCount();
+            change_color += 1;
+            spin_warning_color = (change_color % 2) ? 4 : 8;
+
+            if (prev_spin_warning != 1) draw_spin_warning_op(GRAPHIC_ADD);
+            else                        draw_spin_warning_op(GRAPHIC_MODIFY);
+        }
+    }
+    else {
+        if (prev_spin_warning == 1) draw_spin_warning_op(GRAPHIC_DELETE);
+    }
 
     prev_spin_warning = current;
 }
@@ -1184,15 +1199,23 @@ void UI_Task(void const * argument)
     set_top_coordinates();
 
     uint16_t current_robot_id = 0;
+		uint8_t  prev_progress = 0;
+		uint8_t  prev_q = 0;
 
     for (;;)
     {
         uint16_t rid = Referee_System_Info.robot_status.robot_id;
+				uint8_t  progress = Referee_System_Info.game_status.game_progress;
+				uint8_t  q = RC_info.Key.Set.Q;
 
-        if (rid != 0 && rid != current_robot_id) {
+				uint8_t id_changed   = (rid != 0 && rid != current_robot_id);
+				uint8_t entered_game = (progress == 3 && prev_progress != 3);  // rising edge
+				uint8_t q_pressed    = (q && !prev_q); 
+
+        if (id_changed || entered_game || q_pressed) {
             current_robot_id = rid;
             map_robot_id(current_robot_id);
-
+				
             osDelay(500);
             clear_hud();
 
@@ -1219,6 +1242,8 @@ void UI_Task(void const * argument)
             update_motor_fault();
             update_feeder();
         }
+				prev_progress = progress;
+				prev_q = q;
 
         vTaskDelay(xPeriod);
     }
