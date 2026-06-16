@@ -29,16 +29,10 @@ static uint16_t last_shift_state = 0;  // file-local; no need to be global
  /*   SHOOT WHEELS SPIN CONFIG   */
 /********************************/
 
-#if IS_MATCH_MODE_ENABLED
-    #define TIME_SHOOTING_WHEELS  60000.0f  // [ms]
-#else
-    #define TIME_SHOOTING_WHEELS   60000.0f  // [ms]
-#endif
-
 shoot_wheels_spin_t shoot_wheels_spin = {
     .threshold_rc_wheel_released            = 100,
     .timestamp_last_shoot_command           = 0,
-    .time_before_stopping_wheels            = TIME_SHOOTING_WHEELS
+    .time_before_stopping_wheels            = 60000,
 };
 
   /***************************/
@@ -69,8 +63,7 @@ barrel_heat_management_t barrel_heat = {
     .current_heat           = 0.0f,
     .cooling_rate           = 12.0f,
     .heat_per_projectile    = 10.0f,
-    .safe_threshold         = 0,
-    .last_shooting_position = 0.0f,
+    .safe_threshold         = 3,
     .last_cool_time         = 0.0f
 };
 
@@ -86,27 +79,19 @@ barrel_heat_management_t barrel_heat = {
  * estimator stays anchored to ground truth.
  */
 void _update_barrel_heat_logic(void) {
-//	if (Referee_System_Info.robot_status.shooter_barrel_heat_limit > 0) barrel_heat.heat_limit = Referee_System_Info.robot_status.shooter_barrel_heat_limit - 3;
-//	if (Referee_System_Info.robot_status.shooter_barrel_cooling_value > 0) barrel_heat.cooling_rate = Referee_System_Info.robot_status.shooter_barrel_cooling_value;
-//	// --- Shot detection via revolver encoder ---
-//    float angle_delta = (float)DJI_Rev_Motor.Data.Angle_sum
-//                        - barrel_heat.last_shooting_position;
+	if (Referee_System_Info.robot_status.shooter_barrel_heat_limit > 0) barrel_heat.heat_limit = Referee_System_Info.robot_status.shooter_barrel_heat_limit - barrel_heat.safe_threshold;
+	if (Referee_System_Info.robot_status.shooter_barrel_cooling_value > 0) barrel_heat.cooling_rate = Referee_System_Info.robot_status.shooter_barrel_cooling_value;
 
-////    if (angle_delta > (float)pi / 4.0f - 0.01f) {
-////        barrel_heat.last_shooting_position = (float)DJI_Rev_Motor.Data.Angle_sum;
-////        barrel_heat.current_heat += barrel_heat.heat_per_projectile;
-////    }
+	// --- Cooling: drain at cooling_rate [units/s], sampled every 100 ms ---
+	uint32_t now_ms = HAL_GetTick();
+	if (now_ms - (uint32_t)barrel_heat.last_cool_time >= 100) {
+			barrel_heat.last_cool_time = now_ms;
 
-//    // --- Cooling: drain at cooling_rate [units/s], sampled every 100 ms ---
-//    uint32_t now_ms = HAL_GetTick();
-//    if (now_ms - (uint32_t)barrel_heat.last_cool_time >= 100) {
-//        barrel_heat.last_cool_time = now_ms;
-
-//        barrel_heat.current_heat -= barrel_heat.cooling_rate / 10.0f;
-//        if (barrel_heat.current_heat < 0.0f) {
-//            barrel_heat.current_heat = 0.0f;
-//        }
-//    }
+			barrel_heat.current_heat -= barrel_heat.cooling_rate / 10.0f;
+			if (barrel_heat.current_heat < 0.0f) {
+					barrel_heat.current_heat = 0.0f;
+			}
+	}
 }
 
   /************************/
@@ -321,10 +306,10 @@ uint8_t _state_machine_rev_remote_controller(void) {
         }
     }
 		
-    if (RC_info.RC.Wheel <= -300) {
-        rev_spin.timestamp_last_shoot_command = HAL_GetTick();
-        return REV_SINGLE_SHOOTING;
-    }
+//    if (RC_info.RC.Wheel <= -300) {
+//        rev_spin.timestamp_last_shoot_command = HAL_GetTick();
+//        return REV_SINGLE_SHOOTING;
+//    }
     return REV_STOP;
 }
 
@@ -381,6 +366,25 @@ uint8_t _state_machine_lidar_lifter(void) {
 }
 
 #elif IS_HERO
+int _check_rev_stuck(void) {
+	
+    if (DM_Rev_Motor.Data.Torque < 4.0f) {
+        rev_spin.time_rev_locked = HAL_GetTick();
+        return 0; 
+    }
+
+    uint32_t time_stuck = HAL_GetTick() - rev_spin.time_rev_locked;
+    if (time_stuck > 1000){
+			rev_spin.time_rev_locked = HAL_GetTick();
+			return 0;
+		}
+    if (time_stuck > 300) {
+				rev_spin.time_unstuck = HAL_GetTick();
+        return 1; 
+    }
+
+    return 0;
+}
 
   /*******************/
  /*   REV STATES    */
@@ -406,11 +410,16 @@ uint8_t _state_machine_rev_remote_controller(void) {
         return REV_STOP;
 
     // Stuck detection
-    //if (_check_rev_stuck()) return REV_UNSTUCK;
+    if (_check_rev_stuck()) return REV_UNSTUCK;
 
-    if (RC_info.RC.Wheel >= 300) {
-				rev_spin.timestamp_last_shoot_command = HAL_GetTick();
-        return REV_SINGLE_SHOOTING;
+		if (RC_info.RC.Wheel >= 300) {
+        if (HAL_GetTick() - rev_spin.timestamp_last_shoot_command >= (1000/rev_spin.shooting_frequency)) {
+            rev_spin.timestamp_last_shoot_command = HAL_GetTick();
+						barrel_heat.current_heat += barrel_heat.heat_per_projectile;
+						return REV_SINGLE_SHOOTING;
+        } else {
+            return REV_STOP; 
+        }
     }
 		
     if (RC_info.RC.Wheel <= -300) {
@@ -427,16 +436,12 @@ uint8_t _state_machine_rev_keyboard_mouse(void) {
         return REV_STOP;
 
     // Stuck detection
-//    if (_check_rev_stuck()) return REV_UNSTUCK;
+    if (_check_rev_stuck()) return REV_UNSTUCK;
 
     if (RC_info.Mouse.Press_L || (RC_info.Mouse.Press_R && shoot_flag_cv)) {
-        if (HAL_GetTick() - rev_spin.timestamp_last_shoot_command >= (1000/rev_spin.shooting_frequency)) {
             rev_spin.timestamp_last_shoot_command = HAL_GetTick();
 						barrel_heat.current_heat += barrel_heat.heat_per_projectile;
 						return REV_SINGLE_SHOOTING;
-        } else {
-            return REV_STOP; 
-        }
     }
 		
     return REV_STOP;
@@ -449,7 +454,7 @@ uint8_t _state_machine_rev_autonomus(void) {
         return REV_STOP;
 
     // Stuck detection
-    //if (_check_rev_stuck()) return REV_UNSTUCK;
+    if (_check_rev_stuck()) return REV_UNSTUCK;
 
     if (shoot_flag_cv) {
         if (HAL_GetTick() - rev_spin.timestamp_last_shoot_command >= (1000/rev_spin.shooting_frequency)) {

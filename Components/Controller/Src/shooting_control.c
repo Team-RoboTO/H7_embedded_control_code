@@ -24,49 +24,43 @@ controlled_system_t rev_and_push = {
   /*******************/
  /*   CONTROLLERS   */
 /*******************/
-
-float is_on_reset = 0;
-
 static PID_Info_TypeDef pid_shoot_wheel_left;
 static PID_Info_TypeDef pid_shoot_wheel_right;
-static PID_Info_TypeDef pid_rev_pos;
-static PID_Info_TypeDef pid_rev_vel;
 
 /* KP, KI, KD, Alpha, Deadband, LimitIntegral, LimitOutput */
 static float pid_shoot_wheel_params[PID_PARAMETER_NUM] = {0.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10.0f};
 
-static float pid_rev_pos_params[PID_PARAMETER_NUM] = {27.0f, 5.0f, 0.0f, 0.0f, 0.0f, 1.0f, 10000.0f};
+#if IS_STD || IS_SENTRY
+static PID_Info_TypeDef pid_rev_pos;
+static PID_Info_TypeDef pid_rev_vel;
 
+static float pid_rev_pos_params[PID_PARAMETER_NUM] = {27.0f, 5.0f, 0.0f, 0.0f, 0.0f, 1.0f, 10000.0f};
 static float pid_rev_vel_params[PID_PARAMETER_NUM] = {7.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 8.0f};
 
-  /*************************/
- /*   CONTROL VARIABLES   */
-/*************************/
-
-#if IS_STD || IS_SENTRY
-float r_shoot_wheels_ang_vel = 640.0f;   /* [rad/s] */
 #elif IS_HERO
-float r_shoot_wheels_ang_vel = 480.0f;   /* [rad/s] */
-#endif
-
-static uint8_t need_to_set_rev_ang_pos_reference = true;
-static bool is_first_iter = true;
-static bool unstuck_rev_enabled = false;
-
-#if IS_HERO
-static bool  has_shooted  = false;
-static float vel_up_rev   = 10.0f;
-static float vel_down_rev = 15.0f;
-
 static PID_Info_TypeDef pid_push_pos;
 static PID_Info_TypeDef pid_push_vel;
 
 /* KP, KI, KD, Alpha, Deadband, LimitIntegral, LimitOutput */
-static float pid_push_pos_params[PID_PARAMETER_NUM] =
-    {27.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10000.0f};
+static float pid_push_pos_params[PID_PARAMETER_NUM] = {27.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10000.0f};
+static float pid_push_vel_params[PID_PARAMETER_NUM] = {7.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 8.0f};
+#endif
 
-static float pid_push_vel_params[PID_PARAMETER_NUM] =
-    {7.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 8.0f};
+  /*************************/
+ /*   CONTROL VARIABLES   */
+/*************************/
+static uint8_t need_to_set_rev_ang_pos_reference = true;
+static bool is_first_iter = true;
+static bool unstuck_rev_enabled = false;
+float is_on_reset = 0;
+
+#if IS_STD || IS_SENTRY
+float r_shoot_wheels_ang_vel = 630.0f;   /* [rad/s] */
+#elif IS_HERO
+float r_shoot_wheels_ang_vel = 480.0f;   /* [rad/s] */
+
+static float vel_up_rev   = 10.0f;
+static float vel_down_rev = 15.0f;
 
 static uint8_t need_to_set_push_ang_pos_reference = true;
 bool unstuck_push_enabled = false;
@@ -252,22 +246,28 @@ void _control_loop_rev(void)
 
     switch (state_rev) {
         case REV_STOP:
-            has_shooted = false;
+						need_to_set_rev_ang_pos_reference = true;
+            break;
+				
+				case REV_UNSTUCK:
+            if (!unstuck_rev_enabled) {
+                rev_and_push.r_x[0] = rev_and_push.x[0] + (2*pi / 21);
+                unstuck_rev_enabled = true;
+            }
+						need_to_set_rev_ang_pos_reference = true;
             break;
 
         case REV_SINGLE_SHOOTING:
-            if (!has_shooted) {
-								if( fabs(rev_and_push.r_x[0] -(6.0f * pi) / 7.0f) >= 90 || is_on_reset){
-										is_on_reset = 1;
-										rev_and_push.r_x[0] = 0;
-
-								} else {
-									if( fabs(rev_and_push.r_x[0] - DM_Rev_Motor.Data.Position) < 0.15f)
-										rev_and_push.r_x[0] -= (6.0f * pi) / 7.0f;
-								}
-                has_shooted = true;
-            }
-            break;
+					if (need_to_set_rev_ang_pos_reference == true) {
+						if( fabs(rev_and_push.r_x[0] -(6.0f * pi) / 7.0f) >= 90 || is_on_reset){
+							is_on_reset = 1;
+							rev_and_push.r_x[0] = 0;
+						} else {
+								rev_and_push.r_x[0] -= (6.0f * pi) / 7.0f;
+						}
+					need_to_set_rev_ang_pos_reference = false;	
+					}
+				break;
 
         default:
             break;

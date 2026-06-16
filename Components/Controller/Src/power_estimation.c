@@ -14,11 +14,16 @@
 #include <string.h>
 
 // Costanti fisiche e parametri calibrati con MATLAB
-const float KT_OUT         = 0.056f * 10.0f;  // KT * Rapporto di riduzione = 0.56
-const float K1_JOULE       = 0.733f;           // Perdite nel rame (0.75 * R_phase_to_phase)
-const float K2_IRON        = 0.0094727f;        // Attrito viscoso ottimizzato
-const float P0_STATIC      = 1.8125f;           // Consumo statico in standby
-const float CHASSIS_POWER_SCALE = 0.40692f;     // Fattore di scala globale calcolato
+const float KT_OUT         = 0.056f * 10.0f;      // KT * Rapporto di riduzione = 0.56
+const float K1_JOULE       = 0.733f;              // Perdite nel rame (0.75 * R_phase_to_phase)
+const float K2_IRON        = 0.0094727f;          // Attrito viscoso ottimizzato
+const float P0_STATIC      = 1.8125f;             // Consumo statico in standby
+
+#if IS_STD || IS_SENTRY
+const float CHASSIS_POWER_SCALE = 0.40692f;       // Fattore di scala globale calcolato
+#elif IS_HERO
+const float CHASSIS_POWER_SCALE = 0.7f;//         // Fattore di scala globale calcolato
+#endif
 
 // Strutture per Filtro Passa Basso (LPF)
 LowPassFilter1p_Info_TypeDef Torque1_LPF1p;

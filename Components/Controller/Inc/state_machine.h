@@ -81,7 +81,6 @@ typedef struct {
     float    cooling_rate;        	 // Heat shed per second [heat units/s]
     float    heat_per_projectile; 	 // Heat added per projectile (17 mm = 10, 42 mm = 100)
     uint16_t safe_threshold;      	 // Shoot-block margin below heat_limit (e.g. 2 × heat_per_projectile)
-    float    last_shooting_position; // Rev encoder position at last logged shot [rad]
     float    last_cool_time;         // HAL tick of last cooling update [ms]
 } barrel_heat_management_t;
 
