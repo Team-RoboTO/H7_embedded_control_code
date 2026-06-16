@@ -23,6 +23,7 @@
 
 fp32 random_value = 0;
 
+extern float vx, vy;
 
 /* Private variables ---------------------------------------------------------*/
 
@@ -50,42 +51,24 @@ fp32 fake_data[10] = {0};
   */
  void MiniPC_Prepare_Tx_Data(fp32 *Tx_data, fp32 random_value)
 {
-   
-    /* --- Referee data --- */
-//		Tx_data[0] = (fp32)(Referee_System_Info.robot_status.robot_id > 100);            /* color: 0.0=RED, 1.0=BLUE           */  
-//		Tx_data[1] = (fp32)(Referee_System_Info.game_status.game_progress == 4);         /* battle mode: 1.0 if in battle      */
-//    Tx_data[2] = (fp32) Referee_System_Info.robot_status.current_HP;                 /* HP: uint16_t cast to fp32          */
-//    Tx_data[3] = (fp32)((Referee_System_Info.rfid_status.rfid_status >> 19) & 0x1);  /* resupply zone: bit 19              */
-//    Tx_data[4] = (fp32)((Referee_System_Info.event_data.event_data   >>  5) & 0x3);  /* central highland: bits 5-6 (0/1/2) */
-// 
+    Tx_data[0] = gimbal.x[0];    																											/* radians */
+    Tx_data[1] = CM_Pitch_Motor.Data.Position*45.0f/25.0f;  													/* float, degrees */
+	  	
+	  Tx_data[2] = vx;   																																/* linear velocity  [fp32, m/s]   */
+    Tx_data[3] = vy;   																																/* angular velocity [fp32, rad/s] */
+		
+		Tx_data[4] = (fp32)(Referee_System_Info.robot_status.robot_id > 100);             /* color: 0=RED, 1=BLUE           */  
+		Tx_data[5] = (fp32)(Referee_System_Info.game_status.game_progress);         		  /* 1: Preparation Period
+																																											 * 2: 15-Second Referee System Initialization Period
+																																											 * 3: 5-Second Countdown
+																																											 * 4: In Match
+																																											 * 5: Match Settling      */
 	
-	
-//		Tx_data[0] = (fp32)(Referee_System_Info.robot_status.robot_id > 100);            /* color: 0.0=RED, 1.0=BLUE           */  
-//		Tx_data[1] = fake_data[1];         /* battle mode: 1.0 if in battle      */
-    Tx_data[0] = gimbal.x[0];    /* float, degrees */
-    Tx_data[1] = CM_Pitch_Motor.Data.Position*45.0f/25.0f;  /* float, degrees */
-	  Tx_data[2] = fake_data[2];                 /* HP: uint16_t cast to fp32          */
-    Tx_data[3] = fake_data[3];  /* resupply zone: bit 19              */
-    Tx_data[4] = fake_data[4];  /* central highland: bits 5-6 (0/1/2) */
+    Tx_data[6] = (fp32) Referee_System_Info.robot_status.current_HP;                  /* HP: uint16_t cast to fp32          */
+    Tx_data[7] = (fp32)((Referee_System_Info.rfid_status.rfid_status >> 19) & 0x1);   /* resupply zone: bit 19              */
+    Tx_data[8] = (fp32)((Referee_System_Info.rfid_status.rfid_status >> 23) & 0x1);   /* center: bit 23                     */
  
-    /* --- IMU data from INS_Task --- */
-    Tx_data[5] = INS_Info.Yaw_TolAngle ;  /* float, degrees */
-    Tx_data[6] = CM_Pitch_Motor.Data.Position;  /* float, degrees */
-    Tx_data[7] = INS_Info.Roll_Angle;   /* float, degrees */
- 
-    /* --- Chassis velocities (TODO: replace when chassis task is ready) --- */
-    Tx_data[8] = fake_data[8];   /* linear velocity  [fp32, m/s]   */
-    Tx_data[9] = fake_data[9];   /* angular velocity [fp32, rad/s] */
-	
-	//Dummy data 
-		/*
-		Tx_data[0] = random_value;
-		Tx_data[1] = random_value-1;
-		Tx_data[2] = -random_value;
-		Tx_data[3] = random_value;
-		Tx_data[4] = rx_count;
-		Tx_data[5] = tx_count;
-		*/
+		Tx_data[9] = fake_data[9];
 }
 
 /**

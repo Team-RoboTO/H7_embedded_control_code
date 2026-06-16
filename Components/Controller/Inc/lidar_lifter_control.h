@@ -1,9 +1,10 @@
 #ifndef LIDAR_LIFTER_CONTROL_H   
 #define LIDAR_LIFTER_CONTROL_H
 
+#include "robot_config.h"
+
 #if IS_STD || IS_SENTRY
 
-#include "robot_config.h"
 #include "controlled_system.h"
 
   /*************************/
