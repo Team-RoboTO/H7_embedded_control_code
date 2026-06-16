@@ -327,6 +327,9 @@ static void FDCAN1_RxFifo0RxHandler(FDCAN_RxHeaderTypeDef *RxHeader, uint8_t Dat
 
     switch (id)
     {
+			  case CM_PITCH_RX_ID:
+            CM_Motor_Info_Update(&id, Data, &CM_Pitch_Motor);
+            break;
         case DJI_SHOOTING_0_RX_ID:
             DJI_Motor_Info_Update(&id, Data, &DJI_Shooting_Motor[0]);
             break;
@@ -376,9 +379,6 @@ static void FDCAN2_RxFifo1RxHandler(FDCAN_RxHeaderTypeDef *RxHeader, uint8_t Dat
     /* Standard ID � DM yaw or CM chassis */
     switch (id)
     {
-        case CM_PITCH_RX_ID:
-            CM_Motor_Info_Update(&id, Data, &CM_Pitch_Motor);
-            break;
         case DM_YAW_RX_ID:
             DM_Motor_Info_Update(&id, Data, &DM_Yaw_Motor);
             break;

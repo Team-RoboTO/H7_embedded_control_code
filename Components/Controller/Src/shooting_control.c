@@ -103,11 +103,18 @@ void _shooting_control_init(void)
 
 void control_loop_shooting(void){
 		if (is_first_iter == true) _shooting_control_init();
+	  #if !IS_SHOOTING_ENABLED
+			shoot_wheels.ud[0] = 0;
+			shoot_wheels.ud[1] = 0;
+			rev_and_push.ud[0] = 0;
+			rev_and_push.ud[1] = DM_Rev_Motor.Data.Position;
+			return;
+		#endif
     _control_loop_shoot_wheels();
     _control_loop_rev();
-#if IS_HERO
-    _control_loop_push();
-#endif
+		#if IS_HERO
+				_control_loop_push();
+		#endif
 	
 }
 
