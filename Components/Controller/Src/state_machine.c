@@ -25,6 +25,7 @@ uint8_t state_lidar_lifter    = LIDAR_DOWN;
 extern int g_spinspin_mode;
 static uint16_t last_shift_state = 0;  // file-local; no need to be global
 
+float counter = 0;
   /********************************/
  /*   SHOOT WHEELS SPIN CONFIG   */
 /********************************/
@@ -38,14 +39,18 @@ shoot_wheels_spin_t shoot_wheels_spin = {
   /***************************/
  /*   REV / PUSH CONFIG     */
 /***************************/
-
 rev_spin_t rev_spin = {
     .timestamp_last_shoot_command         = 0,
 	  .time_rev_locked                      = 0, 
 		.time_unstuck                         = 0, 
+	  #if IS_STD || IS_SENTRY
 	  .shooting_frequency                   = 12,
+	  #elif IS_HERO
+		.shooting_frequency                   = 2,
+	  #endif
 	  .stuck_state                          = 0
 };
+
 
 push_spin_t push_spin = {
     .timestamp_last_shoot_command                    = 0,
@@ -368,7 +373,7 @@ uint8_t _state_machine_lidar_lifter(void) {
 #elif IS_HERO
 int _check_rev_stuck(void) {
 	
-    if (DM_Rev_Motor.Data.Torque < 4.0f) {
+    if (fabs(DM_Rev_Motor.Data.Torque) < 4.0f) {
         rev_spin.time_rev_locked = HAL_GetTick();
         return 0; 
     }
@@ -416,6 +421,7 @@ uint8_t _state_machine_rev_remote_controller(void) {
         if (HAL_GetTick() - rev_spin.timestamp_last_shoot_command >= (1000/rev_spin.shooting_frequency)) {
             rev_spin.timestamp_last_shoot_command = HAL_GetTick();
 						barrel_heat.current_heat += barrel_heat.heat_per_projectile;
+					  counter += 1;
 						return REV_SINGLE_SHOOTING;
         } else {
             return REV_STOP; 

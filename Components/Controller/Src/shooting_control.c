@@ -42,8 +42,8 @@ static PID_Info_TypeDef pid_push_pos;
 static PID_Info_TypeDef pid_push_vel;
 
 /* KP, KI, KD, Alpha, Deadband, LimitIntegral, LimitOutput */
-static float pid_push_pos_params[PID_PARAMETER_NUM] = {27.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10000.0f};
-static float pid_push_vel_params[PID_PARAMETER_NUM] = {7.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 8.0f};
+static float pid_push_pos_params[PID_PARAMETER_NUM] = {20.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 20.0f};
+static float pid_push_vel_params[PID_PARAMETER_NUM] = {7.0f, 1.0f, 0.0f, 0.0f, 0.0f, 2.0f, 8.0f};
 #endif
 
   /*************************/
@@ -58,7 +58,7 @@ float is_on_reset = 0;
 float r_shoot_wheels_ang_vel = 630.0f;   /* [rad/s] */
 #elif IS_HERO
 float r_shoot_wheels_ang_vel = 480.0f;   /* [rad/s] */
-
+bool is_homing_rev = true;
 static float vel_up_rev   = 10.0f;
 static float vel_down_rev = 15.0f;
 
@@ -154,10 +154,8 @@ void _control_loop_shoot_wheels(void)
     }
 
     /* Control */
-    shoot_wheels.u[0] = PID_Calculate(&pid_shoot_wheel_left,
-                            shoot_wheels.r_x[0], shoot_wheels.x[0]);
-    shoot_wheels.u[1] = PID_Calculate(&pid_shoot_wheel_right,
-                            shoot_wheels.r_x[1], shoot_wheels.x[1]);
+    shoot_wheels.u[0] = PID_Calculate(&pid_shoot_wheel_left, shoot_wheels.r_x[0], shoot_wheels.x[0]);
+    shoot_wheels.u[1] = PID_Calculate(&pid_shoot_wheel_right, shoot_wheels.r_x[1], shoot_wheels.x[1]);
 
     for (uint8_t i = 0; i < 2; i++) {
         shoot_wheels.ud[i] = shoot_wheels.u[i] * DJI_Motor_ADC[DJI_M3508];
@@ -250,35 +248,52 @@ void _control_loop_rev(void)
         rev_and_push.r_x_prev[i] = rev_and_push.r_x[i];
     }
     rev_and_push.x[0] = (float)DM_Rev_Motor.Data.Position;
+		
+		if (state_remote_commands == COMMANDS_STOP) {
+        return;
+    }
+		
+		if (is_homing_rev == 1) {
+			rev_and_push.r_x[0] -= pi / 5000.0f;
+			rev_and_push.ud[1] = rev_and_push.r_x[0];
+			if (fabs(DM_Rev_Motor.Data.Torque) > 3.0f){
+				is_homing_rev = 0;
+				rev_and_push.r_x[0] += pi/3.7f;
+				rev_and_push.ud[1] = rev_and_push.r_x[0];
+		  }
+			return;
+		}	
+			
+		switch (state_rev) {
 
-    switch (state_rev) {
-        case REV_STOP:
-						need_to_set_rev_ang_pos_reference = true;
-            break;
-				
-				case REV_UNSTUCK:
+        case REV_UNSTUCK:
             if (!unstuck_rev_enabled) {
-                rev_and_push.r_x[0] = rev_and_push.x[0] + (2*pi / 21);
+                rev_and_push.r_x[0] += (6.0f * pi) / 7.0f;
                 unstuck_rev_enabled = true;
             }
-						need_to_set_rev_ang_pos_reference = true;
+            break;
+
+        case REV_STOP:
+            need_to_set_rev_ang_pos_reference = true;
+						unstuck_rev_enabled = false;
             break;
 
         case REV_SINGLE_SHOOTING:
-					if (need_to_set_rev_ang_pos_reference == true) {
-						if( fabs(rev_and_push.r_x[0] -(6.0f * pi) / 7.0f) >= 90 || is_on_reset){
-							is_on_reset = 1;
-							rev_and_push.r_x[0] = 0;
-						} else {
+            if (need_to_set_rev_ang_pos_reference) {
+							if( fabs(rev_and_push.r_x[0] -(6.0f * pi) / 7.0f) >= 90 || is_on_reset){
+								is_on_reset = 1;
+								rev_and_push.r_x[0] = 0;
+							} else {
 								rev_and_push.r_x[0] -= (6.0f * pi) / 7.0f;
-						}
-					need_to_set_rev_ang_pos_reference = false;	
-					}
-				break;
+							}
+            }
+						unstuck_rev_enabled = false;
+            break;
 
         default:
             break;
     }
+		
 		if(!is_on_reset){
 			/* Slew rate limits the position reference to avoid current spikes */
 			slewRateControl(&rev_and_push.ud[1], rev_and_push.r_x[0], vel_up_rev, vel_down_rev, 0.001f);
