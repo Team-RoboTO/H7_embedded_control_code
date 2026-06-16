@@ -410,8 +410,6 @@ static void fill_curr_pitch(graphic_data_struct_t *g, uint8_t op)
     g->graphic_type   = GRAPHIC_TYPE_LINE;
     g->width          = PITCH_ANG_WIDTH;
 
-    /* INS_Info.Roll_Angle is in degrees. Scale the physical range ±PITCH_RANGE_DEG
-     * to fill the full arc ±ANGLE_LIMIT displayed on screen. */
     float curr_ang = PITCH_INVERT * INS_Info.Roll_Angle * (ANGLE_LIMIT / PITCH_RANGE_DEG);
     uint32_t xpos = CENTER_X + (int)(RADIAL_DIAMETER * cosf(curr_ang * 0.0174533f));
     uint32_t ypos = CENTER_Y + (int)(RADIAL_DIAMETER * sinf(curr_ang * 0.0174533f));
