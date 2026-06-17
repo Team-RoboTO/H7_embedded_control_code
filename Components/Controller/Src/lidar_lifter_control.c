@@ -34,7 +34,7 @@ static float pid_ll_vel_params[PID_PARAMETER_NUM] = {1.0f,  0.0f, 0.0f, 0.0f, 0.
 static uint8_t is_first_iter                       = true;
 
 float lidar_home_position = -1;
-float LIDAR_CURRENT_TRESHOLD = 2000;
+float LIDAR_CURRENT_TRESHOLD = 3000;
 float CALIBRATION_SPEED =  10; // rad/s
 float SETPOINT_DISTANCE = 105.0f;
 

@@ -95,6 +95,10 @@ float w_target;
 static float linear_vel_lim = 4.9f;
 static float c = 0.7071067812;
 
+static LowPassFilter1p_Info_TypeDef lpf_vx;
+static LowPassFilter1p_Info_TypeDef lpf_vy;
+#define LPF_VEL_ALPHA 0.85f
+
 #if IS_STD || IS_SENTRY
 	static float radius_wheel = 0.0825f;
 	static float radius_robot = 0.183f;
@@ -119,6 +123,14 @@ void control_loop_chassis() {
     for (uint8_t i = 0; i < chassis.p; i++) {
         chassis.x_prev[i] = chassis.x[i];
     }
+		
+		    // one-time initialization
+    if (is_first_iter) {
+				LowPassFilter1p_Init(&lpf_vx, LPF_VEL_ALPHA);
+				LowPassFilter1p_Init(&lpf_vy, LPF_VEL_ALPHA);
+			
+        is_first_iter = false;
+    }
 
     // Update wheel velocities from encoder data [rad/s]
     chassis.x[0] = CM_Chassis_Motor[0].Data.Velocity * radius_wheel;
@@ -134,8 +146,9 @@ void control_loop_chassis() {
 		float vy_body = (-chassis.x[0] + chassis.x[1] + chassis.x[2] - chassis.x[3]) / (4.0f * c);
 
 		// Rotate to world frame using current yaw
-		vx = vx_body * cosf(chassis.x[4]) - vy_body * sinf(chassis.x[4]);
-		vy = vx_body * sinf(chassis.x[4]) + vy_body * cosf(chassis.x[4]);
+		vx = LowPassFilter1p_Update(&lpf_vx, vx_body * cosf(chassis.x[4]) - vy_body * sinf(chassis.x[4]));
+		vy = LowPassFilter1p_Update(&lpf_vy, vx_body * sinf(chassis.x[4]) + vy_body * cosf(chassis.x[4]));
+		
 		w  = ( chassis.x[0] + chassis.x[1] + chassis.x[2] + chassis.x[3]) / (4.0f * radius_robot);
 		
     // Remote commands

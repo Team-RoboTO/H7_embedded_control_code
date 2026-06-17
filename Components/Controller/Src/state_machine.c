@@ -162,8 +162,8 @@ uint8_t _state_machine_chassis_keyboard_mouse(void) {
 }
 
 uint8_t _state_machine_chassis_autonomus(void) {
-    // TODO: implement autonomous chassis logic
-    return CHASSIS_FOLLOW_GIMBAL;
+    if (flag_rot == 1) return CHASSIS_CONTIGUOUS_ROTATION;
+    else return CHASSIS_FOLLOW_GIMBAL;
 }
 
   /*********************/

@@ -107,7 +107,7 @@ void control_loop_shooting(void){
 			shoot_wheels.ud[0] = 0;
 			shoot_wheels.ud[1] = 0;
 			rev_and_push.ud[0] = 0;
-			rev_and_push.ud[1] = DM_Rev_Motor.Data.Position;
+			rev_and_push.ud[1] = rev_and_push.x[0];
 			return;
 		#endif
     _control_loop_shoot_wheels();
