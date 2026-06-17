@@ -19,11 +19,12 @@
 #include "gimbal_control.h"
 #include "Remote_Control.h"
 #include "lidar_lifter_control.h"
+#include "Referee_system.h"
 
 static bool is_first_iter = 1;
 static bool is_init = 1;
 
-extern FDCAN_HandleTypeDef hfdcan2;
+extern FDCAN_HandleTypeDef hfdcan2, hfdcan1;
 
 void CAN_Task(void const * argument)
 {
@@ -33,12 +34,26 @@ void CAN_Task(void const * argument)
     /* Flag used to alternate which half of the messages gets sent */
     static uint8_t split_flag = 0;
 
+		uint16_t prev_hp = 0;
+	
     for(;;)
     {
+				uint16_t current_hp = Referee_System_Info.robot_status.current_HP;
+				
+				bool reborn = (prev_hp == 0 && current_hp > 0);
+			
 			  /* Reset if CAN2 is dead*/
 				if (hfdcan2.Instance->PSR & FDCAN_PSR_BO)
 				{
 						FDCAN2_Reset();
+						osDelay(20);
+						is_first_iter = 1;
+						osDelay(20);
+				}
+				/* Reset if CAN2 is dead*/
+				if (hfdcan1.Instance->PSR & FDCAN_PSR_BO)
+				{
+						FDCAN1_Reset();
 						osDelay(20);
 						is_first_iter = 1;
 						osDelay(20);
@@ -82,7 +97,9 @@ void CAN_Task(void const * argument)
 						
             is_first_iter = 1;
         }
-        else if (is_first_iter == 1) {
+        else if (is_first_iter == 1 || reborn) {
+						if (reborn) osDelay(2200);  // wait for power after reborn
+					
             CM_Motor_Command(&FDCAN2_TxFrame, &CM_Chassis_Motor[0], CM_Motor_Enable);
             osDelay(30);
             CM_Motor_Command(&FDCAN2_TxFrame, &CM_Chassis_Motor[1], CM_Motor_Enable);
@@ -138,6 +155,8 @@ void CAN_Task(void const * argument)
 				}
 								
 				#endif
+				
+				prev_hp = current_hp;
 			
         vTaskDelay(xPeriod); // Wait 1ms
     }

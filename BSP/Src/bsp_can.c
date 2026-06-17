@@ -596,3 +596,94 @@ void FDCAN2_Reset(void)
         Error_Handler();
     }
 }
+
+void FDCAN1_Reset(void)
+{
+    /* Step 1 — Deinit (internally calls Stop, clears bus-off state) */
+    HAL_FDCAN_DeInit(&hfdcan1);
+
+    /* Step 2 — Re-apply full init config with ExtFiltersNbr fix */
+    hfdcan1.Instance                  = FDCAN1;
+    hfdcan1.Init.FrameFormat          = FDCAN_FRAME_FD_BRS;
+    hfdcan1.Init.Mode                 = FDCAN_MODE_NORMAL;
+    hfdcan1.Init.AutoRetransmission   = ENABLE;
+    hfdcan1.Init.TransmitPause        = DISABLE;
+    hfdcan1.Init.ProtocolException    = ENABLE;
+    hfdcan1.Init.NominalPrescaler     = 5;
+    hfdcan1.Init.NominalSyncJumpWidth = 5;
+    hfdcan1.Init.NominalTimeSeg1      = 14;
+    hfdcan1.Init.NominalTimeSeg2      = 5;
+    hfdcan1.Init.DataPrescaler        = 1;
+    hfdcan1.Init.DataSyncJumpWidth    = 5;
+    hfdcan1.Init.DataTimeSeg1         = 14;
+    hfdcan1.Init.DataTimeSeg2         = 5;
+    hfdcan1.Init.MessageRAMOffset     = 853;
+    hfdcan1.Init.StdFiltersNbr        = 1;
+    hfdcan1.Init.ExtFiltersNbr        = 1;  /* Fixed: was 0 in CubeMX */
+    hfdcan1.Init.RxFifo0ElmtsNbr     = 0;
+    hfdcan1.Init.RxFifo0ElmtSize     = FDCAN_DATA_BYTES_8;
+    hfdcan1.Init.RxFifo1ElmtsNbr     = 8;
+    hfdcan1.Init.RxFifo1ElmtSize     = FDCAN_DATA_BYTES_8;
+    hfdcan1.Init.RxBuffersNbr        = 0;
+    hfdcan1.Init.RxBufferSize        = FDCAN_DATA_BYTES_8;
+    hfdcan1.Init.TxEventsNbr         = 0;
+    hfdcan1.Init.TxBuffersNbr        = 0;
+    hfdcan1.Init.TxFifoQueueElmtsNbr = 8;
+    hfdcan1.Init.TxFifoQueueMode     = FDCAN_TX_FIFO_OPERATION;
+    hfdcan1.Init.TxElmtSize          = FDCAN_DATA_BYTES_8;
+
+    if (HAL_FDCAN_Init(&hfdcan1) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    /* Step 3 — Re-apply filters */
+    FDCAN_FilterTypeDef f;
+
+    /* Standard ID filter → FIFO1 */
+    f.IdType       = FDCAN_STANDARD_ID;
+    f.FilterIndex  = 0;
+    f.FilterType   = FDCAN_FILTER_MASK;
+    f.FilterConfig = FDCAN_FILTER_TO_RXFIFO1;
+    f.FilterID1    = 0x00000000;
+    f.FilterID2    = 0x00000000;
+    if (HAL_FDCAN_ConfigFilter(&hfdcan1, &f) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    /* Extended ID filter → FIFO1 */
+    f.IdType       = FDCAN_EXTENDED_ID;
+    f.FilterIndex  = 0;
+    f.FilterType   = FDCAN_FILTER_MASK;
+    f.FilterConfig = FDCAN_FILTER_TO_RXFIFO1;
+    f.FilterID1    = 0x00000000;
+    f.FilterID2    = 0x00000000;
+    if (HAL_FDCAN_ConfigFilter(&hfdcan1, &f) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    /* Step 4 — Global filter: accept all non-matching into FIFO1 */
+    if (HAL_FDCAN_ConfigGlobalFilter(&hfdcan1,
+            FDCAN_ACCEPT_IN_RX_FIFO1,
+            FDCAN_ACCEPT_IN_RX_FIFO1,
+            FDCAN_FILTER_REMOTE,
+            FDCAN_FILTER_REMOTE) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    /* Step 5 — Re-enable RX interrupt */
+    if (HAL_FDCAN_ActivateNotification(&hfdcan1,
+            FDCAN_IT_RX_FIFO1_NEW_MESSAGE, 0) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    /* Step 6 — Start */
+    if (HAL_FDCAN_Start(&hfdcan1) != HAL_OK)
+    {
+        Error_Handler();
+    }
+}

@@ -50,6 +50,8 @@ extern void  USER_FDCAN_AddMessageToTxFifoQ(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame
 extern void BSP_FDCAN_Init(void);
 
 extern void FDCAN2_Reset(void);
+extern void FDCAN1_Reset(void);
+
 
 	   
 #endif
