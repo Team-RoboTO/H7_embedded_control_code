@@ -10,6 +10,17 @@
  *          STM32H7 FDCAN, classic CAN, 1Mbps
  */
  
+ typedef enum {
+    DM_NO_ERROR    = 0,
+    DM_OVERVOLTAGE = 8,
+    DM_UNDERVOLTAGE = 9,
+    DM_OVERCURRENT  = 10,
+    DM_MOS_OVERTEMP   = 11,
+    DM_COIL_OVERTEMP  = 12,
+    DM_COMM_LOSS      = 13,
+    DM_OVERLOAD       = 14
+} DM_FaultCode_t;
+ 
 /**
  * @brief  typedef enum that contains the type of DM Motor Device.
  */

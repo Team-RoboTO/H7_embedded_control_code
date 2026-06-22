@@ -15,6 +15,16 @@
  *          struct, not from hardcoded #defines.
  */
 
+typedef enum {
+    CM_NO_ERROR              = 0,
+    CM_OVERTEMPERATURE       = 1,
+    CM_OVERCURRENT           = 2,
+    CM_OVERVOLTAGE           = 3,
+    CM_UNDERVOLTAGE          = 4,
+    CM_ENCODER_FAULT         = 5,
+    CM_PHASE_UNBALANCE       = 6  // Hardware may be damaged
+} CM_FaultCode_t;
+
 /**
  * @brief typedef enum that contains the type of CubeMars Motor Device.
  */

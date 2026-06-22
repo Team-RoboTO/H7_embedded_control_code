@@ -168,7 +168,8 @@ void DM_Motor_Info_Update(uint32_t *Identifier,uint8_t *Rx_Buf,DM_Motor_Info_Typ
 	if(*Identifier != DM_Motor->FDCANFrame.RxIdentifier) return;
 	  
 		DM_Motor->Data.Last_Position = DM_Motor->Data.Position;
-	  DM_Motor->Data.State = Rx_Buf[0]>>4;
+	  DM_Motor->Data.State = (uint16_t)Rx_Buf[0]>>4; // this is the error code
+	
 		DM_Motor->Data.P_int = ((uint16_t)(Rx_Buf[1]) <<8) | ((uint16_t)(Rx_Buf[2]));
 		DM_Motor->Data.V_int = ((uint16_t)(Rx_Buf[3]) <<4) | ((uint16_t)(Rx_Buf[4])>>4);
 		DM_Motor->Data.T_int = ((uint16_t)(Rx_Buf[4]&0xF) <<8) | ((uint16_t)(Rx_Buf[5]));

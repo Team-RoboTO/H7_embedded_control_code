@@ -257,6 +257,9 @@ void CM_Motor_Info_Update(uint32_t *Identifier, uint8_t *Rx_Buf, CM_Motor_Info_T
 
     CM_Motor->Data.Temperature = (int8_t)Rx_Buf[6];
 
+	
+		CM_Motor->Data.Error = (int8_t)Rx_Buf[7];
+		
     CM_Motor->Data.Initlized = true;
 }
 
