@@ -217,6 +217,8 @@ void DJI_Motor_Info_Update(uint32_t *Identifier, uint8_t *Rx_Buf,DJI_Motor_Info_
 	DJI_Motor->Data.Encoder  = ((int16_t)Rx_Buf[0] << 8 | (int16_t)Rx_Buf[1]);
 	DJI_Motor->Data.Velocity_rpm = ((int16_t)Rx_Buf[2] << 8 | (int16_t)Rx_Buf[3]);
 	DJI_Motor->Data.Current  = ((int16_t)Rx_Buf[4] << 8 | (int16_t)Rx_Buf[5]);
+	DJI_Motor->Data.LastTimestamp = HAL_GetTick();
+	DJI_Motor->Data.Error = 0;
 
 	/* transform the Encoder to angle */
 	switch(DJI_Motor->Type)

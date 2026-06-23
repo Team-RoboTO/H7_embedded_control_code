@@ -179,6 +179,7 @@ void DM_Motor_Info_Update(uint32_t *Identifier,uint8_t *Rx_Buf,DM_Motor_Info_Typ
 
     DM_Motor->Data.Temperature_MOS   = (float)(Rx_Buf[6]);
 		DM_Motor->Data.Temperature_Rotor = (float)(Rx_Buf[7]);
+		DM_Motor->Data.LastTimestamp = HAL_GetTick();
 
 }
 //------------------------------------------------------------------------------	

@@ -166,6 +166,23 @@ void CAN_Task(void const * argument)
 					if(timestamp - CM_Chassis_Motor[i].Data.LastTimestamp > 500)
 							CM_Chassis_Motor[i].Data.Error = 7;
 				}
+				for(int i=0; i<2;i++)
+					if(timestamp - DJI_Shooting_Motor[i].Data.LastTimestamp > 500)
+						DJI_Shooting_Motor[i].Data.Error = 1;
+							
+				
+				#if IS_STD || IS_SENTRY
+				if(timestamp - DJI_Rev_Motor.Data.LastTimestamp > 500)
+					DJI_Rev_Motor.Data.Error = 1;
+				#elif IS_HERO
+				if(timestamp - DJI_Push_Motor.Data.LastTimestamp > 500)
+					DJI_Push_Motor.Data.Error = 1;
+				if(timestamp - DM_Rev_Motor.Data.LastTimestamp > 500)
+					DM_Rev_Motor.Data.State = 7;
+				
+				#endif
+				
+				
 
 				// Do the same thing for all the other motors.
 			
