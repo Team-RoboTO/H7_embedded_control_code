@@ -10,6 +10,7 @@
 #include "remote_control.h"
 #include "Damiao_Motor.h"
 #include "Cubemars_Motor.h"
+#include "DJI_Motor.h"
 #include "Chassis_control.h"
 #include "INS_Task.h"
 
@@ -973,120 +974,93 @@ static void draw_motor_fault_line(const char *label, uint8_t na, uint8_t nb, uin
                       50, MOTOR_FAULT_START - MOTOR_FAULT_GAP * row, op);
 }
 
+char full_text[128];
+char text[128];
+
 static void draw_motor_fault(uint8_t op)
 {
-    char buf[30];
-    uint8_t row = 0;
+    memset(full_text, 0, sizeof(full_text));
+    memset(text, 0, sizeof(text));
 
-    buf[0] = 0;
+    // --- Chassis Motors ---
+    int chassis_fault_count = 0;
     for (int i = 0; i < 4; i++) {
-        if (g_motor_fault & (1u << i)) {
-            if (buf[0]) strncat(buf, ", ", sizeof(buf) - strlen(buf) - 1);
-            switch (i) {
-                case 0: strncat(buf, "FR", sizeof(buf) - strlen(buf) - 1); break;
-                case 1: strncat(buf, "FL", sizeof(buf) - strlen(buf) - 1); break;
-                case 2: strncat(buf, "BL", sizeof(buf) - strlen(buf) - 1); break;
-                case 3: strncat(buf, "BR", sizeof(buf) - strlen(buf) - 1); break;
-            }
+        if (CM_Chassis_Motor[i].Data.Error) {
+            size_t offset = strlen(full_text);
+            if (!chassis_fault_count)
+                snprintf(full_text + offset, sizeof(full_text) - offset,
+                         "CH:%d", CM_Chassis_Motor[i].FDCANFrame.TxIdentifier);
+            else
+                snprintf(full_text + offset, sizeof(full_text) - offset,
+                         ",%d", CM_Chassis_Motor[i].FDCANFrame.TxIdentifier);
+            chassis_fault_count++;
         }
     }
-    if (buf[0]) { draw_motor_fault_line(buf, 'C', 'H', 'S', row++, op); }
+    send_char_graphic(full_text, 'F', 'D', 'R', 6, GRAPHIC_COLOUR_PURPLISH_RED,
+                      FONT_SIZE*2/3, CHAR_WIDTH*2/3, 50, 800, op);
 
-    buf[0] = 0;
-    for (int i = 4; i < 7; i++) {
-        if (g_motor_fault & (1u << i)) {
-            if (buf[0]) strncat(buf, ", ", sizeof(buf) - strlen(buf) - 1);
-            switch (i) {
-                case 4: strncat(buf, "LF",   sizeof(buf) - strlen(buf) - 1); break;
-                case 5: strncat(buf, "RF",   sizeof(buf) - strlen(buf) - 1); break;
-                case 6: strncat(buf, "FEED", sizeof(buf) - strlen(buf) - 1); break;
-            }
-        }
-    }
-    if (buf[0]) { draw_motor_fault_line(buf, 'L', 'A', 'U', row++, op); }
+    // --- Reset per seconda grafica ---
+    memset(full_text, 0, sizeof(full_text));
 
-    buf[0] = 0;
-    for (int i = 7; i < 9; i++) {
-        if (g_motor_fault & (1u << i)) {
-            if (buf[0]) strncat(buf, ", ", sizeof(buf) - strlen(buf) - 1);
-            switch (i) {
-                case 7: strncat(buf, "PITCH", sizeof(buf) - strlen(buf) - 1); break;
-                case 8: strncat(buf, "YAW",   sizeof(buf) - strlen(buf) - 1); break;
-            }
+    // --- Shooting Motors ---
+    int shoot_fault_count = 0;
+    for (int i = 0; i < 2; i++) {
+        if (DJI_Shooting_Motor[i].Data.Error) {
+            size_t offset = strlen(full_text);
+            if (!shoot_fault_count)
+                snprintf(full_text + offset, sizeof(full_text) - offset,
+                         "SHOOT:%d", DJI_Shooting_Motor[i].FDCANFrame.RxIdentifier);
+            else
+                snprintf(full_text + offset, sizeof(full_text) - offset,
+                         ",%d", DJI_Shooting_Motor[i].FDCANFrame.RxIdentifier);
+            shoot_fault_count++;
         }
     }
-    if (buf[0]) { draw_motor_fault_line(buf, 'P', 'A', 'Y', row++, op); }
+
+    // --- Rev Motor ---
+    if (DJI_Rev_Motor.Data.Error) {
+        size_t offset = strlen(full_text);
+        snprintf(full_text + offset, sizeof(full_text) - offset,
+                 "%sREV", shoot_fault_count ? "," : "");
+    }
+
+    send_char_graphic(full_text, 'F', 'D', 'R', 7, GRAPHIC_COLOUR_PURPLISH_RED,
+                      FONT_SIZE*2/3, CHAR_WIDTH*2/3, 50, 800 - (FONT_SIZE*2/3 + 5), op);
+		
+			// --- Reset per terza grafica ---
+		memset(full_text, 0, sizeof(full_text));
+
+		// --- Yaw Motor (DM) ---
+		if (DM_Yaw_Motor.Data.State>8) {
+				snprintf(full_text, sizeof(full_text), "YAW");
+		}
+
+		// --- Pitch Motor (CM) ---
+		if (CM_Pitch_Motor.Data.Error) {
+				size_t offset = strlen(full_text);
+				snprintf(full_text + offset, sizeof(full_text) - offset,
+								 "%sPITCH", offset ? "," : "");
+		}
+
+		send_char_graphic(full_text, 'F', 'D', 'R', 8, GRAPHIC_COLOUR_PURPLISH_RED,
+											FONT_SIZE*2/3, CHAR_WIDTH*2/3, 50, 800 - 2*(FONT_SIZE*2/3 + 5), op);
+		
 }
-
 static void update_motor_fault(void)
 {
     bool in_match = (Referee_System_Info.game_status.game_progress == 4
                   || Referee_System_Info.game_status.game_progress == 3);
 
     if (in_match) {
-        if (motor_fault_enabled) { delete_layer(7); motor_fault_enabled = 0; }
+        if (motor_fault_enabled) { delete_layer(6); feeder_state_enabled = 0; }
         return;
     }
 
     if (!motor_fault_enabled) {
         draw_motor_fault(GRAPHIC_ADD);
         motor_fault_enabled = 1;
-        prev_motor_error    = g_motor_fault;
-    } else if (prev_motor_error != g_motor_fault) {
-        delete_layer(7);
-        draw_motor_fault(GRAPHIC_ADD);
-        prev_motor_error = g_motor_fault;
-    }
-}
-
-char full_txt[128];
-char text[128];
-
-static void draw_feeder(uint8_t op)
-{
-		// CM Chassis Motors
-		for (int i = 0; i < 4; i++) {
-				char *txt_CM_motor;
-				uint8_t color_CM_chassis;
-				switch (CM_Chassis_Motor[i].Data.Error) {
-						case CM_NO_ERROR:          txt_CM_motor = "OK";            color_CM_chassis = GRAPHIC_COLOUR_GREEN; break;
-						case CM_OVERTEMPERATURE:   txt_CM_motor = "OVERTEMP";      break;
-						case CM_OVERCURRENT:       txt_CM_motor = "OVERCURRENT";   break;
-						case CM_OVERVOLTAGE:       txt_CM_motor = "OVERVOLTAGE";   break;
-						case CM_UNDERVOLTAGE:      txt_CM_motor = "UNDERVOLTAGE";  break;
-						case CM_ENCODER_FAULT:     txt_CM_motor = "ENCODER_FAULT"; break;
-						case CM_PHASE_UNBALANCE:   txt_CM_motor = "PHASE_UNBAL";   break;
-						case CM_NO_COMM:           txt_CM_motor = "NO_COMM";       break;
-						default:                   txt_CM_motor = "UNKNOWN";       break;
-				}
-				
-					snprintf(full_txt, sizeof(full_txt), "%s%d:%s\n","CH", CM_Chassis_Motor[i].FDCANFrame.TxIdentifier, txt_CM_motor);
-					snprintf(text, sizeof(text), "%s %s",text, full_txt);
-//					send_char_graphic(full_txt, 'F', 'D', 'R', 6+i, color_CM_chassis, FONT_SIZE*2/3, CHAR_WIDTH*2/3,
-//									50, 800 - i * (FONT_SIZE*2/3 + 5), op);
-				
-		}
-		send_char_graphic(text, 'F', 'D', 'R', 6, GRAPHIC_COLOUR_GREEN, FONT_SIZE*2/3, CHAR_WIDTH*2/3,
-                      50, 800, op);
-		
-		// DM Yaw Motor ...etc
-}
-
-static void update_feeder(void)
-{
-    bool in_match = (Referee_System_Info.game_status.game_progress == 4
-                  || Referee_System_Info.game_status.game_progress == 3);
-
-    if (in_match) {
-        if (feeder_state_enabled) { delete_layer(6); feeder_state_enabled = 0; }
-        return;
-    }
-
-    if (!feeder_state_enabled) {
-        draw_feeder(GRAPHIC_ADD);
-        feeder_state_enabled = 1;
     } else{
-        draw_feeder(GRAPHIC_MODIFY);
+        draw_motor_fault(GRAPHIC_MODIFY);
     }
 }
 
@@ -1255,7 +1229,7 @@ void UI_Task(void const * argument)
             update_text_if_changed();
             update_spin_warning();
             update_motor_fault();
-            update_feeder();
+            //update_feeder();
         }
 				prev_progress = progress;
 				prev_q = q;
