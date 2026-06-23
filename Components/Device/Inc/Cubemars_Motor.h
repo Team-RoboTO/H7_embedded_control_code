@@ -22,7 +22,8 @@ typedef enum {
     CM_OVERVOLTAGE           = 3,
     CM_UNDERVOLTAGE          = 4,
     CM_ENCODER_FAULT         = 5,
-    CM_PHASE_UNBALANCE       = 6  // Hardware may be damaged
+    CM_PHASE_UNBALANCE       = 6,  // Hardware may be damaged
+		CM_NO_COMM               = 7
 } CM_FaultCode_t;
 
 /**
@@ -105,6 +106,7 @@ typedef struct {
     int8_t   Temperature;     /*!< Motor temperature (C) */
     int8_t   Error;           /*!< Motor error code */
     float    Angle;           /*!< Motor angle (deg, unwrapped) */
+    float    LastTimestamp;   /*!< Motor info last update timestamp */
 } CM_Motor_Data_Typedef;
 
 /**

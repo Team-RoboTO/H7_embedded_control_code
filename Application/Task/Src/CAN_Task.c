@@ -157,6 +157,17 @@ void CAN_Task(void const * argument)
 				#endif
 				
 				prev_hp = current_hp;
+				
+				/* Motor disable check */
+				
+				float timestamp = HAL_GetTick();
+				
+				for(int i=0; i<4; i++){
+					if(timestamp - CM_Chassis_Motor[i].Data.LastTimestamp > 500)
+							CM_Chassis_Motor[i].Data.Error = 7;
+				}
+
+				// Do the same thing for all the other motors.
 			
         vTaskDelay(xPeriod); // Wait 1ms
     }

@@ -48,6 +48,8 @@ typedef struct
   float    Angle;   			// Motor angle in degree
 	float    Angle_sum;     // Motor total angle in rad 
   uint8_t  Temperature;   // Motor Temperature
+	float LastTimestamp;
+	int16_t  Error;
 }DJI_Motor_Data_Typedef;
 
 /**

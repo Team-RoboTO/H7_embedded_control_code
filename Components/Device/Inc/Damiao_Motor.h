@@ -89,6 +89,7 @@ typedef struct
 	float  Temperature_Rotor; /*!< Motor Temperature_Rotor */
 	float  Angle;
 	float  Angle_sum;
+	float LastTimestamp;
 }DM_Motor_Data_Typedef;
 
 /**

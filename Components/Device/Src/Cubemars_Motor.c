@@ -260,6 +260,8 @@ void CM_Motor_Info_Update(uint32_t *Identifier, uint8_t *Rx_Buf, CM_Motor_Info_T
 	
 		CM_Motor->Data.Error = (int8_t)Rx_Buf[7];
 		
+		CM_Motor ->Data.LastTimestamp = HAL_GetTick();
+		
     CM_Motor->Data.Initlized = true;
 }
 

@@ -1041,18 +1041,32 @@ static void update_motor_fault(void)
 
 static void draw_feeder(uint8_t op)
 {
-    const char *txt;
-    uint8_t color;
-    switch (feeder_state) {
-        case FEEDER_STANDBY:
-        case FEEDER_SPINUP:   txt = "STANDBY";  color = GRAPHIC_COLOUR_GREEN; break;
-        case FEEDER_LOADED:   txt = "LOADED";   color = GRAPHIC_COLOUR_GREEN; break;
-        case FEEDER_JAM:      txt = "JAMMED";   color = GRAPHIC_COLOUR_YELLOW; break;
-        case FEEDER_OVERHEAT: txt = "OVERHEAT"; color = GRAPHIC_COLOUR_PURPLISH_RED; break;
-        default:              txt = "FIRING";   color = GRAPHIC_COLOUR_GREEN; break;
-    }
-    send_char_graphic(txt, 'F', 'D', 'R', 6, color, FONT_SIZE, CHAR_WIDTH,
+		// CM Chassis Motors
+		for (int i = 0; i < 4; i++) {
+				char *txt_CM_motor;
+				uint8_t color_CM_chassis;
+				switch (CM_Chassis_Motor[i].Data.Error) {
+						case CM_NO_ERROR:          txt_CM_motor = "OK";            color_CM_chassis = GRAPHIC_COLOUR_GREEN; break;
+						case CM_OVERTEMPERATURE:   txt_CM_motor = "OVERTEMP";      break;
+						case CM_OVERCURRENT:       txt_CM_motor = "OVERCURRENT";   break;
+						case CM_OVERVOLTAGE:       txt_CM_motor = "OVERVOLTAGE";   break;
+						case CM_UNDERVOLTAGE:      txt_CM_motor = "UNDERVOLTAGE";  break;
+						case CM_ENCODER_FAULT:     txt_CM_motor = "ENCODER_FAULT"; break;
+						case CM_PHASE_UNBALANCE:   txt_CM_motor = "PHASE_UNBAL";   break;
+						case CM_NO_COMM:           txt_CM_motor = "NO_COMM";       break;
+						default:                   txt_CM_motor = "UNKNOWN";       break;
+				}
+				
+					snprintf(full_txt, sizeof(full_txt), "%s%d:%s\n","CH", CM_Chassis_Motor[i].FDCANFrame.TxIdentifier, txt_CM_motor);
+					snprintf(text, sizeof(text), "%s %s",text, full_txt);
+//					send_char_graphic(full_txt, 'F', 'D', 'R', 6+i, color_CM_chassis, FONT_SIZE*2/3, CHAR_WIDTH*2/3,
+//									50, 800 - i * (FONT_SIZE*2/3 + 5), op);
+				
+		}
+		send_char_graphic(text, 'F', 'D', 'R', 6, GRAPHIC_COLOUR_GREEN, FONT_SIZE*2/3, CHAR_WIDTH*2/3,
                       50, 800, op);
+		
+		// DM Yaw Motor ...etc
 }
 
 static void update_feeder(void)
@@ -1068,10 +1082,8 @@ static void update_feeder(void)
     if (!feeder_state_enabled) {
         draw_feeder(GRAPHIC_ADD);
         feeder_state_enabled = 1;
-        prev_feeder_state    = feeder_state;
-    } else if (prev_feeder_state != feeder_state) {
+    } else{
         draw_feeder(GRAPHIC_MODIFY);
-        prev_feeder_state = feeder_state;
     }
 }
 
