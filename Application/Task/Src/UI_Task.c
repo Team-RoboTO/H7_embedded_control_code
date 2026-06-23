@@ -1039,6 +1039,9 @@ static void update_motor_fault(void)
     }
 }
 
+char full_txt[128];
+char text[128];
+
 static void draw_feeder(uint8_t op)
 {
 		// CM Chassis Motors
