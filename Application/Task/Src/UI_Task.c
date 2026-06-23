@@ -1018,12 +1018,19 @@ static void draw_motor_fault(uint8_t op)
     }
 
     // --- Rev Motor ---
+		#if IS_STD || IS_SENTRY
     if (DJI_Rev_Motor.Data.Error) {
         size_t offset = strlen(full_text);
         snprintf(full_text + offset, sizeof(full_text) - offset,
                  "%sREV", shoot_fault_count ? "," : "");
     }
-
+		#elif IS_HERO
+		    if (DM_Rev_Motor.Data.State >=7 ) {
+        size_t offset = strlen(full_text);
+        snprintf(full_text + offset, sizeof(full_text) - offset,
+                 "%sREV", shoot_fault_count ? "," : "");
+    }
+		#endif
     send_char_graphic(full_text, 'F', 'D', 'R', 7, GRAPHIC_COLOUR_PURPLISH_RED,
                       FONT_SIZE*2/3, CHAR_WIDTH*2/3, 50, 800 - (FONT_SIZE*2/3 + 5), op);
 		
@@ -1031,7 +1038,7 @@ static void draw_motor_fault(uint8_t op)
 		memset(full_text, 0, sizeof(full_text));
 
 		// --- Yaw Motor (DM) ---
-		if (DM_Yaw_Motor.Data.State>8) {
+		if (DM_Yaw_Motor.Data.State>=7) {
 				snprintf(full_text, sizeof(full_text), "YAW");
 		}
 

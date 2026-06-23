@@ -5,16 +5,16 @@
  /*   ROBOT SELECTION   */
 /***********************/
 
-#define IS_STD          1
+#define IS_STD          0
 #define IS_SENTRY       0
-#define IS_HERO         0
+#define IS_HERO         1
 
   /***************************/
  /*   ROBOT CONFIGURATION   */
 /***************************/
 
 #define IS_CHASSIS_ENABLED 				 	  0  // Enable/Disable chassis motors
-#define IS_GIMBAL_ENABLED 			  	 	1  // Enable/Disable gimbal motors
+#define IS_GIMBAL_ENABLED 			  	 	0  // Enable/Disable gimbal motors
 #define IS_SHOOTING_ENABLED 	   		  0  // Enable/Disable shooting wheels motors
 
   /********************/
