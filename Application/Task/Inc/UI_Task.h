@@ -38,7 +38,11 @@
 #define HUD_MAX_X       1920
 #define HUD_MAX_Y       1080
 #define CENTER_X        (HUD_MAX_X / 2)
+#if IS_STD || IS_SENTRY
+#define CENTER_Y        ((HUD_MAX_Y / 2) - 35)
+#else
 #define CENTER_Y        (HUD_MAX_Y / 2)
+#endif
 
 /* ============================================================================
  * TEXT / GRAPHIC SIZES

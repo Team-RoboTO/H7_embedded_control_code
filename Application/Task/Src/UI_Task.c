@@ -267,8 +267,7 @@ static void delete_layer(uint8_t layer)
 static void set_top_coordinates(void)
 {
     /* 4 elements: SPIN | GEAR | AIM | CAP */
-    spin_coords     = CENTER_X - (uint32_t)(TOP_GAP * 1.5f);
-    gear_coords     = CENTER_X - (TOP_GAP / 2);
+    spin_coords     = CENTER_X - (TOP_GAP / 2);
     aimbot_coords   = CENTER_X + (TOP_GAP / 2);
     supercap_coords = CENTER_X + (uint32_t)(TOP_GAP * 1.5f);
 }
@@ -434,6 +433,7 @@ static void fill_bullet_bar_border(graphic_data_struct_t *g, uint8_t op)
     g->details_d      = 1890 + 15;
     g->details_e      = 350 + 350;
 }
+#if IS_STD || IS_SENTRY
 
 static void fill_bullet_bar_level(graphic_data_struct_t *g, uint8_t op)
 {
@@ -456,7 +456,31 @@ static void fill_bullet_bar_level(graphic_data_struct_t *g, uint8_t op)
     g->details_d      = 1890;
     g->details_e      = 351 + bar_h;
 }
+	#elif IS_HERO
+static void fill_bullet_bar_level(graphic_data_struct_t *g, uint8_t op)
+{
+    uint16_t bullets = Referee_System_Info.projectile_allowance.projectile_allowance_42mm;
+    
+    // Assicurati che il calcolo funzioni correttamente: se hai colpi, la barra deve salire.
+    if (bullets > 20) bullets = 20;
+    uint32_t bar_h = (bullets * 350) / 20;
 
+    uint8_t color = GRAPHIC_COLOUR_GREEN;
+    if      (bullets < 5)  color = GRAPHIC_COLOUR_PURPLISH_RED;
+    else if (bullets < 10) color = GRAPHIC_COLOUR_YELLOW;
+
+    set_name(g, 'B', 'B', 'L');
+    g->layer          = 3;
+    g->color          = color;
+    g->operation_type = op;
+    g->graphic_type   = GRAPHIC_TYPE_LINE;
+    g->width          = 20;
+    g->start_x        = 1890;
+    g->start_y        = 351;
+    g->details_d      = 1890;
+    g->details_e      = 351 + bar_h;
+}
+#endif
 /* ============================================================================
  * ITALIAN FLAG + SPQR LABEL (above the bullet bar, static)
  *========================================================================== */
@@ -468,75 +492,119 @@ static void fill_bullet_bar_level(graphic_data_struct_t *g, uint8_t op)
 #define FLAG_Y_TOP    800u
 #define FLAG_LAYER    5
 
-static void draw_italy_flag_spqr(uint8_t op)
+static void draw_team_flag(uint8_t op, uint16_t robot_id)
 {
     uint8_t  tx_buffer[256];
     uint16_t pos;
     graphic_data_struct_t *g;
+    int is_blue = (robot_id >= 100);
 
-    memset(tx_buffer, 0, sizeof(tx_buffer));
-    pos = build_graphic_header(tx_buffer, 2);
-    if (pos == 0) return;
+    if (is_blue) {
+        memset(tx_buffer, 0, sizeof(tx_buffer));
+        pos = build_graphic_header(tx_buffer, 2);
+        if (pos == 0) return;
 
-    /* Striscia Verde */
-    g = (graphic_data_struct_t *)(tx_buffer + pos);
-    set_name(g, 'I', 'T', 'G');
-    g->layer          = FLAG_LAYER;
-    g->color          = GRAPHIC_COLOUR_GREEN;
-    g->operation_type = op;
-    g->graphic_type   = GRAPHIC_TYPE_LINE;   // Modificato in LINE
-    g->width          = 20;                  // Lo spessore riempie i 20 pixel
-    g->start_x        = 1830u;               // Centro della striscia
-    g->start_y        = FLAG_Y_BOT;
-    g->details_d      = 1830u;               // Centro della striscia
-    g->details_e      = FLAG_Y_TOP;
-    pos += sizeof(graphic_data_struct_t);
+        /* Blue Background */
+        g = (graphic_data_struct_t *)(tx_buffer + pos);
+        set_name(g, 'E', 'U', 'B');
+        g->layer          = FLAG_LAYER;
+        g->color          = GRAPHIC_COLOUR_OWN_COLOR;
+        g->operation_type = op;
+        g->graphic_type   = GRAPHIC_TYPE_LINE;
+        g->width          = 60;
+        g->start_x        = 1850u;
+        g->start_y        = FLAG_Y_BOT;
+        g->details_d      = 1850u;
+        g->details_e      = FLAG_Y_TOP;
+        pos += sizeof(graphic_data_struct_t);
 
-    /* Striscia Bianca */
-    g = (graphic_data_struct_t *)(tx_buffer + pos);
-    set_name(g, 'I', 'T', 'W');
-    g->layer          = FLAG_LAYER;
-    g->color          = GRAPHIC_COLOUR_WHITE;
-    g->operation_type = op;
-    g->graphic_type   = GRAPHIC_TYPE_LINE;   // Modificato in LINE
-    g->width          = 20;
-    g->start_x        = 1850u;               // Centro della striscia
-    g->start_y        = FLAG_Y_BOT;
-    g->details_d      = 1850u;               // Centro della striscia
-    g->details_e      = FLAG_Y_TOP;
-    pos += sizeof(graphic_data_struct_t);
+        /* Yellow Circle */
+        g = (graphic_data_struct_t *)(tx_buffer + pos);
+        set_name(g, 'E', 'U', 'C');
+        g->layer          = FLAG_LAYER + 1;
+        g->color          = GRAPHIC_COLOUR_YELLOW;
+        g->operation_type = op;
+        g->graphic_type   = GRAPHIC_TYPE_CIRCLE;
+        g->width          = 4;
+        g->start_x        = 1850u;
+        g->start_y        = (FLAG_Y_BOT + FLAG_Y_TOP) / 2;
+        g->details_c      = 12; // Radius
+        pos += sizeof(graphic_data_struct_t);
 
-    ref_send(tx_buffer, pos);
+        ref_send(tx_buffer, pos);
 
-    /* Pacchetto 2: Striscia Rossa + Testo SPQR */
-    memset(tx_buffer, 0, sizeof(tx_buffer));
-    pos = build_graphic_header(tx_buffer, 1);
-    if (pos == 0) return;
+        send_char_graphic(" EU ",
+                          'E', 'U', 'T',
+                          FLAG_LAYER,
+                          GRAPHIC_COLOUR_YELLOW,
+                          FONT_SIZE, CHAR_WIDTH, 
+                          FLAG_X_LEFT - 5,
+                          FLAG_Y_BOT - 20,       
+                          op);
+    } else {
+        memset(tx_buffer, 0, sizeof(tx_buffer));
+        pos = build_graphic_header(tx_buffer, 2);
+        if (pos == 0) return;
 
-    /* Striscia Rossa */
-    g = (graphic_data_struct_t *)(tx_buffer + pos);
-    set_name(g, 'I', 'T', 'R');
-    g->layer          = FLAG_LAYER;
-    g->color          = GRAPHIC_COLOUR_OWN_COLOR; 
-    g->operation_type = op;
-    g->graphic_type   = GRAPHIC_TYPE_LINE;   // Modificato in LINE
-    g->width          = 20;
-    g->start_x        = 1870u;               // Centro della striscia
-    g->start_y        = FLAG_Y_BOT;
-    g->details_d      = 1870u;               // Centro della striscia
-    g->details_e      = FLAG_Y_TOP;
-    pos += sizeof(graphic_data_struct_t);
+        /* Striscia Verde */
+        g = (graphic_data_struct_t *)(tx_buffer + pos);
+        set_name(g, 'I', 'T', 'G');
+        g->layer          = FLAG_LAYER;
+        g->color          = GRAPHIC_COLOUR_GREEN;
+        g->operation_type = op;
+        g->graphic_type   = GRAPHIC_TYPE_LINE;
+        g->width          = 20;
+        g->start_x        = 1830u;
+        g->start_y        = FLAG_Y_BOT;
+        g->details_d      = 1830u;
+        g->details_e      = FLAG_Y_TOP;
+        pos += sizeof(graphic_data_struct_t);
 
-    ref_send(tx_buffer, pos);
+        /* Striscia Bianca */
+        g = (graphic_data_struct_t *)(tx_buffer + pos);
+        set_name(g, 'I', 'T', 'W');
+        g->layer          = FLAG_LAYER;
+        g->color          = GRAPHIC_COLOUR_WHITE;
+        g->operation_type = op;
+        g->graphic_type   = GRAPHIC_TYPE_LINE;
+        g->width          = 20;
+        g->start_x        = 1850u;
+        g->start_y        = FLAG_Y_BOT;
+        g->details_d      = 1850u;
+        g->details_e      = FLAG_Y_TOP;
+        pos += sizeof(graphic_data_struct_t);
 
-    send_char_graphic("DIOFA",
-                      'S', 'P', 'Q',
-                      FLAG_LAYER,
-                      GRAPHIC_COLOUR_WHITE,
-                      FONT_SIZE, CHAR_WIDTH, 
-                      FLAG_X_LEFT - 5,
-                      FLAG_Y_BOT - 20,       
-                      op);
+        ref_send(tx_buffer, pos);
+
+        memset(tx_buffer, 0, sizeof(tx_buffer));
+        pos = build_graphic_header(tx_buffer, 1);
+        if (pos == 0) return;
+
+        /* Striscia Rossa */
+        g = (graphic_data_struct_t *)(tx_buffer + pos);
+        set_name(g, 'I', 'T', 'R');
+        g->layer          = FLAG_LAYER;
+        g->color          = GRAPHIC_COLOUR_OWN_COLOR; 
+        g->operation_type = op;
+        g->graphic_type   = GRAPHIC_TYPE_LINE;
+        g->width          = 20;
+        g->start_x        = 1870u;
+        g->start_y        = FLAG_Y_BOT;
+        g->details_d      = 1870u;
+        g->details_e      = FLAG_Y_TOP;
+        pos += sizeof(graphic_data_struct_t);
+
+        ref_send(tx_buffer, pos);
+
+        send_char_graphic("SPQR",
+                          'S', 'P', 'Q',
+                          FLAG_LAYER,
+                          GRAPHIC_COLOUR_WHITE,
+                          FONT_SIZE, CHAR_WIDTH, 
+                          FLAG_X_LEFT - 5,
+                          FLAG_Y_BOT - 20,       
+                          op);
+    }
 }
 
 static void draw_dynamic(uint8_t op)
@@ -548,10 +616,15 @@ static void draw_dynamic(uint8_t op)
     if (pos == 0) return;
 
     fill_spin_border       ((graphic_data_struct_t *)(tx_buffer + pos), op); pos += sizeof(graphic_data_struct_t);
-    fill_supercap_arc      ((graphic_data_struct_t *)(tx_buffer + pos), op); pos += sizeof(graphic_data_struct_t);
     fill_curr_pitch        ((graphic_data_struct_t *)(tx_buffer + pos), op); pos += sizeof(graphic_data_struct_t);
     fill_bullet_bar_border ((graphic_data_struct_t *)(tx_buffer + pos), op); pos += sizeof(graphic_data_struct_t);
     fill_bullet_bar_level  ((graphic_data_struct_t *)(tx_buffer + pos), op); pos += sizeof(graphic_data_struct_t);
+    {
+        graphic_data_struct_t *g = (graphic_data_struct_t *)(tx_buffer + pos);
+        memset(g, 0, sizeof(graphic_data_struct_t));
+        g->operation_type = 0; // GRAPHIC_NO_OP
+        pos += sizeof(graphic_data_struct_t);
+    }
 
     ref_send(tx_buffer, pos);
 }
@@ -1122,21 +1195,21 @@ static void update_motor_fault(void)
 /* ============================================================================
  * HIGH-LEVEL: ADD-ALL / MODIFY-ALL
  * ============================================================================ */
-static void draw_all_static(uint8_t op)
+static void draw_all_static(uint8_t op, uint16_t robot_id)
 {
     //draw_test_shapes(op);
     draw_crosshair(op);
     draw_pitch_ticks(op);
     draw_pitch_limits(op);
-    draw_italy_flag_spqr(op);
+    draw_team_flag(op, robot_id);
 }
 
 static void draw_all_text(uint8_t op)
 {
     draw_spin_text(op);
-    draw_gear_text(op);
+    //draw_gear_text(op);
     draw_aim_text(op);
-    draw_supercap_text(op);
+    //draw_supercap_text(op);
 }
 
 static void update_text_if_changed(void)
@@ -1215,7 +1288,7 @@ void UI_Task(void const * argument)
             osDelay(500);
             clear_hud();
 
-            draw_all_static(GRAPHIC_ADD);
+            draw_all_static(GRAPHIC_ADD, current_robot_id);
             draw_all_text(GRAPHIC_ADD);
             draw_dynamic(GRAPHIC_ADD);
 

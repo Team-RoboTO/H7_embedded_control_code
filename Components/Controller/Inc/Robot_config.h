@@ -13,8 +13,8 @@
  /*   ROBOT CONFIGURATION   */
 /***************************/
 
-#define IS_CHASSIS_ENABLED 				 	  0  // Enable/Disable chassis motors
-#define IS_GIMBAL_ENABLED 			  	 	0  // Enable/Disable gimbal motors
+#define IS_CHASSIS_ENABLED 				 	  1  // Enable/Disable chassis motors
+#define IS_GIMBAL_ENABLED 			  	 	1  // Enable/Disable gimbal motors
 #define IS_SHOOTING_ENABLED 	   		  0  // Enable/Disable shooting wheels motors
 
   /********************/

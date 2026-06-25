@@ -172,14 +172,18 @@ void CAN_Task(void const * argument)
 							
 				
 					else 
-						DJI_Shooting_Motor[i].Data.Error = 0;
+				DJI_Shooting_Motor[i].Data.Error = 0;
 				if(timestamp - CM_Pitch_Motor.Data.LastTimestamp > 500)
 					CM_Pitch_Motor.Data.Error = 7;
+				if(timestamp - DM_Yaw_Motor.Data.LastTimestamp > 500)
+					DM_Yaw_Motor.Data.State = 7;
 				#if IS_STD || IS_SENTRY
 				if(timestamp - DJI_Rev_Motor.Data.LastTimestamp > 500)
 					DJI_Rev_Motor.Data.Error = 1;
 				else 
 					DJI_Rev_Motor.Data.Error = 0;
+				
+
 				#elif IS_HERO
 				if(timestamp - DJI_Push_Motor.Data.LastTimestamp > 500)
 					DJI_Push_Motor.Data.Error = 1;
