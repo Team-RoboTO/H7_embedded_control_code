@@ -113,6 +113,11 @@ float MIT_kd_base = 0.2f;
 
 float chassis_power_limit_local = 75;
 
+__attribute__((section(".AXI_SRAM"), aligned(32))) uint8_t custom_data_esp[64];
+uint8_t Data[30] = {0};
+
+extern UART_HandleTypeDef huart7;
+
   /********************/
  /*   CONTROL LOOP   */
 /********************/
@@ -302,6 +307,15 @@ void control_loop_chassis() {
 //		}
 		
 		// Competition Power Limit
+		
+		
+		for (uint8_t i = 0; i < 30; i++) {
+        custom_data_esp[i] = Data[i];
+    }
+    SCB_CleanDCache_by_Addr((uint32_t *)custom_data_esp, 32);
+    HAL_UART_Transmit_DMA(&huart7, custom_data_esp, 30);
+		
+		
 		#if IS_POWER_LIMIT_ENABLED
 		  if (Referee_System_Info.robot_status.chassis_power_limit != 0) chassis_power_limit_local	= Referee_System_Info.robot_status.chassis_power_limit;
 			else chassis_power_limit_local = 75;
