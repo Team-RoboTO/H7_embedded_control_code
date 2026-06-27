@@ -10,7 +10,7 @@
       <TargetName>COD_H7_Template</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
-      <pCCUsed>6190000::V6.19::ARMCLANG</pCCUsed>
+      <pCCUsed>6220000::V6.22::.\ARM_Compiler_6.22</pCCUsed>
       <uAC6>1</uAC6>
       <TargetOption>
         <TargetCommonOption>
@@ -898,11 +898,6 @@
               <FilePath>..\Application\Task\Src\Shooting_Task.c</FilePath>
             </File>
             <File>
-              <FileName>Image_Transmission_Task.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Application\Task\Src\Image_Transmission_Task.c</FilePath>
-            </File>
-            <File>
               <FileName>UI_Task.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Application\Task\Src\UI_Task.c</FilePath>
@@ -913,14 +908,14 @@
           <GroupName>Components/Controller</GroupName>
           <Files>
             <File>
-              <FileName>Robot_config.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Components\Controller\Src\Robot_config.c</FilePath>
+              <FileName>Robot_config.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Components\Controller\Inc\Robot_config.h</FilePath>
             </File>
             <File>
-              <FileName>PID.c</FileName>
+              <FileName>state_machine.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\Components\Controller\Src\PID.c</FilePath>
+              <FilePath>..\Components\Controller\Src\state_machine.c</FilePath>
             </File>
             <File>
               <FileName>chassis_control.c</FileName>
@@ -933,39 +928,24 @@
               <FilePath>..\Components\Controller\Src\gimbal_control.c</FilePath>
             </File>
             <File>
-              <FileName>power_estimation.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Components\Controller\Src\power_estimation.c</FilePath>
-            </File>
-            <File>
               <FileName>shooting_control.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Components\Controller\Src\shooting_control.c</FilePath>
             </File>
             <File>
-              <FileName>state_machine.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Components\Controller\Src\state_machine.c</FilePath>
-            </File>
-            <File>
-              <FileName>control_utils.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Components\Algorithm\Src\control_utils.c</FilePath>
-            </File>
-            <File>
-              <FileName>math_utils.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Components\Algorithm\Src\math_utils.c</FilePath>
-            </File>
-            <File>
-              <FileName>mouse_keyboard_command.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Components\Controller\Src\mouse_keyboard_command.c</FilePath>
-            </File>
-            <File>
               <FileName>lidar_lifter_control.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Components\Controller\Src\lidar_lifter_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>power_estimation.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Controller\Src\power_estimation.c</FilePath>
+            </File>
+            <File>
+              <FileName>Robot_config.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Controller\Src\Robot_config.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -1003,21 +983,6 @@
               <FilePath>..\Components\Device\Src\Bmi088.c</FilePath>
             </File>
             <File>
-              <FileName>Bmi088_Reg.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\Components\Device\Inc\Bmi088_Reg.h</FilePath>
-            </File>
-            <File>
-              <FileName>rtt_log.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Components\Device\Src\rtt_log.c</FilePath>
-            </File>
-            <File>
-              <FileName>rtt_log.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\Components\Device\Inc\rtt_log.h</FilePath>
-            </File>
-            <File>
               <FileName>Cubemars_Motor.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Components\Device\Src\Cubemars_Motor.c</FilePath>
@@ -1038,19 +1003,9 @@
               <FilePath>..\Components\Device\Src\INA228.c</FilePath>
             </File>
             <File>
-              <FileName>type_c_can.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\Components\Device\Inc\type_c_can.h</FilePath>
-            </File>
-            <File>
               <FileName>type_c_can.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Components\Device\Src\type_c_can.c</FilePath>
-            </File>
-            <File>
-              <FileName>Motor.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\Components\Device\Inc\Motor.h</FilePath>
             </File>
             <File>
               <FileName>buzzer.c</FileName>
@@ -1058,9 +1013,9 @@
               <FilePath>..\Components\Device\Src\buzzer.c</FilePath>
             </File>
             <File>
-              <FileName>buzzer.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\Components\Device\Inc\buzzer.h</FilePath>
+              <FileName>mouse_keyboard_command.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Device\Src\mouse_keyboard_command.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -1083,11 +1038,6 @@
               <FilePath>..\Components\Algorithm\Src\Quaternion.c</FilePath>
             </File>
             <File>
-              <FileName>Ramp.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Components\Algorithm\Src\Ramp.c</FilePath>
-            </File>
-            <File>
               <FileName>RLS.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Components\Algorithm\Src\RLS.c</FilePath>
@@ -1096,6 +1046,16 @@
               <FileName>CRC.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Components\Algorithm\Src\CRC.c</FilePath>
+            </File>
+            <File>
+              <FileName>control_utils.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Algorithm\Src\control_utils.c</FilePath>
+            </File>
+            <File>
+              <FileName>PID.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Algorithm\Src\PID.c</FilePath>
             </File>
           </Files>
         </Group>
