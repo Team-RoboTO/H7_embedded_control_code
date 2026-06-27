@@ -1,42 +1,22 @@
 #include "mouse_keyboard_command.h"
-#include "Remote_Control.h"
-#include "stdbool.h"
-#include "stm32h7xx_hal.h"
 #include "control_utils.h"
-#include "robot_config.h"
 #include "CRC.h"
-//#include "control_std_circ_chassis.h"
 
   /**************************/
  /*   KEYBOARD VARIABLES   */
 /**************************/
 
-fp32 weight_fwd_key;  // Weight of forward movement key (W)
-fp32 weight_left_key;  // Weight of left movement key (A)
-fp32 weight_bwd_key;  // Weight of backward movement key (S)
-fp32 weight_right_key;  // Weight of right movement key (D)
-VT13_Info_TypeDef remote_commands;
-VT13_Info_TypeDef remote_commands_prev;
+float weight_fwd_key;  // Weight of forward movement key (W)
+float weight_left_key;  // Weight of left movement key (A)
+float weight_bwd_key;  // Weight of backward movement key (S)
+float weight_right_key;  // Weight of right movement key (D)
+
+static VT13_Info_TypeDef RC_info_prev;
   /**************************/
  /*   KEYBOARD FUNCTIONS   */
 /**************************/
 
-void mouse_keyboard_commands_update(void) {
-	remote_commands_prev = remote_commands;
-	
-	/* Update data from server via Image_Transmission */
-	remote_commands.Mouse.X       = RC_info.Mouse.X;
-	remote_commands.Mouse.Y       = RC_info.Mouse.Y;
-	remote_commands.Mouse.Z       = RC_info.Mouse.Z;
-	remote_commands.Mouse.Press_L = RC_info.Mouse.Press_L;
-	remote_commands.Mouse.Press_R = RC_info.Mouse.Press_R;
-	remote_commands.Key.V         = RC_info.Key.V;
-}
-
-void compute_weights_WASD_keys(float dt) {
-	
-	mouse_keyboard_commands_update();
-	
+void compute_weights_WASD_keys(float dt) {	
 	/* compute WASD keys weights */
 	
 	weight_fwd_key 		+= (is_keyboard_key_pressed(KEY_W)) ? dt*20 : - dt*1000;
@@ -141,36 +121,36 @@ uint8_t is_mouse_key_raising_edge(uint8_t key) {
     return false;
 }
 
-int16_t yaw_command_mouse_to_remote_controller(fp32 dt) {
+int16_t yaw_command_mouse_to_remote_controller(float dt) {
     
     // Get mouse velocity
-    fp32 x_vel = mouse_lin_vel_x;
+    float x_vel = mouse_lin_vel_x;
     
     // Convert mouse velocity to remote controller tilt
-    fp32 remote_controller_left_right_tilt = (- x_vel) * dt * X_MOUSE_METERS_TO_REMOTE_CONTROLLER_TILT;
+    float remote_controller_left_right_tilt = (- x_vel) * dt * X_MOUSE_METERS_TO_REMOTE_CONTROLLER_TILT;
     saturate(&remote_controller_left_right_tilt, 660);
     
     return (int16_t) remote_controller_left_right_tilt;
 }
 
-int16_t pitch_command_mouse_to_remote_controller(fp32 dt) {
+int16_t pitch_command_mouse_to_remote_controller(float dt) {
     
     // Get mouse velocity
-    fp32 y_vel = mouse_lin_vel_y;
+    float y_vel = mouse_lin_vel_y;
     
     // Convert mouse velocity to remote controller tilt
-    static fp32 remote_controller_bwd_fwd_tilt;
+    static float remote_controller_bwd_fwd_tilt;
 	remote_controller_bwd_fwd_tilt += (- y_vel) * Y_MOUSE_METERS_TO_REMOTE_CONTROLLER_TILT * dt;
     saturate(&remote_controller_bwd_fwd_tilt, 660);
     
     return (int16_t) remote_controller_bwd_fwd_tilt;
 }
 
-void update_gimbal_references_from_mouse_movements(fp32 *r_yaw, fp32 *r_pitch, fp32 dt) {
+void update_gimbal_references_from_mouse_movements(float *r_yaw, float *r_pitch, float dt) {
     
     // Get mouse velocities and saturate them
-    fp32 x_vel = mouse_lin_vel_x;
-    fp32 y_vel = mouse_lin_vel_y;
+    float x_vel = mouse_lin_vel_x;
+    float y_vel = mouse_lin_vel_y;
     saturate(&x_vel, SATURATION_MOUSE_LIN_VEL_X);
     saturate(&y_vel, SATURATION_MOUSE_LIN_VEL_Y);
     

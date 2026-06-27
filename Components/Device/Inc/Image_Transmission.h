@@ -16,13 +16,9 @@
 #define IMAGE_TRANSMISSION_H
   
 #include "stdint.h"
-#include "stdbool.h"
-#include "stdlib.h"
-#include "string.h"
-#include "math.h"
 #include "robot_config.h"
-#include <stdio.h>
-#include <string.h>
+#include "usart.h"
+
 
 #define IMAGE_TRANS_RX_LENGTH  39  //frame_header 5bytes , cmd_id 2bytes , data_max 30bytes , crc16 2bytes = bytes
 

@@ -4,8 +4,7 @@
  */
 
 #include "UI_Task.h"
-#include "usart.h"
-#include "cmsis_os.h"
+#include "Referee_System.h"
 #include "CRC.h"
 #include "remote_control.h"
 #include "Damiao_Motor.h"
@@ -14,10 +13,6 @@
 #include "Chassis_control.h"
 #include "INS_Task.h"
 
-#include <stdio.h>
-#include <string.h>
-#include <math.h>
-#include <stdbool.h>
 
 /* ============================================================================
  * EXTERNAL STATE
@@ -34,21 +29,10 @@ extern bool is_rotating;
 /* ============================================================================
  * GLOBAL UI STATE (driven by other tasks)
  * ============================================================================ */
-int      aimbot_mode             = 0;
-int      supercap_dash           = 0;
-int      gear_speed_curr_gear    = 1;
-uint8_t  charging_state          = 50;
-uint16_t g_motor_fault           = 0;
-
-typedef enum {
-    FEEDER_STANDBY,
-    FEEDER_SPINUP,
-    FEEDER_LOADED,
-    FEEDER_JAM,
-    FEEDER_OVERHEAT,
-    FEEDER_STEP,
-    FEEDER_FIRING
-} feeder_state_e;
+static bool aimbot_mode    = 0;
+static bool supercap_dash  = 0;
+uint8_t  charging_state    = 50;
+uint16_t g_motor_fault     = 0;
 
 feeder_state_e feeder_state = FEEDER_STANDBY;
 
@@ -86,8 +70,6 @@ static uint8_t ui_tx_dma_buffer[512];
 volatile uint32_t ui_tx_count = 0;  /* debug counter */
 volatile uint32_t tx_cplt_count = 0;
 volatile uint32_t tx_start_count = 0;
-
-int g_spinspin_mode = 0;
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
     if (huart == &huart1) {
@@ -321,16 +303,6 @@ static void draw_spin_text(uint8_t op)
                       x, TOP_Y_POS + CHAR_Y_OFFSET, op);
 }
 
-static void draw_gear_text(uint8_t op)
-{
-    char buf[16];
-    snprintf(buf, sizeof(buf), "GEAR %d", gear_speed_curr_gear);
-    uint8_t len = (uint8_t)strlen(buf);
-    send_char_graphic(buf, 'G', 'E', 'A', 5, GRAPHIC_COLOUR_CYAN,
-                      FONT_SIZE, CHAR_WIDTH,
-                      gear_coords - CHAR_X_OFFSET * len,
-                      TOP_Y_POS + CHAR_Y_OFFSET, op);
-}
 
 static void draw_aim_text(uint8_t op)
 {
@@ -1217,10 +1189,6 @@ static void update_text_if_changed(void)
     if (prev_spinspin != is_rotating) {
         prev_spinspin = is_rotating;
         draw_spin_text(GRAPHIC_MODIFY);
-    }
-    if (prev_gear != gear_speed_curr_gear) {
-        prev_gear = gear_speed_curr_gear;
-        draw_gear_text(GRAPHIC_MODIFY);
     }
     if (prev_aimbot != aimbot_mode) {
         prev_aimbot = aimbot_mode;

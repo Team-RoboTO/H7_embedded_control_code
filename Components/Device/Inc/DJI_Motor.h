@@ -1,10 +1,9 @@
 #ifndef DJI_MOTOR_H
 #define DJI_MOTOR_H
-#include "main.h"
-#include "PID.h"
-#include "stm32h723xx.h"
+
+
 #include "bsp_can.h"
-#include "motor.h"
+#include "stdbool.h"
 #include "robot_config.h"
 
 /**

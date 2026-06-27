@@ -1,9 +1,11 @@
 #ifndef DAMIAO_MOTOR_H
 #define DAMIAO_MOTOR_H
-#include "main.h"
-#include "PID.h"
-#include "stm32h723xx.h"
+
+
 #include "bsp_can.h"
+#include "stdbool.h"
+#include "motor.h"
+
 /**
  * @file    damiao_motor.h
  * @brief   DM-J6006-2EC and DM_JM4310-2EC CAN protocol + motor control
@@ -42,15 +44,6 @@ typedef enum
 	VELOCITY,
 }DM_Motor_Control_Mode_Type_e;
 
-/**
- * @brief  typedef enum that CMD of DM_Motor .
- */
-typedef enum{
-  Motor_Enable,
-  Motor_Disable,
-  Motor_Save_Zero_Position,
-  DM_Motor_CMD_Type_Num,
-}DM_Motor_CMD_Type_e;
 
 /**
  * @brief typedef structure that contains the information for the motor FDCAN transmit and recieved .

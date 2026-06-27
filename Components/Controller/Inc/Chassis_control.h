@@ -10,17 +10,17 @@
 /*************************/
 
 extern controlled_system_MIT_t chassis;
-extern float MIT_kd_base;
 extern float MIT_kd;
 extern bool is_rotating;
 
   /********************/
  /*   CONTROL LOOP   */
 /********************/
-#define YAW_ZERO 0.0f
+#define LPF_VEL_ALPHA 0.85f
+
 
 void control_loop_chassis(void);
 
-extern float w;
+extern float w, vx, vy;
 
 #endif

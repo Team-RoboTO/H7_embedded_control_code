@@ -2,7 +2,6 @@
 #define INA226DRIVER_H
 
 #include "stm32h7xx_hal.h"
-#include "struct_typedef.h"   // contiene typedef fp32 se già presente nel tuo progetto
 
 // I2C address (A0=A1=GND)
 #define INA228_I2C_ADDR (0x40 << 1)  // = 0x80 (HAL uses 8-bit address)
@@ -41,9 +40,9 @@ extern I2C_HandleTypeDef hi2c2;
 // API
 uint8_t INA228_Init(void);
 uint8_t INA228_IsConnected(void);
-fp32    INA228_ReadBusVoltage(void);
-fp32    INA228_ReadShuntVoltage(void);
-fp32    INA228_ReadCurrent(void);
-fp32    INA228_ReadPower(void);
+float    INA228_ReadBusVoltage(void);
+float    INA228_ReadShuntVoltage(void);
+float    INA228_ReadCurrent(void);
+float    INA228_ReadPower(void);
 
 #endif // INA228DRIVER_H

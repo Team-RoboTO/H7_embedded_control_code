@@ -23,84 +23,6 @@ void saturate_in_range(float *value, float lb, float ub) {
 		*value = ub;
 }
 
-float dcgain(struct tf *tf) {
-
-	float sum_num = 0;
-	float sum_den = 0;
-	uint8_t m = tf->m;
-	uint8_t n = tf->n;
-
-	for (int i = n-m; i <= n; i++)
-			sum_num += tf->num[i];			// compute the sum of all tf numerator coefficients
-	for (int i = 0; i <= n; i++)
-			sum_den += tf->den[i];			// compute the sum of all tf denominator coefficients
-
-	return sum_num/sum_den;					// return the tf steady-state gain
-}
-
-void set_dcgain(struct tf *tf, float new_dcgain) {
-
-    float old_dcgain = dcgain(tf);		// compute the old tf steady-state gain
-    uint8_t m = tf->m;
-    uint8_t n = tf->n;
-
-    for (int i = n-m; i <= n; i++)
-        tf->num[i] *= (new_dcgain / old_dcgain);		// update the tf steady-state gain
-}
-
-void tf_init(struct tf *tf, float dt, uint8_t m, uint8_t n, float *num, float *den) {	
-	
-	tf->dt = dt;	// set tf sampling time
-	tf->m = m;		// set tf numerator order
-	tf->n = n;		// set tf denominator order
-	
-	/* set tf numerator/denominator and reset all tf inputs/outputs */
-	for (int i = 0; i <= n; i++) {
-		tf->num[i] = (i < n-m) ? 0 : num[i-n+m];
-		tf->den[i] = den[i];
-		tf->u[i] = 0;
-    tf->y[i] = 0;
-  }
-}
-
-void tf_reset_io(struct tf *tf) {
-
-    for (int i = 0; i <= tf->m; i++) {
-        tf->u[i] = 0;		// reset all tf inputs
-        tf->y[i] = 0;		// reset all tf outputs
-    }
-}
-
-float tf_resp(struct tf *tf, float u) {
-	
-	// reset the tf response to u input
-	float y = 0;
-
-	// shift backward u[k] and y[k] values of one time unit (for all k) 
-	for (int i = tf->n; i > 0; i--) {
-		tf->u[i] = tf->u[i-1];
-		tf->y[i] = tf->y[i-1];
-  }
-  tf->u[0] = u;		// new input
-	
-	/*
-	*		compute new output y[k] based on:
-	*		1. new input u[k]
-	*		2. previous inputs u[k-i] (i > 0)
-	*		3. previous outputs y[k-i] (i > 0)
-	*/
-	for (int i = 0; i <= tf->n; i++) {
-		y += tf->num[i] * tf->u[i];
-    if (i > 0)
-			y -= tf->den[i] * tf->y[i];
-  }
-	y = y / tf->den[0];
-
-	tf->y[0] = y;		// new output
-
-  return y;
-}
-
 void slewRateControl(float *profiled_value, float target_value, float max_accel, float max_decel, float dt) {
     float step  = target_value - *profiled_value; 
     float limit = ((target_value * *profiled_value < 0.0f) ||  
@@ -113,4 +35,62 @@ void slewRateControl(float *profiled_value, float target_value, float max_accel,
     *profiled_value += step;
 
 	return;
+}
+
+float min(float a, float b) {
+	
+	return (a <= b) ? a : b;
+}
+
+float max(float a, float b) {
+	
+	return (a >= b) ? a : b;
+}
+
+int is_in_range(float value, float bound1, float bound2) {
+	
+	float lb = min(bound1, bound2);		// get lower bound
+	float ub = max(bound1, bound2);		// get upper bound
+	
+	/* return 1 if value is between lower and upper bound, 0 otherwise */
+	if (lb <= value && value <= ub)
+		return 1;
+	
+	return 0;
+}
+
+float nearest_target_angle_from_start_angle(float target_angle, float start_angle) {
+	
+	// NOTE: target_angle and start_angle can be whatever angle (unbounded)
+	
+	// if the two angles are identical, return the original target angle (no convertion needed)
+	if (target_angle == start_angle)
+		return target_angle;
+
+	// count the number of complete rounds of target_angle
+	uint32_t n_rounds_ref = (uint32_t) (fabs(target_angle) / (2*pi));
+	
+	// cast the target angle in range [-2*pi,+2*pi]
+	target_angle += ((target_angle > 0) ? (-2*pi) : (2*pi)) * n_rounds_ref;
+
+  // cast the target angle in range [-pi,+pi]
+	if (target_angle > pi)
+		target_angle -= 2*pi;
+	else if (target_angle < -pi)
+		target_angle += 2*pi;
+	
+	// count the number of complete rounds of start_angle
+	uint32_t n_rounds_start = (uint32_t) (fabs(start_angle) / (2*pi));
+	
+	// bring target_angle in range [start_angle - 2*pi, start_angle + 2*pi]
+	target_angle += ((target_angle > start_angle) ? (-2*pi) : (2*pi)) * n_rounds_start;
+	
+	// if target_angle is already at the minimum distance from start_angle, then return it
+	if (fabs(target_angle - start_angle) <= pi)
+		return target_angle;
+	
+	if (target_angle < start_angle)
+		return target_angle + 2*pi;
+	
+	return target_angle - 2*pi;
 }

@@ -1,6 +1,5 @@
 #include "dji_motor.h"
-#include <string.h>
-#include "math_utils.h"
+#include "control_utils.h"
 
 /**
  * @file    dji_motor.c

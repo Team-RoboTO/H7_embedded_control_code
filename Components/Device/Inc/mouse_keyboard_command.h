@@ -1,8 +1,6 @@
 #ifndef MOUSE_KEYBOARD_COMMANDS_H
 #define MOUSE_KEYBOARD_COMMANDS_H
 
-#include "struct_typedef.h"
-#include "robot_config.h"
 #include "Remote_Control.h"
 #include "Image_Transmission.h"
 
@@ -10,12 +8,10 @@
  /*   KEYBOARD VARIABLES   */
 /**************************/
 
-extern fp32 weight_fwd_key;  // Weight of forward movement key (W)
-extern fp32 weight_left_key;  // Weight of left movement key (A)
-extern fp32 weight_bwd_key;  // Weight of backward movement key (S)
-extern fp32 weight_right_key;  // Weight of right movement key (D)
-extern VT13_Info_TypeDef remote_commands;
-extern VT13_Info_TypeDef remote_commands_prev;
+extern float weight_fwd_key;  // Weight of forward movement key (W)
+extern float weight_left_key;  // Weight of left movement key (A)
+extern float weight_bwd_key;  // Weight of backward movement key (S)
+extern float weight_right_key;  // Weight of right movement key (D)
 
   /**************************************/
  /*   MOUSE TRACKING HYPERPARAMETERS   */
@@ -30,8 +26,8 @@ extern VT13_Info_TypeDef remote_commands_prev;
 #define X_MOUSE_METERS_TO_REMOTE_CONTROLLER_TILT    (660/0.010)  // [-/rad] 660 RC tilt corresponds to 4.4 mm
 #define Y_MOUSE_METERS_TO_REMOTE_CONTROLLER_TILT    (660/0.025)  // [-/rad] 660 RC tilt corresponds to 5.0 mm
 
-#define keyboard_keys		remote_commands.Key.V
-#define keyboard_keys_prev		remote_commands_prev.Key.V
+#define keyboard_keys					RC_info.Key.V
+#define keyboard_keys_prev		RC_info_prev.Key.V
 
   /**************************/
  /*   KEYBOARD KEYS   */
@@ -96,21 +92,21 @@ uint8_t is_mouse_key_pressed(uint8_t key);
 uint8_t is_mouse_prev_key_pressed(uint8_t key);
 uint8_t is_mouse_key_falling_edge(uint8_t key);
 uint8_t is_mouse_key_raising_edge(uint8_t key);
-int16_t yaw_command_mouse_to_remote_controller(fp32 dt);
-int16_t pitch_command_mouse_to_remote_controller(fp32 dt);
-void update_gimbal_references_from_mouse_movements(fp32 *r_yaw, fp32 *r_pitch, fp32 dt);
+int16_t yaw_command_mouse_to_remote_controller(float dt);
+int16_t pitch_command_mouse_to_remote_controller(float dt);
+void update_gimbal_references_from_mouse_movements(float *r_yaw, float *r_pitch, float dt);
 
 
   /******************/
  /*   MOUSE DATA   */
 /******************/
 
-#define mouse_lin_vel_x         (remote_commands.Mouse.X * 1e-3)  // Mouse linear velocity along X (horizontal, positive from left to right) [m/s]
-#define mouse_lin_vel_y         (remote_commands.Mouse.Y * 1e-3)  // Mouse linear velocity along Y (vertical, positive from up to down) [m/s]
-#define mouse_lin_vel_z         (remote_commands.Mouse.Z * 1e-3)  // Mouse linear velocity along Z [m/s]
-#define mouse_left_key          remote_commands.Mouse.Press_L
-#define mouse_right_key         remote_commands.Mouse.Press_R
-#define mouse_left_key_prev     remote_commands_prev.Mouse.Press_L
-#define mouse_right_key_prev    remote_commands_prev.Mouse.Press_R
+#define mouse_lin_vel_x         (RC_info.Mouse.X * 1e-3)  // Mouse linear velocity along X (horizontal, positive from left to right) [m/s]
+#define mouse_lin_vel_y         (RC_info.Mouse.Y * 1e-3)  // Mouse linear velocity along Y (vertical, positive from up to down) [m/s]
+#define mouse_lin_vel_z         (RC_info.Mouse.Z * 1e-3)  // Mouse linear velocity along Z [m/s]
+#define mouse_left_key          RC_info.Mouse.Press_L
+#define mouse_right_key         RC_info.Mouse.Press_R
+#define mouse_left_key_prev     RC_info_prev.Mouse.Press_L
+#define mouse_right_key_prev    RC_info_prev.Mouse.Press_R
 
 #endif

@@ -19,7 +19,7 @@
 #include "tim.h"
 #include "Quaternion.h"
 #include "bsp_pwm.h"
-#include "math_utils.h"
+#include "control_utils.h"
 
 /**
   * @brief the structure that contains the information for the INS.
@@ -153,17 +153,6 @@ void INS_Task(void const * argument)
 			BMI088_Temp_Control(BMI088_Info.Temperature);
 		}
 
-			
-//		float data[] = { INS_Info.Yaw_Angle, };
-//		RTT_Log(data, 2);
-
-		float yaw = INS_Info.Yaw_Angle;
-		int32_t sign = (yaw >= 0) ? 1 : -1;
-		float abs_yaw = (yaw >= 0) ? yaw : -yaw;
-		uint32_t integer_part = (uint32_t)abs_yaw;
-		uint32_t frac_part = (uint32_t)((abs_yaw - integer_part) * 10000);
-
-		//EventRecord4(0 + EventLevelDetail, (uint32_t)sign, integer_part, frac_part, HAL_GetTick());
 		osDelayUntil(&INS_Task_SysTick,1);
 		
   }

@@ -1,8 +1,9 @@
 #ifndef __UI_TASK_H
 #define __UI_TASK_H
 
-#include "stdint.h"
-#include "Referee_System.h"
+#include "usart.h"
+#include "cmsis_os.h"
+
 
 /* ============================================================================
  * REFEREE PROTOCOL CONSTANTS
@@ -151,6 +152,17 @@ typedef struct __attribute__((packed)) {
 } graphic_data_struct_t;
 
 #pragma pack()
+
+typedef enum {
+    FEEDER_STANDBY,
+    FEEDER_SPINUP,
+    FEEDER_LOADED,
+    FEEDER_JAM,
+    FEEDER_OVERHEAT,
+    FEEDER_STEP,
+    FEEDER_FIRING
+} feeder_state_e;
+
 
 /* ============================================================================
  * PUBLIC API

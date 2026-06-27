@@ -12,11 +12,7 @@
 
 #include "Image_Transmission.h"
 #include "remote_control.h"
-#include "Referee_System.h"
 #include "CRC.h"
-#include "usart.h"
-
-extern VT13_Info_TypeDef RC_info;
 
 __attribute__((section (".AXI_SRAM"))) uint8_t Image_Trans_MultiRx_Buff[2][39];
 
@@ -102,11 +98,6 @@ void VT13_Info_Update(uint8_t *Buff ,VT13_Info_TypeDef *VT13_Info){
 					VT13_Info->RC.Stop  = !VT13_Info->RC.Stop;
 				}
 				last_button_state[0] = (  Buff[7] >> 6 ) & 0x01 ;
-				
-//				if( (  Buff[7] >> 7 ) & 0x01 && last_button_state[1] == 0) {
-//					VT13_Info->RC.Left = !VT13_Info->RC.Left;
-//				}
-//			  last_button_state[1] = (  Buff[7] >> 7 ) & 0x01;
 				
 				VT13_Info->RC.Left = (  Buff[7] >> 7 ) & 0x01;
 				

@@ -36,8 +36,6 @@
 // Push (Hero only)
 #define PUSH_STOP                    0
 #define PUSH_SINGLE_SHOOTING         1
-#define PUSH_MULTIPLE_SHOOTING       2
-#define PUSH_UNSTUCK                 3
 
 // Lidar lifter
 #define LIDAR_DOWN                   0
@@ -61,7 +59,7 @@ typedef struct {
     uint32_t    timestamp_last_shoot_command;          // Timestamp of last shoot command [ms]
     uint32_t    time_rev_locked;                       // HAL tick at which stall was first detected [ms]
 	  uint32_t    time_unstuck;                          // HAL tick at which stall was first detected [ms]
-		uint16_t    shooting_frequency;                    // Shooting frequency [hz]
+		float       shooting_frequency;                    // Shooting frequency [hz]
 	  bool        stuck_state;                           // Is rev stucked                
 } rev_spin_t;
 

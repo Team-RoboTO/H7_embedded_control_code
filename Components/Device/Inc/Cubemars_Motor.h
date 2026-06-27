@@ -1,10 +1,10 @@
 #ifndef CUBEMARS_MOTOR_H
 #define CUBEMARS_MOTOR_H
-#include "main.h"
-#include "PID.h"
-#include "stm32h723xx.h"
+
 #include "bsp_can.h"
+#include "stdbool.h"
 #include "motor.h"
+
 /**
  * @file    cubemars_motor.h
  * @brief   CubeMars AK40-10 CAN protocol + motor control
@@ -49,12 +49,7 @@ typedef enum {
 /**
  * @brief typedef enum for CubeMars motor commands (mirrors DM_Motor_CMD_Type_e).
  */
-typedef enum {
-    CM_Motor_Enable,
-    CM_Motor_Disable,
-    CM_Motor_Save_Zero_Position,
-    CM_Motor_CMD_Type_Num,
-} CM_Motor_CMD_Type_e;
+
 
 /**
  * @brief CubeMars extended-ID CAN packet commands.

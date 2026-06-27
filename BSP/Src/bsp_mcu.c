@@ -21,6 +21,7 @@
 #include "bsp_adc.h"
 #include "bmi088.h"
 #include "usb_device.h"
+#include "buzzer.h"
 
 /**
   * @brief Initializes the MCU.
@@ -36,5 +37,6 @@ void MCU_Init(void)
 	MX_USB_DEVICE_Init();
   /* ----------------------- Device Init ----------------------- */
   BMI088_Init();
+	Buzzer_Init();
 }
 //------------------------------------------------------------------------------

@@ -1,7 +1,4 @@
 #include "cubemars_motor.h"
-#include <string.h>
-#include <math.h>
-#include "stdint.h"
 
 /**
  * @file    cubemars_motor.c
@@ -115,13 +112,13 @@ void CM_Motor_Command(FDCAN_TxFrame_TypeDef *FDCAN_TxFrame,
     data[6] = 0xFF;
 
     switch (CMD) {
-        case CM_Motor_Enable:
+        case Motor_Enable:
             data[7] = 0xFC;
             break;
-        case CM_Motor_Disable:
+        case Motor_Disable:
             data[7] = 0xFD;
             break;
-        case CM_Motor_Save_Zero_Position:
+        case Motor_Save_Zero_Position:
             data[7] = 0xFE;
             break;
         default:

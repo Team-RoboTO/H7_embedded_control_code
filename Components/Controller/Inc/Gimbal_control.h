@@ -2,7 +2,6 @@
 #define GIMBAL_CONTROL_H
 
 #include "robot_config.h"
-
 #include "controlled_system.h"
 
   /*************************/

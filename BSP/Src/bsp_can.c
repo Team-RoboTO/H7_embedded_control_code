@@ -413,11 +413,6 @@ static void FDCAN3_RxFifo0RxHandler(FDCAN_RxHeaderTypeDef *RxHeader, uint8_t Dat
 	
 	uint32_t id = RxHeader->Identifier;
 	
-	
-//    if (*Identifier == TYPE_C_CAN_ID)
-//    {
-//			//Type_C_Can_Update(Data);
-//		}
 			switch (id){
 
 			#if IS_HERO
@@ -469,7 +464,7 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 			
 			fdcan3_rx_callback_count++;
 
-			FDCAN3_RxFifo0RxHandler(&FDCAN_RxFIFO0Frame.Header.Identifier, 
+			FDCAN3_RxFifo0RxHandler(&FDCAN_RxFIFO0Frame.Header, 
 			                         FDCAN_RxFIFO0Frame.Data);
 		}
 	}

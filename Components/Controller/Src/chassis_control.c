@@ -34,7 +34,6 @@
 
 #include "chassis_control.h"
 #include "state_machine.h"
-#include "PID.h"
 #include "Cubemars_Motor.h"
 #include "Damiao_Motor.h"
 #include "power_estimation.h"
@@ -42,13 +41,14 @@
 #include "MiniPC.h"
 #include "mouse_keyboard_command.h"
 #include "Referee_System.h"
+#include "LPF.h"
+
 
   /*************************/
  /*   CONTROLLED SYSTEM   */
 /*************************/
 
 controlled_system_MIT_t chassis = {
-    
     .n          = 4,  // Number of system states
     .m          = 4,  // Number of system inputs
     .p          = 5,  // Number of system outputs
@@ -61,10 +61,9 @@ static float dt_chassis = 0.001f;
 
 static float max_r_ang_vel_wheels = 20.0;  // Max reference of angular velocity of wheels [rad/s]
 static float rot_ang_vel_wheels = 45.0f;
-bool is_rotating = 0; //flag for complete the rotation until the head return alligned to the zero 
 
-int16_t remote_commands_bwd_fwd;                // in range [-660, +660]
-int16_t remote_commands_left_right;             // in range [-660, +660]
+static int16_t remote_commands_bwd_fwd;                // in range [-660, +660]
+static int16_t remote_commands_left_right;             // in range [-660, +660]
 static float remote_commands_bwd_fwd_float;     // in range [-660, +660], but float
 static float remote_commands_left_right_float;  // in range [-660, +660], but float
 static float r_ang_vel_wheel_1_bwd_fwd;         // [rad/s]
@@ -78,6 +77,8 @@ static float r_ang_vel_wheel_4_left_right;      // [rad/s]
 static float r_ang_vel_wheels_chassis_yaw;      // [rad/s]
 
 static uint8_t is_first_iter = true;
+bool is_rotating = 0; //flag for complete the rotation until the head return alligned to the zero 
+static bool yaw_out_of_range = 0;
 
 float vx;
 float vy;
@@ -86,18 +87,21 @@ float w;
 static float vx_ref;
 static float vy_ref;
 
-float v_x_target;
-float v_y_target;
+static float v_x_target;
+static float v_y_target;
 
-float w_ref;
-float w_target;
+static float w_ref;
+static float w_target;
+
+static float vx_body;
+static float vy_body;
+
 
 static float linear_vel_lim = 4.9f;
-static float c = 0.7071067812;
 
 static LowPassFilter1p_Info_TypeDef lpf_vx;
 static LowPassFilter1p_Info_TypeDef lpf_vy;
-#define LPF_VEL_ALPHA 0.85f
+
 
 #if IS_STD || IS_SENTRY
 	static float radius_wheel = 0.0825f;
@@ -109,7 +113,6 @@ static LowPassFilter1p_Info_TypeDef lpf_vy;
 
 //MIT variables
 float MIT_kd = 0.2f;    	// range 0-5
-float MIT_kd_base = 0.2f;
 
 float chassis_power_limit_local = 75;
 
@@ -138,12 +141,12 @@ void control_loop_chassis() {
     chassis.x[2] = CM_Chassis_Motor[2].Data.Velocity * radius_wheel;
     chassis.x[3] = CM_Chassis_Motor[3].Data.Velocity * radius_wheel;
 
-    chassis.x[4] = nearest_target_angle_from_start_angle(DM_Yaw_Motor.Data.Position - YAW_ZERO, 0);
+    chassis.x[4] = nearest_target_angle_from_start_angle(DM_Yaw_Motor.Data.Position, 0);
 		
 		//Forward kinematics: wheel angular velocities to chassis linear velocities ---
 	  // Body-frame FK (what you already have)
-		float vx_body = ( chassis.x[0] + chassis.x[1] - chassis.x[2] - chassis.x[3]) / (4.0f * c);
-		float vy_body = (-chassis.x[0] + chassis.x[1] + chassis.x[2] - chassis.x[3]) / (4.0f * c);
+		vx_body = ( chassis.x[0] + chassis.x[1] - chassis.x[2] - chassis.x[3]) / (4.0f * Cos45);
+		vy_body = (-chassis.x[0] + chassis.x[1] + chassis.x[2] - chassis.x[3]) / (4.0f * Cos45);
 
 		// Rotate to world frame using current yaw
 		vx = LowPassFilter1p_Update(&lpf_vx, vx_body * cosf(chassis.x[4]) - vy_body * sinf(chassis.x[4]));
@@ -210,32 +213,34 @@ void control_loop_chassis() {
                 
         case CHASSIS_FOLLOW_GIMBAL:
 
+						yaw_out_of_range = ((DM_Yaw_Motor.Data.Position > 3.0f) ||(DM_Yaw_Motor.Data.Position < 2.0f));
+
             if (is_rotating == 0) {
                 // Forward/Backward
-                r_ang_vel_wheel_1_bwd_fwd    = vx_ref * c / radius_wheel;
-                r_ang_vel_wheel_2_bwd_fwd    = vx_ref * c / radius_wheel;
-                r_ang_vel_wheel_3_bwd_fwd    = vx_ref * c / radius_wheel;
-                r_ang_vel_wheel_4_bwd_fwd    = vx_ref * c / radius_wheel;
+                r_ang_vel_wheel_1_bwd_fwd    = vx_ref * Cos45 / radius_wheel;
+                r_ang_vel_wheel_2_bwd_fwd    = vx_ref * Cos45 / radius_wheel;
+                r_ang_vel_wheel_3_bwd_fwd    = vx_ref * Cos45 / radius_wheel;
+                r_ang_vel_wheel_4_bwd_fwd    = vx_ref * Cos45 / radius_wheel;
                 // Left/Right
-                r_ang_vel_wheel_1_left_right = vy_ref * c / radius_wheel;
-                r_ang_vel_wheel_2_left_right = vy_ref * c / radius_wheel;
-                r_ang_vel_wheel_3_left_right = vy_ref * c / radius_wheel;
-                r_ang_vel_wheel_4_left_right = vy_ref * c / radius_wheel;
+                r_ang_vel_wheel_1_left_right = vy_ref * Cos45 / radius_wheel;
+                r_ang_vel_wheel_2_left_right = vy_ref * Cos45 / radius_wheel;
+                r_ang_vel_wheel_3_left_right = vy_ref * Cos45 / radius_wheel;
+                r_ang_vel_wheel_4_left_right = vy_ref * Cos45 / radius_wheel;
                 // Align chassis to gimbal
                 r_ang_vel_wheels_chassis_yaw = max(min(chassis.x[4], pi/2), -pi/2) * (2.0f/pi) * max_r_ang_vel_wheels;
                 break;
             }
-
-            else if (is_rotating == 1 && ((DM_Yaw_Motor.Data.Position > (YAW_ZERO + 3.0f)) ||(DM_Yaw_Motor.Data.Position < (YAW_ZERO + 2.0f)))) {
-							r_ang_vel_wheel_1_bwd_fwd       = (vx_ref * c / radius_wheel) * cos(- chassis.x[4] + pi/4);
-							r_ang_vel_wheel_2_bwd_fwd       = (vx_ref * c / radius_wheel) * sin(- chassis.x[4] + pi/4);
-							r_ang_vel_wheel_3_bwd_fwd       = (vx_ref * c / radius_wheel) * cos(- chassis.x[4] + pi/4);
-							r_ang_vel_wheel_4_bwd_fwd       = (vx_ref * c / radius_wheel) * sin(- chassis.x[4] + pi/4);
+						            
+						else if (is_rotating == 1 && yaw_out_of_range == 1) {
+							r_ang_vel_wheel_1_bwd_fwd       = (vx_ref * Cos45 / radius_wheel) * cos(- chassis.x[4] + pi/4);
+							r_ang_vel_wheel_2_bwd_fwd       = (vx_ref * Cos45 / radius_wheel) * sin(- chassis.x[4] + pi/4);
+							r_ang_vel_wheel_3_bwd_fwd       = (vx_ref * Cos45 / radius_wheel) * cos(- chassis.x[4] + pi/4);
+							r_ang_vel_wheel_4_bwd_fwd       = (vx_ref * Cos45 / radius_wheel) * sin(- chassis.x[4] + pi/4);
 							// Left/Right
-							r_ang_vel_wheel_1_left_right    = (vy_ref * c / radius_wheel) * cos(+ chassis.x[4] + pi/4);
-							r_ang_vel_wheel_2_left_right    = (vy_ref * c / radius_wheel) * sin(+ chassis.x[4] + pi/4);
-							r_ang_vel_wheel_3_left_right    = (vy_ref * c / radius_wheel) * cos(+ chassis.x[4] + pi/4);
-							r_ang_vel_wheel_4_left_right    = (vy_ref * c / radius_wheel) * sin(+ chassis.x[4] + pi/4);
+							r_ang_vel_wheel_1_left_right    = (vy_ref * Cos45 / radius_wheel) * cos(+ chassis.x[4] + pi/4);
+							r_ang_vel_wheel_2_left_right    = (vy_ref * Cos45 / radius_wheel) * sin(+ chassis.x[4] + pi/4);
+							r_ang_vel_wheel_3_left_right    = (vy_ref * Cos45 / radius_wheel) * cos(+ chassis.x[4] + pi/4);
+							r_ang_vel_wheel_4_left_right    = (vy_ref * Cos45 / radius_wheel) * sin(+ chassis.x[4] + pi/4);
 							// Chassis contiguous rotation
 																						
 							if (vx_ref == 0 && vy_ref == 0){
@@ -254,15 +259,15 @@ void control_loop_chassis() {
             }
         
         case CHASSIS_CONTIGUOUS_ROTATION:
-            r_ang_vel_wheel_1_bwd_fwd       = (vx_ref * c / radius_wheel) * cos(- chassis.x[4] + pi/4);
-						r_ang_vel_wheel_2_bwd_fwd       = (vx_ref * c / radius_wheel) * sin(- chassis.x[4] + pi/4);
-						r_ang_vel_wheel_3_bwd_fwd       = (vx_ref * c / radius_wheel) * cos(- chassis.x[4] + pi/4);
-						r_ang_vel_wheel_4_bwd_fwd       = (vx_ref * c / radius_wheel) * sin(- chassis.x[4] + pi/4);
+            r_ang_vel_wheel_1_bwd_fwd       = (vx_ref * Cos45 / radius_wheel) * cos(- chassis.x[4] + pi/4);
+						r_ang_vel_wheel_2_bwd_fwd       = (vx_ref * Cos45 / radius_wheel) * sin(- chassis.x[4] + pi/4);
+						r_ang_vel_wheel_3_bwd_fwd       = (vx_ref * Cos45 / radius_wheel) * cos(- chassis.x[4] + pi/4);
+						r_ang_vel_wheel_4_bwd_fwd       = (vx_ref * Cos45 / radius_wheel) * sin(- chassis.x[4] + pi/4);
 						// Left/Right
-						r_ang_vel_wheel_1_left_right    = (vy_ref * c / radius_wheel) * cos(+ chassis.x[4] + pi/4);
-						r_ang_vel_wheel_2_left_right    = (vy_ref * c / radius_wheel) * sin(+ chassis.x[4] + pi/4);
-						r_ang_vel_wheel_3_left_right    = (vy_ref * c / radius_wheel) * cos(+ chassis.x[4] + pi/4);
-						r_ang_vel_wheel_4_left_right    = (vy_ref * c / radius_wheel) * sin(+ chassis.x[4] + pi/4);
+						r_ang_vel_wheel_1_left_right    = (vy_ref * Cos45 / radius_wheel) * cos(+ chassis.x[4] + pi/4);
+						r_ang_vel_wheel_2_left_right    = (vy_ref * Cos45 / radius_wheel) * sin(+ chassis.x[4] + pi/4);
+						r_ang_vel_wheel_3_left_right    = (vy_ref * Cos45 / radius_wheel) * cos(+ chassis.x[4] + pi/4);
+						r_ang_vel_wheel_4_left_right    = (vy_ref * Cos45 / radius_wheel) * sin(+ chassis.x[4] + pi/4);
 						// Chassis contiguous rotation
 						if (vx_ref == 0 && vy_ref == 0){
 							w_target = rot_ang_vel_wheels;
@@ -284,10 +289,10 @@ void control_loop_chassis() {
     chassis.r_x[1] = (+ r_ang_vel_wheel_2_bwd_fwd + r_ang_vel_wheel_2_left_right) + r_ang_vel_wheels_chassis_yaw;
     chassis.r_x[2] = (- r_ang_vel_wheel_3_bwd_fwd + r_ang_vel_wheel_3_left_right) + r_ang_vel_wheels_chassis_yaw;
     chassis.r_x[3] = (- r_ang_vel_wheel_4_bwd_fwd - r_ang_vel_wheel_4_left_right) + r_ang_vel_wheels_chassis_yaw;
-		saturate(&chassis.r_x[0], 44.0f);
-		saturate(&chassis.r_x[1], 44.0f);
-		saturate(&chassis.r_x[2], 44.0f);
-		saturate(&chassis.r_x[3], 44.0f);
+		saturate(&chassis.r_x[0], 44.9f);
+		saturate(&chassis.r_x[1], 44.9f);
+		saturate(&chassis.r_x[2], 44.9f);
+		saturate(&chassis.r_x[3], 44.9f);
 //    /*
 //     * Optimal saturation: if one wheel exceeds the physical speed limit, scale
 //     * all wheels down by the same factor to preserve the correct motion profile.

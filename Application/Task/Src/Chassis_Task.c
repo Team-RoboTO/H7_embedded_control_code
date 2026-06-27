@@ -2,7 +2,6 @@
 #include "cmsis_os.h"
 #include "Chassis_control.h"
 #include "state_machine.h"
-#include "INA228.h"
 
 void Chassis_Task(void const * argument)
 {

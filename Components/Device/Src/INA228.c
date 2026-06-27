@@ -1,5 +1,4 @@
 #include "INA228.h"
-#include <string.h>
 
 float err = 0;
 
@@ -71,17 +70,17 @@ uint8_t INA228_Init(void)
     return 0;  // success
 }
 
-fp32 INA228_ReadBusVoltage(void)
+float INA228_ReadBusVoltage(void)
 {
     uint32_t raw24 = 0;
     if (INA228_ReadReg24(INA228_REG_VBUS, &raw24) != HAL_OK) return -1.0f;
 
     // 20-bit unsigned, bits [23:4]
     uint32_t val20 = raw24 >> 4;
-    return ((fp32)val20) * INA228_VBUS_LSB;
+    return ((float)val20) * INA228_VBUS_LSB;
 }
 
-fp32 INA228_ReadShuntVoltage(void)
+float INA228_ReadShuntVoltage(void)
 {
     uint32_t raw24 = 0;
     if (INA228_ReadReg24(INA228_REG_VSHUNT, &raw24) != HAL_OK) return -1.0f;
@@ -91,10 +90,10 @@ fp32 INA228_ReadShuntVoltage(void)
     if (val20 & 0x80000)
         val20 |= (int32_t)0xFFF00000;
 
-    return ((fp32)val20) * INA228_VSHUNT_LSB;
+    return ((float)val20) * INA228_VSHUNT_LSB;
 }
 
-fp32 INA228_ReadCurrent(void)
+float INA228_ReadCurrent(void)
 {
     uint32_t raw24 = 0;
     if (INA228_ReadReg24(INA228_REG_CURRENT, &raw24) != HAL_OK) return -1.0f;
@@ -104,10 +103,10 @@ fp32 INA228_ReadCurrent(void)
     if (val20 & 0x80000)
         val20 |= (int32_t)0xFFF00000;
 
-    return ((fp32)val20) * INA228_CURRENT_LSB;
+    return ((float)val20) * INA228_CURRENT_LSB;
 }
 
-fp32 INA228_ReadPower(void)
+float INA228_ReadPower(void)
 {
     uint32_t raw24 = 0;
     HAL_StatusTypeDef result = INA228_ReadReg24(INA228_REG_POWER, &raw24);
@@ -121,17 +120,17 @@ fp32 INA228_ReadPower(void)
         // HAL_I2C_ERROR_BERR     = 0x01  ? electrical noise/corruption
         return -1.0f;
     }
-    return ((fp32)raw24) * INA228_POWER_LSB;
+    return ((float)raw24) * INA228_POWER_LSB;
 }
 
-fp32 INA228_ReadDieTemp(void)
+float INA228_ReadDieTemp(void)
 {
     uint16_t raw16 = 0;
     if (INA228_ReadReg16(INA228_REG_DIETEMP, &raw16) != HAL_OK) return -999.0f;
 
     // DIETEMP: 16-bit signed, bits [15:4] hold the temperature, LSB = 7.8125 mC
     int16_t val12 = (int16_t)(raw16) >> 4;
-    return ((fp32)val12) * 0.0078125f;
+    return ((float)val12) * 0.0078125f;
 }
 
 uint16_t INA228_ReadID(void)

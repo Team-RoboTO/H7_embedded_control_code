@@ -1,8 +1,6 @@
 #include "type_c_can.h"
-
 #include "fdcan.h"
 #include "bsp_can.h"
-
 #include <string.h>
 
 extern FDCAN_TxFrame_TypeDef FDCAN3_TxFrame;

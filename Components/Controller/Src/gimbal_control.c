@@ -8,10 +8,8 @@
 /* USER CODE END Header */
 
 #include "gimbal_control.h"
-#include "Robot_config.h"
 #include "state_machine.h"
 #include "INS_task.h"
-#include "math_utils.h"
 #include "Remote_Control.h"
 #include "chassis_control.h"
 #include "PID.h"
@@ -20,8 +18,6 @@
 #include "MiniPC.h"
 #include "control_utils.h"
 
-#include "rtt_log.h"
-#include "segger_rtt.h"
 
   /*************************/
  /*   CONTROLLED SYSTEM   */
@@ -37,10 +33,10 @@ controlled_system_t gimbal = {
  /*   CONTROLLERS   */
 /*******************/
 
-PID_Info_TypeDef pid_yaw_pos;
+static PID_Info_TypeDef pid_yaw_pos;
 
 // Yaw Position PID params: KP, KI, KD, Alpha, Deadband, LimitIntegral, LimitOutput
-float pid_yaw_pos_params[PID_PARAMETER_NUM] = {15.0f, 0.0f, 2.0f, 0.0f, 0.0f, 10.0f, 30.0f};
+static float pid_yaw_pos_params[PID_PARAMETER_NUM] = {15.0f, 0.0f, 2.0f, 0.0f, 0.0f, 10.0f, 30.0f};
 
   /*************************/
  /*   CONTROL VARIABLES   */
@@ -54,7 +50,11 @@ static float yaw_command_from_cv = 0;
 static float pitch_command_from_cv = 0;
 static float time_stamp_cv_prev;
 
-float k_ff_yaw = 0.84f;
+#if IS_STD || IS_SENTRY
+static float k_ff_yaw = 0.84f;
+#elif IS_HERO
+static float k_ff_yaw = 1.5f;
+#endif
 
 float KD_yaw = 0.8f;//0.8f;
 float KD_pitch = 1.0f;
@@ -63,9 +63,10 @@ float KP_pitch = 20.0f;
 static bool is_first_iter = true;
 static bool is_homing = true;
 
-float pitch_zero;
+static float pitch_zero;
 
-float acc_yaw = 350.0f;
+static float acc_yaw = 350.0f;
+static float pid_yaw_out;
 
   /********************/
  /*   CONTROL LOOP   */
@@ -186,7 +187,7 @@ void control_loop_gimbal() {
  /*   CONTROL LOOP EXECUTION  */
 /*****************************/
 
-	float pid_yaw_out = PID_Calculate(&pid_yaw_pos, gimbal.r_x[0], gimbal.x[0]);
+	pid_yaw_out = PID_Calculate(&pid_yaw_pos, gimbal.r_x[0], gimbal.x[0]);
 	gimbal.u[0] = pid_yaw_out - ( k_ff_yaw * w );
 		
 	if (is_homing == 0) saturate_in_range(&gimbal.r_x[1],pitch_zero - 20*DEG_TO_RAD , 1*DEG_TO_RAD);

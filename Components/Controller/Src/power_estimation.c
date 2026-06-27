@@ -1,17 +1,7 @@
 #include "power_estimation.h"
-#include "controlled_system.h"
-#include "arm_math.h"
 #include "robot_config.h"
 #include "cubemars_motor.h"
-#include "rtt_log.h"
-#include "segger_rtt.h"
-#include "type_c_can.h"
-#include "INA228.h"
-#include "usart.h"
 #include "LPF.h"
-#include "chassis_control.h"
-#include <stdio.h>
-#include <string.h>
 
 // Costanti fisiche e parametri calibrati con MATLAB
 const float KT_OUT         = 0.056f * 10.0f;      // KT * Rapporto di riduzione = 0.56
@@ -43,6 +33,9 @@ float estimated_total_power = 0.0f;
 float values[4];
 bool is_first_iter = true;
 
+static float MIT_kd_base = 0.2f;
+
+
 // Funzione ausiliaria per filtro mediano a 3 elementi
 static float median3(float a, float b, float c) {
     if (a > b) { float t = a; a = b; b = t; }
@@ -51,18 +44,6 @@ static float median3(float a, float b, float c) {
     return b;
 }
 
-/**
- * @brief Trasmissione dati di potenza all'ESP32 via UART10
- */
-void Power_SendData(uint32_t ts_ms, float power_est, float power_meas)
-{
-    char buf[64];
-    uint16_t len = (uint16_t)snprintf(buf, sizeof(buf),
-        "$TS:%lu,PEST:%.3f,PMEAS:%.3f\n",
-        (unsigned long)ts_ms, power_est, power_meas
-    );
-    HAL_UART_Transmit(&huart10, (uint8_t*)buf, len, 10);
-}
 
 /**
  * @brief Algoritmo di stima e limitazione di potenza dello chassis
@@ -130,16 +111,7 @@ void chassis_power_control(uint16_t limit, float *r_x, float *mit_kd)
         estimated_total_power += estimated_give_power[i];
     }
 
-    /***********************************************************
-     * 2. DATA LOGGING & TRANSMISSION
-     ***********************************************************/
-    uint32_t ts = HAL_GetTick();
-    Power_SendData(ts, estimated_total_power, Type_C_Can.value1);
-
-    values[0] = Type_C_Can.value1;       // Potenza reale letta dal sensore
-    values[1] = estimated_total_power;
-    RTT_Log(values, 2);
-
+    
     /***********************************************************
      * 3. CALCOLO ALPHA_GOVERNOR
      *

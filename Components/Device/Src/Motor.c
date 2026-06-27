@@ -17,8 +17,6 @@
 #include "DJI_Motor.h"
 #include "Damiao_Motor.h"
 #include "Cubemars_Motor.h"
-/* Ensure the header with the ID macros is included here, e.g.: */
-// #include "Motor_Config.h" 
 
 /* ===========================================================================
  *  NEW ROBOT DEFINITIONS
@@ -43,7 +41,7 @@ CM_Motor_Info_Typedef CM_Chassis_Motor[4] = {
         },
         .Param_Range = {
             .P_MAX  = 12.5f,
-            .V_MAX  = 50.0f,
+            .V_MAX  = 45.0f,
             .T_MAX  = 25.0f,
             .KP_MAX = 500.0f,
             .KD_MAX = 5.0f,
@@ -58,7 +56,7 @@ CM_Motor_Info_Typedef CM_Chassis_Motor[4] = {
         },
         .Param_Range = {
             .P_MAX  = 12.5f,
-            .V_MAX  = 50.0f,
+            .V_MAX  = 45.0f,
             .T_MAX  = 25.0f,
             .KP_MAX = 500.0f,
             .KD_MAX = 5.0f,
@@ -73,7 +71,7 @@ CM_Motor_Info_Typedef CM_Chassis_Motor[4] = {
         },
         .Param_Range = {
             .P_MAX  = 12.5f,
-            .V_MAX  = 50.0f,
+            .V_MAX  = 45.0f,
             .T_MAX  = 25.0f,
             .KP_MAX = 500.0f,
             .KD_MAX = 5.0f,
@@ -88,7 +86,7 @@ CM_Motor_Info_Typedef CM_Chassis_Motor[4] = {
         },
         .Param_Range = {
             .P_MAX  = 12.5f,
-            .V_MAX  = 50.0f,
+            .V_MAX  = 45.0f,
             .T_MAX  = 25.0f,
             .KP_MAX = 500.0f,
             .KD_MAX = 5.0f,

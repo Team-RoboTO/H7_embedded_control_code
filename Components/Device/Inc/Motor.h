@@ -73,6 +73,12 @@
 #define DM_REV_TX_ID       0x09
 #define DM_REV_RX_ID       0x19
 
+typedef enum {
+    Motor_Enable,
+    Motor_Disable,
+    Motor_Save_Zero_Position,
+    Motor_CMD_Type_Num,
+} Motor_CMD_Type_e;
 
 
 #endif

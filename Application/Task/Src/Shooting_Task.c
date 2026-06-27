@@ -1,7 +1,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "cmsis_os.h"
 #include "shooting_control.h"
-#include "state_machine.h"
 
 
 void Shooting_Task(void const * argument)
