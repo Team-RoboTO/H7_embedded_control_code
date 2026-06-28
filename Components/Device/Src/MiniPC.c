@@ -92,9 +92,4 @@ void MiniPC_Receive_Info(uint8_t *Buff, uint32_t Len)
         memcpy(&Rx_miniPC_fp32_data[i], &Buff[i * sizeof(float)], sizeof(float));	
     }
 		
-		if(first_message && time_cv > 0){
-				Buzzer_PlayNote(1000, 2000);
-				first_message = 0;
-		}
-		
 }

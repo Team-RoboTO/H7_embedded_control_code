@@ -8,6 +8,12 @@
 #include "Remote_Control.h"
 #include "control_utils.h"
 
+float lidar_home_position = -1;
+float LIDAR_CURRENT_TRESHOLD = 2000;
+float CALIBRATION_SPEED =  10; // rad/s
+float SETPOINT_DISTANCE = 105.0f;
+
+
   /*************************/
  /*   CONTROLLED SYSTEM   */
 /*************************/
@@ -26,14 +32,13 @@ static PID_Info_TypeDef pid_ll_pos;
 static PID_Info_TypeDef pid_ll_vel;
 
 // LL position PID (outer loop): KP is overwritten at runtime per shooting mode
-static float pid_ll_pos_params[PID_PARAMETER_NUM] = {5.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 20.0f}; // TODO: tune
+static float pid_ll_pos_params[PID_PARAMETER_NUM] = {2.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 20.0f}; // TODO: tune
 
 // LL velocity PID (inner loop)
-static float pid_ll_vel_params[PID_PARAMETER_NUM] = {1.0f,  0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 5.0f}; // TODO: tune
+static float pid_ll_vel_params[PID_PARAMETER_NUM] = {0.6f,  0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 3.0f}; // TODO: tune
 
 static uint8_t is_first_iter                       = true;
 
-static float lidar_home_position = -1;
 
   /********************/
  /*   CONTROL LOOP   */

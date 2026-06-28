@@ -7,10 +7,6 @@
 
 #include "controlled_system.h"
 
-#define LIDAR_CURRENT_TRESHOLD 3000
-#define CALIBRATION_SPEED 10 // rad/s
-#define SETPOINT_DISTANCE 105.0f
-
   /*************************/
  /*   CONTROLLED SYSTEM   */
 /*************************/
