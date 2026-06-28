@@ -17,7 +17,9 @@
 #include "damiao_motor.h"
 #include "MiniPC.h"
 #include "control_utils.h"
+#include "usart.h"
 
+__attribute__((section(".AXI_SRAM"), aligned(32))) uint8_t Data[64];
 
   /*************************/
  /*   CONTROLLED SYSTEM   */
@@ -190,6 +192,25 @@ void control_loop_gimbal() {
 	pid_yaw_out = PID_Calculate(&pid_yaw_pos, gimbal.r_x[0], gimbal.x[0]);
 	gimbal.u[0] = pid_yaw_out - ( k_ff_yaw * w );
 		
-	if (is_homing == 0) saturate_in_range(&gimbal.r_x[1],pitch_zero - 20*DEG_TO_RAD , 1*DEG_TO_RAD);
+static uint32_t uart_tx_counter = 0;
+uart_tx_counter++;
 
+if (uart_tx_counter >= 10) {  // ogni 10ms
+    uart_tx_counter = 0;
+    int len;
+    
+    len = snprintf(Data, sizeof(Data), "$TS:%d,NAME:YAW_ANGLE,VAL:%.4f\n", HAL_GetTick(), gimbal.x[0]);
+    HAL_UART_Transmit_DMA(&huart10, (uint8_t*)Data, len);
+
+    len = snprintf(Data, sizeof(Data), "$TS:%d,NAME:YAW_REFERENCE,VAL:%.4f\n", HAL_GetTick(), gimbal.r_x[0]);
+    HAL_UART_Transmit_DMA(&huart10, (uint8_t*)Data, len);
+
+//    len = snprintf(Data, sizeof(Data), "$TS:%lu,NAME:vx_ref,VAL:%.4f\n", t, vx_ref);
+//    HAL_UART_Transmit_DMA(&huart7, (uint8_t*)Data, len);
+
+//    len = snprintf(Data, sizeof(Data), "$TS:%lu,NAME:vy_ref,VAL:%.4f\n", t, vy_ref);
+//    HAL_UART_Transmit_DMA(&huart7, (uint8_t*)Data, len);
+}
+		
+		
 }
