@@ -12,6 +12,7 @@
 #include "DJI_Motor.h"
 #include "Chassis_control.h"
 #include "INS_Task.h"
+#include "state_machine.h"
 
 
 /* ============================================================================
@@ -975,7 +976,7 @@ static void draw_pitch_limits(uint8_t op)
 }
 
 /* ============================================================================
- * ALARMS: SPIN WARNING, MOTOR FAULT, FEEDER STATE
+ * ALARMS: SPIN WARNING, MOTOR FAULT
  * ============================================================================ */
 
 uint8_t  spin_warning_color = 0;
@@ -1021,6 +1022,37 @@ static void draw_motor_fault_line(const char *label, uint8_t na, uint8_t nb, uin
 
 char full_text[128];
 char text[128];
+
+static void draw_rev_state( uint8_t op){
+	
+	switch(state_rev){
+		case REV_STOP:
+			send_char_graphic("REV: STOP", 'R', 'E', 'V', 7, GRAPHIC_COLOUR_PURPLISH_RED,
+                      FONT_SIZE, CHAR_WIDTH,
+                      50,300, op);
+										break;
+		case REV_SINGLE_SHOOTING:
+			send_char_graphic("REV: SINGLE", 'R', 'E', 'V', 7, GRAPHIC_COLOUR_PURPLISH_RED,
+                      FONT_SIZE, CHAR_WIDTH,
+                      50,300, op);
+										break;
+		case REV_MULTIPLE_SHOOTING:
+			send_char_graphic("REV: MULTIPLE", 'R', 'E', 'V', 7, GRAPHIC_COLOUR_PURPLISH_RED,
+                      FONT_SIZE, CHAR_WIDTH,
+                      50,300, op);
+								break;		
+		case REV_UNSTUCK:
+			send_char_graphic("REV: UNSTUCK", 'R', 'E', 'V', 7, GRAPHIC_COLOUR_PURPLISH_RED,
+                      FONT_SIZE, CHAR_WIDTH,
+                      50,300, op);
+								break;
+		default:
+			break;
+	
+	}
+
+
+}
 
 static void draw_motor_fault(uint8_t op)
 {
@@ -1173,6 +1205,7 @@ static void draw_all_static(uint8_t op, uint16_t robot_id)
     draw_crosshair(op);
     draw_pitch_ticks(op);
     draw_pitch_limits(op);
+	  draw_rev_state(op);
     draw_team_flag(op, robot_id);
 }
 
