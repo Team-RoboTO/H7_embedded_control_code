@@ -66,6 +66,9 @@ static uint8_t need_to_set_push_ang_pos_reference = true;
 bool unstuck_push_enabled = false;
 #endif
 
+
+uint32_t test_shooting = 0;
+uint32_t test_stop = 0;
   /*************************/
  /*         INIT          */
 /*************************/
@@ -93,6 +96,7 @@ void _shooting_control_init(void)
 	
     rev_and_push.x[0]   = DM_Rev_Motor.Data.Position;
     rev_and_push.r_x[1] = rev_and_push.x[0]; /* slew starts at current pos */
+		rev_and_push.r_x[2] = (float)DJI_Push_Motor.Data.Angle_sum;
 #endif
 	is_first_iter = false;
 }
@@ -287,6 +291,8 @@ void _control_loop_rev(void)
 								rev_and_push.r_x[0] -= (6.0f * pi) / 7.0f;
 							}
             }
+						need_to_set_rev_ang_pos_reference=false;
+
 						unstuck_rev_enabled = false;
             break;
 
@@ -314,12 +320,9 @@ void _control_loop_push(void)
         rev_and_push.ud[0] = 0;
         pid_push_pos.PID_Calc_Clear(&pid_push_pos);
         pid_push_vel.PID_Calc_Clear(&pid_push_vel);
+				rev_and_push.r_x[2] = rev_and_push.x[2];          // <-- latch target to current pos
+				need_to_set_push_ang_pos_reference = true;        // <-- require a fresh trigger
         return;
-    }
-
-    /* Latch position reference on first iteration */
-    if (is_first_iter) {
-        rev_and_push.r_x[2] = rev_and_push.x[2];
     }
 
     /* Setpoint generation */
@@ -327,12 +330,14 @@ void _control_loop_push(void)
 
         case PUSH_STOP:
             need_to_set_push_ang_pos_reference = true;
+						test_stop++;
             break;
 
         case PUSH_SINGLE_SHOOTING:
             if (need_to_set_push_ang_pos_reference && !unstuck_push_enabled) {
                 rev_and_push.r_x[2] = rev_and_push.x[2] + (float)(2.0f * pi / 2.0f);
                 need_to_set_push_ang_pos_reference = false;
+								test_shooting++;
             }
             break;
 

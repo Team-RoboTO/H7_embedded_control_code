@@ -119,7 +119,18 @@ void robot_states_update_state_machine(void) {
 uint8_t _state_machine_remote_commands(void) {
 
     switch (RC_info.RC.Switch) {
-        case 0:  return COMMANDS_STOP;
+        case 0:  
+					 #if IS_STD || IS_HERO
+							return COMMANDS_STOP;
+					 #elif IS_SENTRY
+							if(Referee_System_Info.game_status.game_progress == 0){
+								return COMMANDS_STOP;
+							}
+							else {
+								return COMMANDS_AUTONOMUS;
+							}
+						#endif
+							
         case 1:  return (RC_info.RC.Right == 0) ? COMMANDS_REMOTE_CONTROLLER
                                                 : COMMANDS_KEYBOARD_MOUSE;
         case 2:  return COMMANDS_AUTONOMUS;
@@ -281,6 +292,9 @@ uint8_t _state_machine_rev(void) {
 	
     _update_barrel_heat_logic();
     
+		if(Referee_System_Info.game_status.game_progress != 4 && Referee_System_Info.game_status.game_progress != 0){
+				return REV_STOP;
+		}
     switch (state_remote_commands) {
         case COMMANDS_REMOTE_CONTROLLER: return _state_machine_rev_remote_controller();
         case COMMANDS_KEYBOARD_MOUSE:    return _state_machine_rev_keyboard_mouse();
@@ -365,6 +379,12 @@ uint8_t _state_machine_rev_autonomus(void) {
 /*************************/
 
 uint8_t _state_machine_lidar_lifter(void) {
+		if(Referee_System_Info.game_status.game_progress == 4){
+				return LIDAR_UP;
+		}
+		else if(Referee_System_Info.game_status.game_progress == 5){
+				return LIDAR_DOWN;
+		}
     return (RC_info.RC.Stop == 1) ? LIDAR_UP : LIDAR_DOWN;
 }
 

@@ -223,7 +223,7 @@ DJI_Motor_Info_Typedef DJI_Lidar_Motor = {
 					.RxIdentifier = CM_PITCH_RX_ID,
 			},
 			.Param_Range = {
-					.P_MAX  = 3.141593f,
+					.P_MAX  = 12.5f,
 					.V_MAX  = 45.0f,
 					.T_MAX  = 25.0f,
 					.KP_MAX = 500.0f,

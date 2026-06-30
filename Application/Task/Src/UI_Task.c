@@ -59,6 +59,7 @@ static int prev_motor_error   = -1;
 static int prev_feeder_state  = -1;
 static int motor_fault_enabled  = 0;
 static int feeder_state_enabled = 0;
+static int prev_state_rev = -1;
 
 /* TX synchronization: semaphore released on DMA TxCplt */
 static osSemaphoreId ui_tx_done_sem  = NULL;  /* signaled when DMA completes */
@@ -637,8 +638,8 @@ static void draw_crosshair(uint8_t op)
     // 3. Center Dot (Lethal red laser dot)
     g = (graphic_data_struct_t *)(tx_buffer + pos);
     set_name(g, 'D', 'O', 'T'); g->layer = 0; g->color = GRAPHIC_COLOUR_PURPLISH_RED;
-    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_CIRCLE; g->width = 4;
-    g->start_x = CENTER_X; g->start_y = CENTER_Y;
+    g->operation_type = op; g->graphic_type = GRAPHIC_TYPE_CIRCLE; g->width = 20;
+    g->start_x = CENTER_X; g->start_y = CENTER_Y-40;
     g->details_c = 2;
     pos += sizeof(graphic_data_struct_t);
 
@@ -1012,6 +1013,9 @@ static void update_spin_warning(void)
     prev_spin_warning = current;
 }
 
+
+
+
 static void draw_motor_fault_line(const char *label, uint8_t na, uint8_t nb, uint8_t nc,
                                   uint8_t row, uint8_t op)
 {
@@ -1023,35 +1027,40 @@ static void draw_motor_fault_line(const char *label, uint8_t na, uint8_t nb, uin
 char full_text[128];
 char text[128];
 
-static void draw_rev_state( uint8_t op){
-	
-	switch(state_rev){
-		case REV_STOP:
-			send_char_graphic("REV: STOP", 'R', 'E', 'V', 7, GRAPHIC_COLOUR_PURPLISH_RED,
-                      FONT_SIZE, CHAR_WIDTH,
-                      50,300, op);
-										break;
-		case REV_SINGLE_SHOOTING:
-			send_char_graphic("REV: SINGLE", 'R', 'E', 'V', 7, GRAPHIC_COLOUR_PURPLISH_RED,
-                      FONT_SIZE, CHAR_WIDTH,
-                      50,300, op);
-										break;
-		case REV_MULTIPLE_SHOOTING:
-			send_char_graphic("REV: MULTIPLE", 'R', 'E', 'V', 7, GRAPHIC_COLOUR_PURPLISH_RED,
-                      FONT_SIZE, CHAR_WIDTH,
-                      50,300, op);
-								break;		
-		case REV_UNSTUCK:
-			send_char_graphic("REV: UNSTUCK", 'R', 'E', 'V', 7, GRAPHIC_COLOUR_PURPLISH_RED,
-                      FONT_SIZE, CHAR_WIDTH,
-                      50,300, op);
-								break;
-		default:
-			break;
-	
-	}
-
-
+static void draw_rev_state(uint8_t op)
+{
+    // Ho inserito un piccolo offset (CENTER_X - 60) per centrare meglio il testo
+    switch(state_rev){
+        case REV_STOP:
+            send_char_graphic("REV: STOP", 'R', 'E', 'V', 7, GRAPHIC_COLOUR_PURPLISH_RED,
+                              FONT_SIZE_SMALL, CHAR_WIDTH, 
+                              50, CENTER_Y + 200, op);
+            break;
+            
+        case REV_SINGLE_SHOOTING:
+            send_char_graphic("REV: SINGLE", 'R', 'E', 'V', 7, GRAPHIC_COLOUR_PURPLISH_RED,
+                              FONT_SIZE_SMALL, CHAR_WIDTH, 
+                              50, CENTER_Y + 200, op);
+            break;
+            
+        case REV_MULTIPLE_SHOOTING:
+            send_char_graphic("REV: MULTIPLE", 'R', 'E', 'V', 7, GRAPHIC_COLOUR_PURPLISH_RED,
+                              FONT_SIZE_SMALL, CHAR_WIDTH, 
+                              50, CENTER_Y + 200, op);
+            break;      
+            
+        case REV_UNSTUCK:
+            send_char_graphic("REV: UNSTUCK", 'R', 'E', 'V', 7, GRAPHIC_COLOUR_PURPLISH_RED,
+                              FONT_SIZE_SMALL, CHAR_WIDTH, 
+                              50, CENTER_Y + 200, op);
+            break;
+            
+        default:
+            send_char_graphic("REV: ???", 'R', 'E', 'V', 7, GRAPHIC_COLOUR_YELLOW,
+                              FONT_SIZE_SMALL, CHAR_WIDTH, 
+                              50, CENTER_Y + 200, op);
+            break;
+    }
 }
 
 static void draw_motor_fault(uint8_t op)
@@ -1145,6 +1154,16 @@ static void update_motor_fault(void)
         motor_fault_enabled = 1;
     } else{
         draw_motor_fault(GRAPHIC_MODIFY);
+    }
+}
+
+static void update_rev_state(void)
+{
+    if (prev_state_rev != state_rev) {
+
+        draw_rev_state(GRAPHIC_ADD);
+        
+        prev_state_rev = state_rev;
     }
 }
 
@@ -1269,23 +1288,23 @@ void UI_Task(void const * argument)
     set_top_coordinates();
 
     uint16_t current_robot_id = 0;
-		uint8_t  prev_progress = 0;
-		uint8_t  prev_q = 0;
+    uint8_t  prev_progress = 0;
+    uint8_t  prev_q = 0;
 
     for (;;)
     {
         uint16_t rid = Referee_System_Info.robot_status.robot_id;
-				uint8_t  progress = Referee_System_Info.game_status.game_progress;
-				uint8_t  q = RC_info.Key.Set.Q;
+        uint8_t  progress = Referee_System_Info.game_status.game_progress;
+        uint8_t  q = RC_info.Key.Set.Q;
 
-				uint8_t id_changed   = (rid != 0 && rid != current_robot_id);
-				uint8_t entered_game = (progress == 3 && prev_progress != 3);  // rising edge
-				uint8_t q_pressed    = (q && !prev_q); 
+        uint8_t id_changed   = (rid != 0 && rid != current_robot_id);
+        uint8_t entered_game = (progress == 3 && prev_progress != 3);  // rising edge
+        uint8_t q_pressed    = (q && !prev_q); 
 
         if (id_changed || entered_game || q_pressed) {
             current_robot_id = rid;
             map_robot_id(current_robot_id);
-				
+            
             osDelay(500);
             clear_hud();
 
@@ -1302,6 +1321,7 @@ void UI_Task(void const * argument)
             prev_feeder_state  = -1;
             motor_fault_enabled  = 0;
             feeder_state_enabled = 0;
+            prev_state_rev     = -1; 
         }
         else if (current_robot_id != 0) {
             poll_inputs();
@@ -1310,10 +1330,14 @@ void UI_Task(void const * argument)
             update_text_if_changed();
             update_spin_warning();
             update_motor_fault();
+            
+            update_rev_state(); 
+            
             //update_feeder();
         }
-				prev_progress = progress;
-				prev_q = q;
+        
+        prev_progress = progress;
+        prev_q = q;
 
         vTaskDelay(xPeriod);
     }

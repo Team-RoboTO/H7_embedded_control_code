@@ -10,9 +10,9 @@ const float K2_IRON        = 0.0094727f;          // Attrito viscoso ottimizzato
 const float P0_STATIC      = 1.8125f;             // Consumo statico in standby
 
 #if IS_STD || IS_SENTRY
-const float CHASSIS_POWER_SCALE = 0.40692f;       // Fattore di scala globale calcolato
+float CHASSIS_POWER_SCALE = 0.40692f;       // Fattore di scala globale calcolato
 #elif IS_HERO
-const float CHASSIS_POWER_SCALE = 0.7f;//         // Fattore di scala globale calcolato
+float CHASSIS_POWER_SCALE = 0.43f;//         // Fattore di scala globale calcolato
 #endif
 
 // Strutture per Filtro Passa Basso (LPF)
@@ -31,7 +31,7 @@ static float alpha_governor = 1.0f;
 // Variabili globali di telemetria
 float estimated_total_power = 0.0f;
 float values[4];
-bool is_first_iter = true;
+static bool is_first_iter = true;
 
 static float MIT_kd_base = 0.2f;
 

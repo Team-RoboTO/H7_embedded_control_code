@@ -69,9 +69,17 @@ static float acc_yaw = 350.0f;
 static float pid_yaw_out;
 
 extern bool first_command_on;
+
+float lim_vel_pitch = 0.006f;
   /********************/
  /*   CONTROL LOOP   */
 /********************/
+
+static void limit_pitch_velocity(float *r_x_new, float r_x_prev, float max_step) {
+    float delta = *r_x_new - r_x_prev;
+    if (delta >  max_step) *r_x_new = r_x_prev + max_step;
+    if (delta < -max_step) *r_x_new = r_x_prev - max_step;
+}
 
 void control_loop_gimbal() {
     // update system state from IMU/INS sensors
@@ -107,10 +115,12 @@ void control_loop_gimbal() {
 				// reset both PIDs on stop
 				pid_yaw_pos.PID_Calc_Clear(&pid_yaw_pos);
 			  gimbal.r_x[1] = CM_Pitch_Motor.Data.Position;
-			  is_homing = 1;
+			  //is_homing = 1;
 			  is_first_iter = 1;
         return;
     }
+		
+		gimbal.r_x_prev[1] = gimbal.r_x[1];
 		
 		if (is_homing == 1 && !first_command_on) {
 			
@@ -183,7 +193,8 @@ void control_loop_gimbal() {
         default:
             break;
     }
-
+		
+			
   /*****************************/
  /*   CONTROL LOOP EXECUTION  */
 /*****************************/
@@ -191,6 +202,8 @@ void control_loop_gimbal() {
 	pid_yaw_out = PID_Calculate(&pid_yaw_pos, gimbal.r_x[0], gimbal.x[0]);
 	gimbal.u[0] = pid_yaw_out - ( k_ff_yaw * w );
 		
-	if (is_homing == 0) saturate_in_range(&gimbal.r_x[1],pitch_zero - 20*DEG_TO_RAD , 1*DEG_TO_RAD);
+	limit_pitch_velocity(&gimbal.r_x[1], gimbal.r_x_prev[1], lim_vel_pitch);
+
+	if (is_homing == 0) saturate_in_range(&gimbal.r_x[1],pitch_zero - 10*DEG_TO_RAD, 1*DEG_TO_RAD);
 
 }

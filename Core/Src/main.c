@@ -143,8 +143,6 @@ int main(void)
 	//EventRecorderInitialize(EventRecordAll, 1U);
 	//EventRecorderStart();
 	
-	HAL_Delay(1000);  // DO NOT DELETE THIS. NEEDED FOR PITCH MOTOR ZERO 
-	
 	
   /* USER CODE END 2 */
 
