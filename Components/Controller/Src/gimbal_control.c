@@ -68,6 +68,7 @@ static float pitch_zero;
 static float acc_yaw = 350.0f;
 static float pid_yaw_out;
 
+extern bool first_command_on;
   /********************/
  /*   CONTROL LOOP   */
 /********************/
@@ -111,7 +112,7 @@ void control_loop_gimbal() {
         return;
     }
 		
-		if (is_homing == 1) {
+		if (is_homing == 1 && !first_command_on) {
 			
 			gimbal.r_x[1] -= 0.01 * 	DEG_TO_RAD;
 			

@@ -38,9 +38,14 @@ static bool first_message = 1;
   */
  void MiniPC_Prepare_Tx_Data(float *Tx_data)
 {
+	
     Tx_data[0] = gimbal.x[0];    																											/* radians */
-    Tx_data[1] = CM_Pitch_Motor.Data.Position*45.0f/25.0f;  													/* float, degrees */
-	  	
+		#if IS_STD || IS_SENTRY
+			Tx_data[1] = CM_Pitch_Motor.Data.Position*45.0f/25.0f;  													/* float, degrees */
+	  #elif IS_HERO
+			Tx_data[1] = CM_Pitch_Motor.Data.Position;
+		#endif
+	
 	  Tx_data[2] = vx;   																																/* linear velocity  [float, m/s]   */
     Tx_data[3] = vy;   																																/* angular velocity [float, rad/s] */
 		

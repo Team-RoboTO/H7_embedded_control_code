@@ -25,6 +25,7 @@ static bool reborn = 0;
 static uint16_t current_hp = 0;
 static uint16_t prev_hp = 0;
 static uint8_t split_flag = 0;
+bool first_command_on = 1;
 
 void CAN_Task(void const * argument)
 {
@@ -56,12 +57,12 @@ void CAN_Task(void const * argument)
 				
 				/* One-time init */
         if (is_init) {
+						CM_Motor_Command(&FDCAN1_TxFrame, &CM_Pitch_Motor, Motor_Save_Zero_Position);
+            osDelay(30);
 						#if IS_HERO
 							DM_Motor_Command(&FDCAN3_TxFrame, &DM_Rev_Motor, Motor_Save_Zero_Position);
 							osDelay(30);
 						#endif
-						CM_Motor_Command(&FDCAN1_TxFrame, &CM_Pitch_Motor, Motor_Save_Zero_Position);
-            osDelay(30);
             is_init = 0;
         }
 				
@@ -93,8 +94,14 @@ void CAN_Task(void const * argument)
             is_first_iter = 1;
         }
         else if (is_first_iter == 1 || reborn) {
-						if (reborn) osDelay(2200);  // wait for power after reborn
+						if (reborn) osDelay(3000);  // wait for power after reborn
 					
+						if(first_command_on){
+								CM_Motor_Command(&FDCAN1_TxFrame, &CM_Pitch_Motor, Motor_Save_Zero_Position);
+								osDelay(30);
+								first_command_on = 0;
+						}
+						
             CM_Motor_Command(&FDCAN2_TxFrame, &CM_Chassis_Motor[0], Motor_Enable);
             osDelay(30);
             CM_Motor_Command(&FDCAN2_TxFrame, &CM_Chassis_Motor[1], Motor_Enable);
@@ -132,10 +139,11 @@ void CAN_Task(void const * argument)
         }
 				
 				/* CAN1 comunication */
-				CM_Motor_CAN_TxMessage(&FDCAN1_TxFrame, &CM_Pitch_Motor, gimbal.r_x[1] * 25.0f / 45.0f, 0, KP_pitch, KD_pitch, 0);
 				#if IS_STD || IS_SENTRY
+				CM_Motor_CAN_TxMessage(&FDCAN1_TxFrame, &CM_Pitch_Motor, gimbal.r_x[1] * 25.0f / 45.0f, 0, KP_pitch, KD_pitch, 0);
 				DJI_M3508_M2006_TxMessage(&FDCAN1_TxFrame, shoot_wheels.ud[0], shoot_wheels.ud[1], rev_and_push.ud[0], lidar_lifter.ud[0]);
 				#elif IS_HERO
+				CM_Motor_CAN_TxMessage(&FDCAN1_TxFrame, &CM_Pitch_Motor, gimbal.r_x[1], 0, KP_pitch, KD_pitch, 0);
 				DJI_M3508_M2006_TxMessage(&FDCAN1_TxFrame, shoot_wheels.ud[0], shoot_wheels.ud[1], rev_and_push.ud[0], 0);
 				
 				/* CAN3 comunication */
