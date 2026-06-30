@@ -99,6 +99,7 @@ static float vy_body;
 
 static float linear_vel_lim = 4.9f;
 
+
 static LowPassFilter1p_Info_TypeDef lpf_vx;
 static LowPassFilter1p_Info_TypeDef lpf_vy;
 
@@ -198,13 +199,17 @@ void control_loop_chassis() {
     //Velocity profiler: rate-limit the target before feeding the PID ---
 	  
 		if (is_rotating == 0){
-				slewRateControl(&vx_ref, v_x_target, 3.0f, 25.0f, dt_chassis);
-				slewRateControl(&vy_ref, v_y_target, 3.0f, 25.0f, dt_chassis);
-
+				#if IS_HERO
+				slewRateControl(&vx_ref, v_x_target, 3.0f, 100.0f, dt_chassis);
+				slewRateControl(&vy_ref, v_y_target, 3.0f, 100.0f, dt_chassis);
+			  #elif IS_STD || IS_SENTRY
+				slewRateControl(&vx_ref, v_x_target, 4.0f, 100.0f, dt_chassis);
+				slewRateControl(&vy_ref, v_y_target, 4.0f, 100.0f, dt_chassis);
+				#endif
 		}
 		else {
-				slewRateControl(&vx_ref, v_x_target, 8.0f, 25.0f, dt_chassis);
-				slewRateControl(&vy_ref, v_y_target, 8.0f, 25.0f, dt_chassis);
+				slewRateControl(&vx_ref, v_x_target, 10.0f, 100.0f, dt_chassis);
+				slewRateControl(&vy_ref, v_y_target, 10.0f, 100.0f, dt_chassis);
 
 		}
 						
@@ -216,6 +221,9 @@ void control_loop_chassis() {
 						yaw_out_of_range = ((DM_Yaw_Motor.Data.Position > 3.0f) ||(DM_Yaw_Motor.Data.Position < 2.0f));
 
             if (is_rotating == 0) {
+								#if IS_HERO
+									linear_vel_lim = 2.5f;
+									#endif
                 // Forward/Backward
                 r_ang_vel_wheel_1_bwd_fwd    = vx_ref * Cos45 / radius_wheel;
                 r_ang_vel_wheel_2_bwd_fwd    = vx_ref * Cos45 / radius_wheel;
@@ -242,13 +250,20 @@ void control_loop_chassis() {
 							r_ang_vel_wheel_3_left_right    = (vy_ref * Cos45 / radius_wheel) * cos(+ chassis.x[4] + pi/4);
 							r_ang_vel_wheel_4_left_right    = (vy_ref * Cos45 / radius_wheel) * sin(+ chassis.x[4] + pi/4);
 							// Chassis contiguous rotation
-																						
+																		
+							#if IS_STD || IS_SENTRY
 							if (vx_ref == 0 && vy_ref == 0){
 								r_ang_vel_wheels_chassis_yaw = rot_ang_vel_wheels;
 							}
 							else {
 									r_ang_vel_wheels_chassis_yaw = 30.0f;
 							}
+							#elif IS_HERO
+							linear_vel_lim = 4.9f;
+							if (vx_ref == 0 && vy_ref == 0){
+								r_ang_vel_wheels_chassis_yaw = rot_ang_vel_wheels;
+							}
+							#endif
 							is_rotating = 1;
 							break;
             }
@@ -269,13 +284,19 @@ void control_loop_chassis() {
 						r_ang_vel_wheel_3_left_right    = (vy_ref * Cos45 / radius_wheel) * cos(+ chassis.x[4] + pi/4);
 						r_ang_vel_wheel_4_left_right    = (vy_ref * Cos45 / radius_wheel) * sin(+ chassis.x[4] + pi/4);
 						// Chassis contiguous rotation
-						if (vx_ref == 0 && vy_ref == 0){
-							w_target = rot_ang_vel_wheels;
-						}
-						else {
-								w_target = 30.0f;
-						}
-						r_ang_vel_wheels_chassis_yaw = w_target;
+						#if IS_STD || IS_SENTRY
+							if (vx_ref == 0 && vy_ref == 0){
+								r_ang_vel_wheels_chassis_yaw = rot_ang_vel_wheels;
+							}
+							else {
+									r_ang_vel_wheels_chassis_yaw = 30.0f;
+							}
+							#elif IS_HERO
+							linear_vel_lim = 4.9f;
+							if (vx_ref == 0 && vy_ref == 0){
+								r_ang_vel_wheels_chassis_yaw = rot_ang_vel_wheels;
+							}
+							#endif
 						//slewRateControl(&r_ang_vel_wheels_chassis_yaw, w_target, 10.0f, 15.0f, dt_chassis);
 						is_rotating = 1;
             break;

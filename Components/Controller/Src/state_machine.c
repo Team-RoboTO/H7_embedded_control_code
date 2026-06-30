@@ -291,10 +291,11 @@ int _check_rev_stuck(void) {
 uint8_t _state_machine_rev(void) {
 	
     _update_barrel_heat_logic();
-    
+    #if IS_SENTRY
 		if(Referee_System_Info.game_status.game_progress != 4 && Referee_System_Info.game_status.game_progress != 0){
 				return REV_STOP;
 		}
+		#endif
     switch (state_remote_commands) {
         case COMMANDS_REMOTE_CONTROLLER: return _state_machine_rev_remote_controller();
         case COMMANDS_KEYBOARD_MOUSE:    return _state_machine_rev_keyboard_mouse();

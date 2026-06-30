@@ -68,6 +68,10 @@ void CAN_Task(void const * argument)
 				
         /* If stop command arrived, disable motors once */
         if (state_remote_commands == COMMANDS_STOP) {
+					
+					  CM_Motor_CAN_TxMessage(&FDCAN1_TxFrame, &CM_Pitch_Motor, 0, 0, 0, 0, 0);
+						osDelay(30);
+					
 						CM_Motor_Command(&FDCAN1_TxFrame, &CM_Pitch_Motor, Motor_Disable);
             osDelay(30);
             CM_Motor_Command(&FDCAN2_TxFrame, &CM_Chassis_Motor[0], Motor_Disable);
@@ -83,6 +87,9 @@ void CAN_Task(void const * argument)
 						CM_Motor_Command(&FDCAN1_TxFrame, &CM_Pitch_Motor, Motor_Save_Zero_Position);
             osDelay(30);
 						
+					  CM_Motor_CAN_TxMessage(&FDCAN1_TxFrame, &CM_Pitch_Motor, 0, 0, 0, 0, 0);
+						osDelay(30);
+					
 						if (RC_info.RC.Left){
 								DM_Motor_Command(&FDCAN2_TxFrame, &DM_Yaw_Motor, Motor_Save_Zero_Position);
 								osDelay(30);
@@ -97,13 +104,18 @@ void CAN_Task(void const * argument)
         }
         else if (is_first_iter == 1 || reborn) {
 						if (reborn) osDelay(3000);  // wait for power after reborn
-					
+						
+					  CM_Motor_CAN_TxMessage(&FDCAN1_TxFrame, &CM_Pitch_Motor, 0, 0, 0, 0, 0);
+						osDelay(30);
+
 						if(first_command_on){
 								CM_Motor_Command(&FDCAN1_TxFrame, &CM_Pitch_Motor, Motor_Save_Zero_Position);
 								osDelay(30);
 								first_command_on = 0;
 						}
-						
+						CM_Motor_CAN_TxMessage(&FDCAN1_TxFrame, &CM_Pitch_Motor, 0, 0, 0, 0, 0);
+						osDelay(30);
+
             CM_Motor_Command(&FDCAN2_TxFrame, &CM_Chassis_Motor[0], Motor_Enable);
             osDelay(30);
             CM_Motor_Command(&FDCAN2_TxFrame, &CM_Chassis_Motor[1], Motor_Enable);
@@ -116,8 +128,13 @@ void CAN_Task(void const * argument)
             osDelay(30);
 						CM_Motor_Command(&FDCAN1_TxFrame, &CM_Pitch_Motor, Motor_Enable);
 						osDelay(30);
+						CM_Motor_CAN_TxMessage(&FDCAN1_TxFrame, &CM_Pitch_Motor, 0, 0, 0, 0, 0);
+						osDelay(30);
+
 						#if IS_HERO
 							DM_Motor_Command(&FDCAN3_TxFrame, &DM_Rev_Motor, Motor_Enable);
+							osDelay(30);
+							CM_Motor_CAN_TxMessage(&FDCAN1_TxFrame, &CM_Pitch_Motor, 0, 0, 0, 0, 0);
 							osDelay(30);
 						#endif
             is_first_iter = 0;

@@ -52,13 +52,17 @@ static float time_stamp_cv_prev;
 
 #if IS_STD || IS_SENTRY
 static float k_ff_yaw = 0.84f;
+float KP_pitch = 20.0f;
+float KD_pitch = 1.0f;
+
 #elif IS_HERO
 static float k_ff_yaw = 1.5f;
+float KP_pitch = 80.0f;
+float KD_pitch = 2.0f;
+
 #endif
 
 float KD_yaw = 0.8f;//0.8f;
-float KD_pitch = 1.0f;
-float KP_pitch = 20.0f;
 
 static bool is_first_iter = true;
 static bool is_homing = true;
@@ -83,9 +87,20 @@ static void limit_pitch_velocity(float *r_x_new, float r_x_prev, float max_step)
 
 void control_loop_gimbal() {
     // update system state from IMU/INS sensors
-    for (uint8_t i = 0; i < gimbal.p; i++) {
+    #if IS_HERO
+		if (!CM_Pitch_Motor.Data.Initlized) {
+        gimbal.u[1] = 0;
+        is_first_iter = 1;   // force a clean latch once feedback is real
+        return;
+    }
+		#endif
+	
+		for (uint8_t i = 0; i < gimbal.p; i++) {
         gimbal.x_prev[i] = gimbal.x[i];
     }
+		
+		
+		
     gimbal.x[0] = INS_Info.Yaw_TolAngle * DEG_TO_RAD;     // yaw position  [rad]
 		#if IS_STD || IS_SENTRY
 			gimbal.x[1] = INS_Info.Roll_Angle * DEG_TO_RAD;   // pitch position [rad] (IMU is likely rotated 90deg)
@@ -115,16 +130,16 @@ void control_loop_gimbal() {
 				// reset both PIDs on stop
 				pid_yaw_pos.PID_Calc_Clear(&pid_yaw_pos);
 			  gimbal.r_x[1] = CM_Pitch_Motor.Data.Position;
-			  //is_homing = 1;
+			  is_homing = 1;
 			  is_first_iter = 1;
         return;
     }
 		
 		gimbal.r_x_prev[1] = gimbal.r_x[1];
 		
-		if (is_homing == 1 && !first_command_on) {
+		if (is_homing == 1) {
 			
-			gimbal.r_x[1] -= 0.01 * 	DEG_TO_RAD;
+			gimbal.r_x[1] -= 0.02 * 	DEG_TO_RAD;
 			
 			#if IS_STD || IS_SENTRY
 		  if (gimbal.x[1] >= 0) {
@@ -139,8 +154,6 @@ void control_loop_gimbal() {
 			#endif
 			
 		}
-			
-
     // setpoint generation: manual or auto-aim
     switch (state_gimbal) {
 
