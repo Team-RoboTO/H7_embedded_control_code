@@ -24,6 +24,8 @@ static uint16_t last_shift_state = 0;  // file-local; no need to be global
 static uint32_t now_ms = 0;
 static uint32_t time_stuck = 0;
 
+extern bool reborn;
+
 	/********************************/
  /*   SHOOT WHEELS SPIN CONFIG   */
 /********************************/
@@ -118,12 +120,28 @@ void robot_states_update_state_machine(void) {
 
 uint8_t _state_machine_remote_commands(void) {
 
+	
+		static uint32_t reborn_timestamp = 0;
+    static bool reborn_window_active = false;
+
+    // reborn is a 1-tick pulse from CAN_Task; start the 3s window on it
+    if (reborn) {
+        reborn_timestamp = HAL_GetTick();
+        reborn_window_active = true;
+    }
+    if (reborn_window_active && (HAL_GetTick() - reborn_timestamp < 4000)) {
+        return COMMANDS_STOP;
+    }
+    reborn_window_active = false;
+		
+		
     switch (RC_info.RC.Switch) {
         case 0:  
 					 #if IS_STD || IS_HERO
 							return COMMANDS_STOP;
 					 #elif IS_SENTRY
-							if(Referee_System_Info.game_status.game_progress == 0){
+							
+							if(Referee_System_Info.game_status.game_progress != 4){
 								return COMMANDS_STOP;
 							}
 							else {
@@ -164,8 +182,16 @@ uint8_t _state_machine_chassis_keyboard_mouse(void) {
         g_spinspin_mode = !g_spinspin_mode;
     }
     last_shift_state = RC_info.Key.Set.SHIFT;
-
-    return g_spinspin_mode ? CHASSIS_CONTIGUOUS_ROTATION : CHASSIS_FOLLOW_GIMBAL;
+		
+		if (Referee_System_Info.robot_status.current_HP == 0){
+			g_spinspin_mode = 0;
+		}
+    if(g_spinspin_mode){
+			return CHASSIS_CONTIGUOUS_ROTATION;
+		}
+		else{
+			return CHASSIS_FOLLOW_GIMBAL;
+		}
 }
 
 uint8_t _state_machine_chassis_autonomus(void) {

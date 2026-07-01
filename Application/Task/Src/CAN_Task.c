@@ -21,7 +21,7 @@
 
 static bool is_first_iter = 1;
 static bool is_init = 1;
-static bool reborn = 0;
+bool reborn = 0;
 static uint16_t current_hp = 0;
 static uint16_t prev_hp = 0;
 static uint8_t split_flag = 0;
@@ -103,7 +103,7 @@ void CAN_Task(void const * argument)
             is_first_iter = 1;
         }
         else if (is_first_iter == 1 || reborn) {
-						if (reborn) osDelay(3000);  // wait for power after reborn
+						//if (reborn) osDelay(3000);  // wait for power after reborn
 						
 					  CM_Motor_CAN_TxMessage(&FDCAN1_TxFrame, &CM_Pitch_Motor, 0, 0, 0, 0, 0);
 						osDelay(30);

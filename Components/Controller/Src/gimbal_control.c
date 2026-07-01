@@ -64,10 +64,10 @@ float KD_pitch = 2.0f;
 
 float KD_yaw = 0.8f;//0.8f;
 
-static bool is_first_iter = true;
-static bool is_homing = true;
+bool is_first_iter = true;
+bool is_homing = true;
 
-static float pitch_zero;
+float pitch_zero;
 
 static float acc_yaw = 350.0f;
 static float pid_yaw_out;
@@ -87,13 +87,14 @@ static void limit_pitch_velocity(float *r_x_new, float r_x_prev, float max_step)
 
 void control_loop_gimbal() {
     // update system state from IMU/INS sensors
-    #if IS_HERO
-		if (!CM_Pitch_Motor.Data.Initlized) {
-        gimbal.u[1] = 0;
-        is_first_iter = 1;   // force a clean latch once feedback is real
-        return;
-    }
-		#endif
+		
+//    #if IS_HERO
+//		if (!CM_Pitch_Motor.Data.Initlized) {
+//        gimbal.u[1] = 0;
+//        is_first_iter = 1;   // force a clean latch once feedback is real
+//        return;
+//    }
+//		#endif
 	
 		for (uint8_t i = 0; i < gimbal.p; i++) {
         gimbal.x_prev[i] = gimbal.x[i];
