@@ -57,7 +57,7 @@ float is_on_reset = 0;
 #if IS_STD || IS_SENTRY
 float r_shoot_wheels_ang_vel = 630.0f;   /* [rad/s] */
 #elif IS_HERO
-float r_shoot_wheels_ang_vel = 420.f;//550.0f;   /* [rad/s] */
+float r_shoot_wheels_ang_vel = 550.0f;//550.0f;   /* [rad/s] */
 bool is_homing_rev = true;
 static float vel_up_rev   = 10.0f;
 static float vel_down_rev = 15.0f;

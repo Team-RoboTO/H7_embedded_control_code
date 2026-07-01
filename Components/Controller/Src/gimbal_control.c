@@ -217,7 +217,16 @@ void control_loop_gimbal() {
 	gimbal.u[0] = pid_yaw_out - ( k_ff_yaw * w );
 		
 	limit_pitch_velocity(&gimbal.r_x[1], gimbal.r_x_prev[1], lim_vel_pitch);
-
+	#if IS_STD  || IS_SENTRY
+	if(is_rotating){
+			if (is_homing == 0) saturate_in_range(&gimbal.r_x[1],pitch_zero - 10*DEG_TO_RAD, pitch_zero + 8*DEG_TO_RAD);
+	}
+	else {
+			if (is_homing == 0) saturate_in_range(&gimbal.r_x[1],pitch_zero - 10*DEG_TO_RAD, 1*DEG_TO_RAD);
+	}
+	#else
 	if (is_homing == 0) saturate_in_range(&gimbal.r_x[1],pitch_zero - 10*DEG_TO_RAD, 1*DEG_TO_RAD);
-
+	#endif
+		
+	
 }

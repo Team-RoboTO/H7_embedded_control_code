@@ -12,7 +12,7 @@ const float P0_STATIC      = 1.8125f;             // Consumo statico in standby
 #if IS_STD || IS_SENTRY
 float CHASSIS_POWER_SCALE = 0.40692f;       // Fattore di scala globale calcolato
 #elif IS_HERO
-float CHASSIS_POWER_SCALE = 0.43f;//         // Fattore di scala globale calcolato
+float CHASSIS_POWER_SCALE = 0.48f;//         // Fattore di scala globale calcolato
 #endif
 
 // Strutture per Filtro Passa Basso (LPF)
