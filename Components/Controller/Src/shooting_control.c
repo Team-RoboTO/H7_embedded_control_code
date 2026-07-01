@@ -57,7 +57,7 @@ float is_on_reset = 0;
 #if IS_STD || IS_SENTRY
 float r_shoot_wheels_ang_vel = 630.0f;   /* [rad/s] */
 #elif IS_HERO
-float r_shoot_wheels_ang_vel = 550.0f;   /* [rad/s] */
+float r_shoot_wheels_ang_vel = 420.f;//550.0f;   /* [rad/s] */
 bool is_homing_rev = true;
 static float vel_up_rev   = 10.0f;
 static float vel_down_rev = 15.0f;
@@ -335,7 +335,7 @@ void _control_loop_push(void)
 
         case PUSH_SINGLE_SHOOTING:
             if (need_to_set_push_ang_pos_reference && !unstuck_push_enabled) {
-                rev_and_push.r_x[2] = rev_and_push.x[2] + (float)(2.0f * pi / 2.0f);
+                if (rev_and_push.r_x[2] - rev_and_push.x[2] < pi/4) rev_and_push.r_x[2] = rev_and_push.x[2] + (float)(2.0f * pi / 2.0f);
                 need_to_set_push_ang_pos_reference = false;
 								test_shooting++;
             }

@@ -27,6 +27,7 @@ static uint16_t prev_hp = 0;
 static uint8_t split_flag = 0;
 bool first_command_on = 1;
 
+extern bool is_homing_rev;
 void CAN_Task(void const * argument)
 {
     /* Keep the task loop at 1ms (1000Hz) so our split halves result in 500Hz */
@@ -139,6 +140,63 @@ void CAN_Task(void const * argument)
 						#endif
             is_first_iter = 0;
         }
+				
+//				#if IS_HERO
+//				static bool     g_rev_arm_pending    = false;
+//				static uint32_t g_rev_arm_timestamp  = 0;
+
+//				/* Rising-edge detect on G: start the 4s countdown */
+//				static bool g_prev_key = false;
+//				if (RC_info.Key.Set.G && !g_prev_key) {
+//						g_rev_arm_pending   = true;
+//						g_rev_arm_timestamp = HAL_GetTick();
+//				}
+//				g_prev_key = RC_info.Key.Set.G;
+
+//				/* After 4s, enable + restart homing once */
+//				if (g_rev_arm_pending && (HAL_GetTick() - g_rev_arm_timestamp >= 4000)) {
+//						DM_Motor_Command(&FDCAN3_TxFrame, &DM_Rev_Motor, Motor_Enable);
+//						osDelay(30);
+//						is_homing_rev = true;   // re-run the homing sequence in _control_loop_rev
+//						is_on_reset   = 0;      // clear reset latch so normal shooting resumes
+//						g_rev_arm_pending = false;
+//				}
+//				#endif
+
+					#if IS_HERO
+					static bool     rev_was_dead     = true;
+					static bool     rev_arm_pending  = false;
+					static uint32_t rev_alive_since  = 0;
+					static bool     g_prev_key       = false;
+
+					bool rev_alive = (HAL_GetTick() - DM_Rev_Motor.Data.LastTimestamp) < 100;
+
+					/* --- Auto-arm: motor feedback just came back (power restored) --- */
+					if (rev_alive && rev_was_dead) {
+							rev_alive_since = HAL_GetTick();
+							rev_arm_pending = true;
+					}
+					rev_was_dead = !rev_alive;
+
+					/* After feedback stabilizes, enable + restart homing once */
+					if (rev_arm_pending && (HAL_GetTick() - rev_alive_since >= 500)) {
+							DM_Motor_Command(&FDCAN3_TxFrame, &DM_Rev_Motor, Motor_Enable);
+							osDelay(30);
+							is_homing_rev   = true;
+							is_on_reset     = 0;
+							rev_arm_pending = false;
+					}
+
+					/* --- Manual override: rising edge on G forces enable + re-home --- */
+					if (RC_info.Key.Set.G && !g_prev_key) {
+							DM_Motor_Command(&FDCAN3_TxFrame, &DM_Rev_Motor, Motor_Enable);
+							osDelay(30);
+							is_homing_rev = true;
+							is_on_reset   = 0;
+							rev_arm_pending = false;   // cancel any pending auto-arm so it doesn't double-fire
+					}
+					g_prev_key = RC_info.Key.Set.G;
+					#endif
 
         /* CAN2 TIME SLICING: Send half the messages at a time --- */
         if (split_flag == 0) {
