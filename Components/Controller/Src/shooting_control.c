@@ -69,6 +69,8 @@ bool unstuck_push_enabled = false;
 
 uint32_t test_shooting = 0;
 uint32_t test_stop = 0;
+
+extern bool shooting_powered_off;
   /*************************/
  /*         INIT          */
 /*************************/
@@ -253,7 +255,7 @@ void _control_loop_rev(void)
     }
     rev_and_push.x[0] = (float)DM_Rev_Motor.Data.Position;
 		
-		if (state_remote_commands == COMMANDS_STOP) {
+		if (state_remote_commands == COMMANDS_STOP || shooting_powered_off) {
         return;
     }
 		
@@ -262,7 +264,7 @@ void _control_loop_rev(void)
 			rev_and_push.ud[1] = rev_and_push.r_x[0];
 			if (fabs(DM_Rev_Motor.Data.Torque) > 3.0f){
 				is_homing_rev = 0;
-				rev_and_push.r_x[0] += pi/3.7f;
+				rev_and_push.r_x[0] += pi/4.0f;
 				rev_and_push.ud[1] = rev_and_push.r_x[0];
 		  }
 			return;
@@ -316,7 +318,7 @@ void _control_loop_push(void)
 
     rev_and_push.x[2] = (float)DJI_Push_Motor.Data.Angle_sum;   /* cumulative angle */
 
-    if (state_remote_commands == COMMANDS_STOP) {
+    if (state_remote_commands == COMMANDS_STOP || shooting_powered_off) {
         rev_and_push.ud[0] = 0;
         pid_push_pos.PID_Calc_Clear(&pid_push_pos);
         pid_push_vel.PID_Calc_Clear(&pid_push_vel);
