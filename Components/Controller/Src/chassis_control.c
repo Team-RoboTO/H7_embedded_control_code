@@ -110,7 +110,7 @@ static LowPassFilter1p_Info_TypeDef lpf_vy;
 #elif IS_HERO
 	static float radius_wheel = 0.08f;
 	static float radius_robot = 0.2895f;
-	static float rot_ang_vel_wheels = 30.0f;
+	static float rot_ang_vel_wheels = 20.0f;
 #endif
 
 //MIT variables
@@ -265,7 +265,7 @@ void control_loop_chassis() {
 								r_ang_vel_wheels_chassis_yaw = rot_ang_vel_wheels;
 							}
 							else {
-									r_ang_vel_wheels_chassis_yaw = 25.0f;
+									r_ang_vel_wheels_chassis_yaw = 15.0f;
 							}
 							#endif
 							is_rotating = 1;
@@ -335,9 +335,6 @@ void control_loop_chassis() {
 		#if IS_POWER_LIMIT_ENABLED
 		  if (Referee_System_Info.robot_status.chassis_power_limit != 0) chassis_power_limit_local	= Referee_System_Info.robot_status.chassis_power_limit;
 			else chassis_power_limit_local = 75;
-			#if IS_HERO
-			chassis_power_limit_local = 120;
-			#endif
 			chassis_power_control(chassis_power_limit_local , chassis.r_x, &MIT_kd);
 		#endif
 }
