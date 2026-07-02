@@ -165,6 +165,18 @@ typedef enum {
 
 
 /* ============================================================================
+ * ITALIAN FLAG + SPQR LABEL (above the bullet bar, static)
+ *========================================================================== */
+#define FLAG_X_LEFT   1820u
+#define FLAG_X_MID    1840u
+#define FLAG_X_MID2   1860u
+#define FLAG_X_RIGHT  1880u
+#define FLAG_Y_BOT    750u
+#define FLAG_Y_TOP    800u
+#define FLAG_LAYER    5
+#define MODE_LAYER    3
+
+/* ============================================================================
  * PUBLIC API
  * ============================================================================ */
 void UI_Task(void const * argument);

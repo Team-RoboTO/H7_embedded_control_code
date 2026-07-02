@@ -26,6 +26,8 @@ extern INS_Info_Typedef             INS_Info;
 
 /* Provided by chassis / aim / state machine layers */
 extern bool is_rotating;
+extern uint8_t mode_velocity;        
+		
 
 /* ============================================================================
  * GLOBAL UI STATE (driven by other tasks)
@@ -60,6 +62,7 @@ static int prev_feeder_state  = -1;
 static int motor_fault_enabled  = 0;
 static int feeder_state_enabled = 0;
 static int prev_state_rev = -1;
+static int prev_mode_velocity = -1;
 
 /* TX synchronization: semaphore released on DMA TxCplt */
 static osSemaphoreId ui_tx_done_sem  = NULL;  /* signaled when DMA completes */
@@ -329,51 +332,144 @@ static void draw_supercap_text(uint8_t op)
 }
 
 /* ============================================================================
+ * DRAW MODE VELOCITY, REV STATE
+ * ============================================================================ */
+
+static void draw_rev_state(uint8_t op)
+{
+    switch(state_rev){
+        case REV_STOP:
+            send_char_graphic("REV: STOP", 'R', 'E', 'V', 7, GRAPHIC_COLOUR_ORANGE,
+                              FONT_SIZE_SMALL, CHAR_WIDTH, 
+                              50, CENTER_Y + 200, op);
+            break;
+            
+        case REV_SINGLE_SHOOTING:
+            send_char_graphic("REV: SINGLE", 'R', 'E', 'V', 7, GRAPHIC_COLOUR_ORANGE,
+                              FONT_SIZE_SMALL, CHAR_WIDTH, 
+                              50, CENTER_Y + 200, op);
+            break;
+            
+        case REV_MULTIPLE_SHOOTING:
+            send_char_graphic("REV: MULTIPLE", 'R', 'E', 'V', 7, GRAPHIC_COLOUR_ORANGE,
+                              FONT_SIZE_SMALL, CHAR_WIDTH, 
+                              50, CENTER_Y + 200, op);
+            break;      
+            
+        case REV_UNSTUCK:
+            send_char_graphic("REV: UNSTUCK", 'R', 'E', 'V', 7, GRAPHIC_COLOUR_ORANGE,
+                              FONT_SIZE_SMALL, CHAR_WIDTH, 
+                              50, CENTER_Y + 200, op);
+            break;
+            
+        default:
+            send_char_graphic("REV: ???", 'R', 'E', 'V', 7, GRAPHIC_COLOUR_YELLOW,
+                              FONT_SIZE_SMALL, CHAR_WIDTH, 
+                              50, CENTER_Y + 200, op);
+            break;
+    }
+}
+
+static void draw_velocity_state(uint8_t op)
+{
+    int x_pos = 50;
+    int y_pos = CENTER_Y + 150; 
+
+    switch(mode_velocity) {
+        case 0:
+            send_char_graphic("VEL: LOW", 'V', 'E', 'L', 7, GRAPHIC_COLOUR_ORANGE,
+                              FONT_SIZE_SMALL, CHAR_WIDTH, 
+                              x_pos, y_pos, op);
+            break;
+            
+        case 1:
+            send_char_graphic("VEL: MID", 'V', 'E', 'L', 7, GRAPHIC_COLOUR_YELLOW,
+                              FONT_SIZE_SMALL, CHAR_WIDTH, 
+                              x_pos, y_pos, op);
+            break;
+            
+        case 2:
+            send_char_graphic("VEL: HIGH", 'V', 'E', 'L', 7, GRAPHIC_COLOUR_GREEN,
+                              FONT_SIZE_SMALL, CHAR_WIDTH, 
+                              x_pos, y_pos, op);
+            break;      
+            
+        default:
+            send_char_graphic("VEL: ???", 'V', 'E', 'L', 7, GRAPHIC_COLOUR_ORANGE,
+                              FONT_SIZE_SMALL, CHAR_WIDTH, 
+                              x_pos, y_pos, op);
+            break;
+    }
+}
+
+/**
+ * @brief Gestisce l'aggiornamento logico combinato di REV e VELOCITY.
+ * Sostituisce la vecchia 'update_rev_state()'.
+ */
+static void update_control_states(void)
+{
+    // Controllo variazione dello stato REV
+    if (prev_state_rev != state_rev) {
+        draw_rev_state(GRAPHIC_MODIFY); 
+        prev_state_rev = state_rev;
+    }
+
+    // Controllo variazione dello stato VELOCITY
+    if (prev_mode_velocity != mode_velocity) {
+        draw_velocity_state(GRAPHIC_MODIFY);
+        prev_mode_velocity = mode_velocity;
+    }
+}
+/* ============================================================================
  * DYNAMIC: SPIN BORDER ARC + SUPERCAP ARC + CURRENT PITCH + BULLET BAR
  * (all packed into one multi-graphic packet)
  * ============================================================================ */
-static void fill_spin_border(graphic_data_struct_t *g, uint8_t op)
-{
-    set_name(g, 'B', 'O', 'R');
-    g->layer          = 2;
-    g->color          = is_rotating ? GRAPHIC_COLOUR_GREEN : GRAPHIC_COLOUR_ORANGE;
-    g->operation_type = op;
-    g->graphic_type   = GRAPHIC_TYPE_ARC;
+//static void fill_spin_border(graphic_data_struct_t *g, uint8_t op)
+//{
+//    set_name(g, 'B', 'O', 'R');
+//    g->layer          = 2;
+//    g->color          = is_rotating ? GRAPHIC_COLOUR_GREEN : GRAPHIC_COLOUR_ORANGE;
+//    g->operation_type = op;
+//    g->graphic_type   = GRAPHIC_TYPE_ARC;
 
-    float chassis_dir = DM_Yaw_Motor.Data.Angle * 57.2958f;
-    int   base = (chassis_dir < 0) ? (int)(360 + chassis_dir) : (int)chassis_dir;
-    g->details_a = base + BORDER_GAP_SIZE;
-    g->details_b = base - BORDER_GAP_SIZE;
+//    float chassis_dir = DM_Yaw_Motor.Data.Angle * 57.2958f;
+//    int   base = (chassis_dir < 0) ? (int)(360 + chassis_dir) : (int)chassis_dir;
+//    g->details_a = base + BORDER_GAP_SIZE;
+//    g->details_b = base - BORDER_GAP_SIZE;
 
-    g->width     = 7;
-    g->start_x   = spin_coords;
-    g->start_y   = TOP_Y_POS;
-    g->details_d = 50;
-    g->details_e = 50;
-}
+//    g->width     = 7;
+//    g->start_x   = spin_coords;
+//    g->start_y   = TOP_Y_POS;
+//    g->details_d = 50;
+//    g->details_e = 50;
+//}
 
-static void fill_supercap_arc(graphic_data_struct_t *g, uint8_t op)
-{
-    set_name(g, 'S', 'U', 'P');
-    g->layer          = 3;
-    g->color          = (charging_state > SUPERCAP_ENABLE_THRESHOLD)
-                        ? GRAPHIC_COLOUR_GREEN : GRAPHIC_COLOUR_ORANGE;
-    g->operation_type = op;
-    g->graphic_type   = GRAPHIC_TYPE_ARC;
-    g->details_a      = 270;
+//static void fill_supercap_arc(graphic_data_struct_t *g, uint8_t op)
+//{
+//    set_name(g, 'S', 'U', 'P');
+//    g->layer          = 3;
+//    g->color          = (charging_state > SUPERCAP_ENABLE_THRESHOLD)
+//                        ? GRAPHIC_COLOUR_GREEN : GRAPHIC_COLOUR_ORANGE;
+//    g->operation_type = op;
+//    g->graphic_type   = GRAPHIC_TYPE_ARC;
+//    g->details_a      = 270;
 
-    int   range  = 100 - SUPERCAP_DISABLE_THRESHOLD;
-    float mapped = fmaxf(0.0f, fminf(1.0f,
-                       (float)(charging_state - SUPERCAP_DISABLE_THRESHOLD) / (float)range));
-    int   level  = (int)fmaxf(1.0f, mapped * ANGLE_LIMIT);
-    g->details_b = 270 + level;
+//    int   range  = 100 - SUPERCAP_DISABLE_THRESHOLD;
+//    float mapped = fmaxf(0.0f, fminf(1.0f,
+//                       (float)(charging_state - SUPERCAP_DISABLE_THRESHOLD) / (float)range));
+//    int   level  = (int)fmaxf(1.0f, mapped * ANGLE_LIMIT);
+//    g->details_b = 270 + level;
 
-    g->width     = 30;
-    g->start_x   = CENTER_X;
-    g->start_y   = CENTER_Y;
-    g->details_d = RADIAL_DIAMETER;
-    g->details_e = RADIAL_DIAMETER;
-}
+//    g->width     = 30;
+//    g->start_x   = CENTER_X;
+//    g->start_y   = CENTER_Y;
+//    g->details_d = RADIAL_DIAMETER;
+//    g->details_e = RADIAL_DIAMETER;
+//}
+
+
+
+
 
 static void fill_curr_pitch(graphic_data_struct_t *g, uint8_t op)
 {
@@ -455,16 +551,8 @@ static void fill_bullet_bar_level(graphic_data_struct_t *g, uint8_t op)
     g->details_e      = 351 + bar_h;
 }
 #endif
-/* ============================================================================
- * ITALIAN FLAG + SPQR LABEL (above the bullet bar, static)
- *========================================================================== */
-#define FLAG_X_LEFT   1820u
-#define FLAG_X_MID    1840u
-#define FLAG_X_MID2   1860u
-#define FLAG_X_RIGHT  1880u
-#define FLAG_Y_BOT    750u
-#define FLAG_Y_TOP    800u
-#define FLAG_LAYER    5
+
+
 
 static void draw_team_flag(uint8_t op, uint16_t robot_id)
 {
@@ -589,7 +677,7 @@ static void draw_dynamic(uint8_t op)
     uint16_t pos = build_graphic_header(tx_buffer, 5);
     if (pos == 0) return;
 
-    fill_spin_border       ((graphic_data_struct_t *)(tx_buffer + pos), op); pos += sizeof(graphic_data_struct_t);
+    //fill_spin_border       ((graphic_data_struct_t *)(tx_buffer + pos), op); pos += sizeof(graphic_data_struct_t);
     fill_curr_pitch        ((graphic_data_struct_t *)(tx_buffer + pos), op); pos += sizeof(graphic_data_struct_t);
     fill_bullet_bar_border ((graphic_data_struct_t *)(tx_buffer + pos), op); pos += sizeof(graphic_data_struct_t);
     fill_bullet_bar_level  ((graphic_data_struct_t *)(tx_buffer + pos), op); pos += sizeof(graphic_data_struct_t);
@@ -1027,41 +1115,7 @@ static void draw_motor_fault_line(const char *label, uint8_t na, uint8_t nb, uin
 char full_text[128];
 char text[128];
 
-static void draw_rev_state(uint8_t op)
-{
-    // Ho inserito un piccolo offset (CENTER_X - 60) per centrare meglio il testo
-    switch(state_rev){
-        case REV_STOP:
-            send_char_graphic("REV: STOP", 'R', 'E', 'V', 7, GRAPHIC_COLOUR_PURPLISH_RED,
-                              FONT_SIZE_SMALL, CHAR_WIDTH, 
-                              50, CENTER_Y + 200, op);
-            break;
-            
-        case REV_SINGLE_SHOOTING:
-            send_char_graphic("REV: SINGLE", 'R', 'E', 'V', 7, GRAPHIC_COLOUR_PURPLISH_RED,
-                              FONT_SIZE_SMALL, CHAR_WIDTH, 
-                              50, CENTER_Y + 200, op);
-            break;
-            
-        case REV_MULTIPLE_SHOOTING:
-            send_char_graphic("REV: MULTIPLE", 'R', 'E', 'V', 7, GRAPHIC_COLOUR_PURPLISH_RED,
-                              FONT_SIZE_SMALL, CHAR_WIDTH, 
-                              50, CENTER_Y + 200, op);
-            break;      
-            
-        case REV_UNSTUCK:
-            send_char_graphic("REV: UNSTUCK", 'R', 'E', 'V', 7, GRAPHIC_COLOUR_PURPLISH_RED,
-                              FONT_SIZE_SMALL, CHAR_WIDTH, 
-                              50, CENTER_Y + 200, op);
-            break;
-            
-        default:
-            send_char_graphic("REV: ???", 'R', 'E', 'V', 7, GRAPHIC_COLOUR_YELLOW,
-                              FONT_SIZE_SMALL, CHAR_WIDTH, 
-                              50, CENTER_Y + 200, op);
-            break;
-    }
-}
+
 
 static void draw_motor_fault(uint8_t op)
 {
@@ -1157,16 +1211,6 @@ static void update_motor_fault(void)
     }
 }
 
-static void update_rev_state(void)
-{
-    if (prev_state_rev != state_rev) {
-
-        draw_rev_state(GRAPHIC_ADD);
-        
-        prev_state_rev = state_rev;
-    }
-}
-
 /* ============================================================================
  * SIMPLE TEST GRAPHIC (Sent once on connect)
  * ============================================================================ */
@@ -1224,7 +1268,8 @@ static void draw_all_static(uint8_t op, uint16_t robot_id)
     draw_crosshair(op);
     draw_pitch_ticks(op);
     draw_pitch_limits(op);
-	  draw_rev_state(op);
+    draw_rev_state(op);
+    draw_velocity_state(op); 
     draw_team_flag(op, robot_id);
 }
 
@@ -1308,7 +1353,7 @@ void UI_Task(void const * argument)
             osDelay(500);
             clear_hud();
 
-            draw_all_static(GRAPHIC_ADD, current_robot_id);
+            draw_all_static(GRAPHIC_ADD, current_robot_id); 
             draw_all_text(GRAPHIC_ADD);
             draw_dynamic(GRAPHIC_ADD);
 
@@ -1321,7 +1366,8 @@ void UI_Task(void const * argument)
             prev_feeder_state  = -1;
             motor_fault_enabled  = 0;
             feeder_state_enabled = 0;
-            prev_state_rev     = -1; 
+            prev_state_rev     = -1;
+            prev_mode_velocity = -1;
         }
         else if (current_robot_id != 0) {
             poll_inputs();
@@ -1330,10 +1376,7 @@ void UI_Task(void const * argument)
             update_text_if_changed();
             update_spin_warning();
             update_motor_fault();
-            
-            update_rev_state(); 
-            
-            //update_feeder();
+            update_control_states();
         }
         
         prev_progress = progress;
