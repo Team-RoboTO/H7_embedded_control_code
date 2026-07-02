@@ -60,7 +60,6 @@ controlled_system_MIT_t chassis = {
 static float dt_chassis = 0.001f;
 
 static float max_r_ang_vel_wheels = 20.0;  // Max reference of angular velocity of wheels [rad/s]
-static float rot_ang_vel_wheels = 45.0f;
 
 static int16_t remote_commands_bwd_fwd;                // in range [-660, +660]
 static int16_t remote_commands_left_right;             // in range [-660, +660]
@@ -107,9 +106,11 @@ static LowPassFilter1p_Info_TypeDef lpf_vy;
 #if IS_STD || IS_SENTRY
 	static float radius_wheel = 0.0825f;
 	static float radius_robot = 0.183f;
+	static float rot_ang_vel_wheels = 45.0f;
 #elif IS_HERO
 	static float radius_wheel = 0.08f;
 	static float radius_robot = 0.2895f;
+	static float rot_ang_vel_wheels = 30.0f;
 #endif
 
 //MIT variables
@@ -222,7 +223,7 @@ void control_loop_chassis() {
 
             if (is_rotating == 0) {
 								#if IS_HERO
-									linear_vel_lim = 2.5f;
+									linear_vel_lim = 2.0f;
 									#endif
                 // Forward/Backward
                 r_ang_vel_wheel_1_bwd_fwd    = vx_ref * Cos45 / radius_wheel;
@@ -259,9 +260,12 @@ void control_loop_chassis() {
 									r_ang_vel_wheels_chassis_yaw = 30.0f;
 							}
 							#elif IS_HERO
-							linear_vel_lim = 4.9f;
+							linear_vel_lim = 3.0f;
 							if (vx_ref == 0 && vy_ref == 0){
 								r_ang_vel_wheels_chassis_yaw = rot_ang_vel_wheels;
+							}
+							else {
+									r_ang_vel_wheels_chassis_yaw = 25.0f;
 							}
 							#endif
 							is_rotating = 1;
@@ -331,6 +335,9 @@ void control_loop_chassis() {
 		#if IS_POWER_LIMIT_ENABLED
 		  if (Referee_System_Info.robot_status.chassis_power_limit != 0) chassis_power_limit_local	= Referee_System_Info.robot_status.chassis_power_limit;
 			else chassis_power_limit_local = 75;
+			#if IS_HERO
+			chassis_power_limit_local = 120;
+			#endif
 			chassis_power_control(chassis_power_limit_local , chassis.r_x, &MIT_kd);
 		#endif
 }

@@ -95,21 +95,21 @@ void chassis_power_control(uint16_t limit, float *r_x, float *mit_kd)
 		}
 		last_C_state = RC_info.Key.Set.C;
     
-		if (power_mode == POWER_LOW) power_scale += 0.1;
+		if (power_mode == POWER_LOW) power_scale += 0.15;
 		
-    if (buffer <= 40.0f) {
-        // Range 40-0: aggiungi fino a +0.1 linearmente (0 J → +0.1, 40 J → +0.0)
-        float k = (40.0f - buffer) / 40.0f;   // 0..1
-        if (k > 1.0f) k = 1.0f;
-        if (k < 0.0f) k = 0.0f;
-        power_scale += 0.15f * k;
-    } else if (buffer >= 50.0f && power_mode == POWER_HIGH) {
-        // Range 50-60: sottrai fino a -0.05 linearmente (50 J → -0.0, 60 J → -0.05)
-        float k = (buffer - 50.0f) / 10.0f;   // 0..1
-        if (k > 1.0f) k = 1.0f;
-        if (k < 0.0f) k = 0.0f;
-        power_scale -= 0.05f * k;
-    }
+//    if (buffer <= 40.0f) {
+//        // Range 40-0: aggiungi fino a +0.1 linearmente (0 J → +0.1, 40 J → +0.0)
+//        float k = (40.0f - buffer) / 40.0f;   // 0..1
+//        if (k > 1.0f) k = 1.0f;
+//        if (k < 0.0f) k = 0.0f;
+//        power_scale += 0.15f * k;
+//    } else if (buffer >= 50.0f && power_mode == POWER_HIGH) {
+//        // Range 50-60: sottrai fino a -0.05 linearmente (50 J → -0.0, 60 J → -0.05)
+//        float k = (buffer - 50.0f) / 10.0f;   // 0..1
+//        if (k > 1.0f) k = 1.0f;
+//        if (k < 0.0f) k = 0.0f;
+//        power_scale -= 0.05f * k;
+//    }
 		
     float chassis_power_limit = (float)limit;
     float estimated_give_power[4] = {0};
