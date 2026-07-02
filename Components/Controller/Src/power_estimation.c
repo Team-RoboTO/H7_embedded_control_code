@@ -2,6 +2,7 @@
 #include "robot_config.h"
 #include "cubemars_motor.h"
 #include "LPF.h"
+#include "Referee_System.h"
 
 // Costanti fisiche e parametri calibrati con MATLAB
 const float KT_OUT         = 0.056f * 10.0f;      // KT * Rapporto di riduzione = 0.56
@@ -35,6 +36,9 @@ static bool is_first_iter = true;
 
 static float MIT_kd_base = 0.2f;
 
+float buffer = 60.0f;
+float power_scale = 0.0f;
+
 
 // Funzione ausiliaria per filtro mediano a 3 elementi
 static float median3(float a, float b, float c) {
@@ -61,6 +65,25 @@ static float median3(float a, float b, float c) {
  */
 void chassis_power_control(uint16_t limit, float *r_x, float *mit_kd)
 {
+		buffer = Referee_System_Info.power_heat_data.buffer_energy;
+		
+	  // Fattore di scala effettivo, partendo dal valore definito per il robot
+    power_scale = CHASSIS_POWER_SCALE;
+
+    if (buffer <= 40.0f) {
+        // Range 40-0: aggiungi fino a +0.1 linearmente (0 J → +0.1, 40 J → +0.0)
+        float k = (40.0f - buffer) / 40.0f;   // 0..1
+        if (k > 1.0f) k = 1.0f;
+        if (k < 0.0f) k = 0.0f;
+        power_scale += 0.15f * k;
+    } else if (buffer >= 50.0f) {
+        // Range 50-60: sottrai fino a -0.05 linearmente (50 J → -0.0, 60 J → -0.05)
+        float k = (buffer - 50.0f) / 10.0f;   // 0..1
+        if (k > 1.0f) k = 1.0f;
+        if (k < 0.0f) k = 0.0f;
+        power_scale -= 0.1f * k;
+    }
+		
     float chassis_power_limit = (float)limit;
     float estimated_give_power[4] = {0};
 
@@ -102,7 +125,7 @@ void chassis_power_control(uint16_t limit, float *r_x, float *mit_kd)
         float p_joule   = K1_JOULE * filtered_current * filtered_current;
         float p_viscous = K2_IRON  * velocity * velocity;
 
-        estimated_give_power[i] = ((p_mech + p_joule + p_viscous) * CHASSIS_POWER_SCALE) + P0_STATIC;
+        estimated_give_power[i] = ((p_mech + p_joule + p_viscous) * power_scale) + P0_STATIC;
 
         // Clamping anti-rigenerazione
         if (estimated_give_power[i] < 0.0f)
