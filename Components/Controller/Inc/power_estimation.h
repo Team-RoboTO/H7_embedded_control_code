@@ -3,6 +3,12 @@
 
 #include "controlled_system.h"
 
+
+#define POWER_HIGH 		1
+#define POWER_MEDIUM 	2
+#define POWER_LOW  		3
+
+
 /**
  * @brief Variabili di debug per monitoraggio power consumption
  * 

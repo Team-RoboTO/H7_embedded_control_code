@@ -3,6 +3,7 @@
 #include "cubemars_motor.h"
 #include "LPF.h"
 #include "Referee_System.h"
+#include "mouse_keyboard_command.h"
 
 // Costanti fisiche e parametri calibrati con MATLAB
 const float KT_OUT         = 0.056f * 10.0f;      // KT * Rapporto di riduzione = 0.56
@@ -40,6 +41,10 @@ float buffer = 60.0f;
 float power_scale = 0.0f;
 
 
+static uint16_t last_C_state = 0;
+uint8_t power_mode = POWER_MEDIUM;
+
+
 // Funzione ausiliaria per filtro mediano a 3 elementi
 static float median3(float a, float b, float c) {
     if (a > b) { float t = a; a = b; b = t; }
@@ -65,23 +70,45 @@ static float median3(float a, float b, float c) {
  */
 void chassis_power_control(uint16_t limit, float *r_x, float *mit_kd)
 {
+	
 		buffer = Referee_System_Info.power_heat_data.buffer_energy;
 		
 	  // Fattore di scala effettivo, partendo dal valore definito per il robot
     power_scale = CHASSIS_POWER_SCALE;
-
+	
+	
+		// Toggle spin mode on the rising edge of C
+		if (RC_info.Key.Set.C && !last_C_state) {
+				switch(power_mode) {
+					case POWER_HIGH: 
+						power_mode = POWER_MEDIUM;
+						break;
+					case POWER_MEDIUM:
+						power_mode = POWER_LOW;
+						break;
+					case POWER_LOW:
+						power_mode = POWER_HIGH;
+						break;
+					default:
+						break;
+				}
+		}
+		last_C_state = RC_info.Key.Set.C;
+    
+		if (power_mode == POWER_LOW) power_scale += 0.1;
+		
     if (buffer <= 40.0f) {
         // Range 40-0: aggiungi fino a +0.1 linearmente (0 J → +0.1, 40 J → +0.0)
         float k = (40.0f - buffer) / 40.0f;   // 0..1
         if (k > 1.0f) k = 1.0f;
         if (k < 0.0f) k = 0.0f;
         power_scale += 0.15f * k;
-    } else if (buffer >= 50.0f) {
+    } else if (buffer >= 50.0f && power_mode == POWER_HIGH) {
         // Range 50-60: sottrai fino a -0.05 linearmente (50 J → -0.0, 60 J → -0.05)
         float k = (buffer - 50.0f) / 10.0f;   // 0..1
         if (k > 1.0f) k = 1.0f;
         if (k < 0.0f) k = 0.0f;
-        power_scale -= 0.1f * k;
+        power_scale -= 0.05f * k;
     }
 		
     float chassis_power_limit = (float)limit;

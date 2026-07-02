@@ -115,25 +115,15 @@ static LowPassFilter1p_Info_TypeDef lpf_vy;
 //MIT variables
 float MIT_kd = 0.2f;    	// range 0-5
 
-float chassis_power_limit_local = 75;
 
-static uint16_t last_C_state = 0;
-bool safety_measure = 0;
+float chassis_power_limit_local = 75;
 
   /********************/
  /*   CONTROL LOOP   */
 /********************/
 
 void control_loop_chassis() {
-	
-		// Toggle spin mode on the rising edge of SHIFT
-    if (RC_info.Key.Set.C && !last_C_state) {
-        safety_measure = !safety_measure;
-    }
-    last_C_state = RC_info.Key.Set.C;
-		
-
-    // Update outputs from sensor data
+	  // Update outputs from sensor data
     for (uint8_t i = 0; i < chassis.p; i++) {
         chassis.x_prev[i] = chassis.x[i];
     }
@@ -341,9 +331,6 @@ void control_loop_chassis() {
 		#if IS_POWER_LIMIT_ENABLED
 		  if (Referee_System_Info.robot_status.chassis_power_limit != 0) chassis_power_limit_local	= Referee_System_Info.robot_status.chassis_power_limit;
 			else chassis_power_limit_local = 75;
-			if (safety_measure){
-					chassis_power_limit_local -= 10;
-			}
 			chassis_power_control(chassis_power_limit_local , chassis.r_x, &MIT_kd);
 		#endif
 }

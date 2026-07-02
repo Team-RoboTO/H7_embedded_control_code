@@ -13,6 +13,7 @@
 #include "Chassis_control.h"
 #include "INS_Task.h"
 #include "state_machine.h"
+#include "power_estimation.h"
 
 
 /* ============================================================================
@@ -26,7 +27,7 @@ extern INS_Info_Typedef             INS_Info;
 
 /* Provided by chassis / aim / state machine layers */
 extern bool is_rotating;
-extern uint8_t mode_velocity;        
+extern uint8_t power_mode;        
 		
 
 /* ============================================================================
@@ -62,7 +63,7 @@ static int prev_feeder_state  = -1;
 static int motor_fault_enabled  = 0;
 static int feeder_state_enabled = 0;
 static int prev_state_rev = -1;
-static int prev_mode_velocity = -1;
+static int prev_power_mode = -1;
 
 /* TX synchronization: semaphore released on DMA TxCplt */
 static osSemaphoreId ui_tx_done_sem  = NULL;  /* signaled when DMA completes */
@@ -375,20 +376,20 @@ static void draw_velocity_state(uint8_t op)
     int x_pos = 50;
     int y_pos = CENTER_Y + 150; 
 
-    switch(mode_velocity) {
-        case 0:
+    switch(power_mode) {
+        case POWER_LOW:
             send_char_graphic("VEL: LOW", 'V', 'E', 'L', 7, GRAPHIC_COLOUR_ORANGE,
                               FONT_SIZE_SMALL, CHAR_WIDTH, 
                               x_pos, y_pos, op);
             break;
             
-        case 1:
+        case POWER_MEDIUM:
             send_char_graphic("VEL: MID", 'V', 'E', 'L', 7, GRAPHIC_COLOUR_YELLOW,
                               FONT_SIZE_SMALL, CHAR_WIDTH, 
                               x_pos, y_pos, op);
             break;
             
-        case 2:
+        case POWER_HIGH:
             send_char_graphic("VEL: HIGH", 'V', 'E', 'L', 7, GRAPHIC_COLOUR_GREEN,
                               FONT_SIZE_SMALL, CHAR_WIDTH, 
                               x_pos, y_pos, op);
@@ -415,9 +416,9 @@ static void update_control_states(void)
     }
 
     // Controllo variazione dello stato VELOCITY
-    if (prev_mode_velocity != mode_velocity) {
+    if (prev_power_mode != power_mode) {
         draw_velocity_state(GRAPHIC_MODIFY);
-        prev_mode_velocity = mode_velocity;
+        prev_power_mode = power_mode;
     }
 }
 /* ============================================================================
@@ -1367,7 +1368,7 @@ void UI_Task(void const * argument)
             motor_fault_enabled  = 0;
             feeder_state_enabled = 0;
             prev_state_rev     = -1;
-            prev_mode_velocity = -1;
+            prev_power_mode = -1;
         }
         else if (current_robot_id != 0) {
             poll_inputs();
