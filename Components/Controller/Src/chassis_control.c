@@ -110,7 +110,7 @@ static LowPassFilter1p_Info_TypeDef lpf_vy;
 #elif IS_HERO
 	static float radius_wheel = 0.08f;
 	static float radius_robot = 0.2895f;
-	static float rot_ang_vel_wheels = 20.0f;
+	static float rot_ang_vel_wheels = 15.0f;
 #endif
 
 //MIT variables
@@ -265,7 +265,7 @@ void control_loop_chassis() {
 								r_ang_vel_wheels_chassis_yaw = rot_ang_vel_wheels;
 							}
 							else {
-									r_ang_vel_wheels_chassis_yaw = 15.0f;
+									r_ang_vel_wheels_chassis_yaw = 10.0f;
 							}
 							#endif
 							is_rotating = 1;

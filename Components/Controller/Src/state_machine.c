@@ -46,7 +46,7 @@ static rev_spin_t rev_spin = {
 	  #if IS_STD || IS_SENTRY
 	  .shooting_frequency                   = 12,
 	  #elif IS_HERO
-		.shooting_frequency                   = 0.5f,
+		.shooting_frequency                   = 1.0f,
 	  #endif
 	  .stuck_state                          = 0
 };

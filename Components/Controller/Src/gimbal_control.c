@@ -224,7 +224,7 @@ void control_loop_gimbal() {
 	else {
 			if (is_homing == 0) saturate_in_range(&gimbal.r_x[1],pitch_zero - 10*DEG_TO_RAD, 1*DEG_TO_RAD);
 	}
-	#else
+	#elif IS_HERO
 	if (is_homing == 0) saturate_in_range(&gimbal.r_x[1],pitch_zero - 20*DEG_TO_RAD, 1*DEG_TO_RAD);
 	#endif
 		
