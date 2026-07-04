@@ -233,9 +233,10 @@ typedef struct
 typedef  struct
 {
   uint8_t projectile_type;  /* 1:17mm 2:42mm */
-  uint8_t shooter_number; 
+  uint8_t shooter_number;
   uint8_t launching_frequency;  /* Hz */
   float projectile_speed;   /* m/s */
+  uint16_t shot_count;      /* cumulative 0x0207 packets (one per shot), for CV */
 }shoot_data_t;
 
 /**

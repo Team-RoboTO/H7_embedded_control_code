@@ -45,20 +45,24 @@ static float pid_yaw_pos_params[PID_PARAMETER_NUM] = {15.0f, 0.0f, 2.0f, 0.0f, 0
 static float remote_commands_yaw;
 static float remote_commands_pitch;
 
-static float time_stamp_cv = 0;
-static float yaw_command_from_cv = 0;
-static float pitch_command_from_cv = 0;
-static float time_stamp_cv_prev;
-
+/* CV pitch mapping: r_x[1] = pitch_zero + CV_PITCH_SIGN * pitch_cmd, where
+ * pitch_cmd is the world/IMU-frame pitch from the Jetson and pitch_zero is the
+ * motor reference captured by homing when the IMU pitch crossed 0.
+ * CV_PITCH_SIGN = d(motor reference)/d(IMU pitch): the sign guesses below come
+ * from the homing logic (STD decrements r until x[1] rises to 0, HERO until it
+ * falls to 0). VERIFY ON BENCH before enabling fire: if the gimbal drives to a
+ * pitch limit in auto-aim, flip the sign. */
 #if IS_STD || IS_SENTRY
 static float k_ff_yaw = 0.84f;
 float KP_pitch = 20.0f;
 float KD_pitch = 1.0f;
+#define CV_PITCH_SIGN (-1.0f)
 
 #elif IS_HERO
 static float k_ff_yaw = 1.5f;
 float KP_pitch = 80.0f;
 float KD_pitch = 2.0f;
+#define CV_PITCH_SIGN (1.0f)
 
 #endif
 
@@ -190,20 +194,21 @@ void control_loop_gimbal() {
             }
             break;
 
-        case GIMBAL_AUTO_AIM:
-						time_stamp_cv_prev         = time_stamp_cv;
+        case GIMBAL_AUTO_AIM: {
+						cv_command_t cv;
+						// fresh valid packet with mode >= 1 (CV requests control)
+						if (MiniPC_Get_CV_Cmd(&cv)) {
+							// Jetson yaw is world/IMU frame wrapped to [-pi, pi];
+							// x[0] is continuous -> take the nearest equivalent angle
+							gimbal.r_x[0] = nearest_target_angle_from_start_angle(cv.yaw, gimbal.x[0]);
 
-						yaw_command_from_cv   = yaw_cv;
-						pitch_command_from_cv = pitch_cv;
-						time_stamp_cv         = time_cv;
-				     
-			      					
-						if (time_stamp_cv != time_stamp_cv_prev) {
-							gimbal.r_x[0] = yaw_command_from_cv;
-							gimbal.r_x[1] = pitch_command_from_cv;			
+							if (is_homing == 0) {
+								gimbal.r_x[1] = pitch_zero + CV_PITCH_SIGN * cv.pitch;
+							}
 						}
-							
+						// no target / CV offline (mode 0 or stale): hold last reference
 						break;
+				}
         default:
             break;
     }

@@ -183,6 +183,7 @@ static void Referee_System_Info_Update(uint8_t *Buff,Referee_System_Info_TypeDef
       Referee_System_Info->shoot_data.shooter_number   = Buff[Referee_System_Info->Index + FrameHeader_Length + CMDID_Length + 1];
       Referee_System_Info->shoot_data.launching_frequency  = Buff[Referee_System_Info->Index + FrameHeader_Length + CMDID_Length + 2];
       Referee_System_Info->shoot_data.projectile_speed = bit8TOfloat32(&Buff[Referee_System_Info->Index + FrameHeader_Length + CMDID_Length + 3]);
+      Referee_System_Info->shoot_data.shot_count++;   /* one 0x0207 per shot; fed back to CV */
     break;
 #endif
 

@@ -1,9 +1,9 @@
 /**
   ******************************************************************************
   * @file    USB_MiniPC_Task.c
-  * @brief   MiniPC USB CDC communication task
-  *          Drop-in replacement for USART_MiniPC.c (F407 UART+DMA)
-  *          Adapted for STM32H723 USB CDC
+  * @brief   Jetson USB CDC communication task (ARC RMUL protocol)
+  *          Sends GimbalToVision (43 B) at 1 kHz; VisionToGimbal (35 B)
+  *          is parsed in the USB IRQ (see MiniPC.c)
   ******************************************************************************
   */
 
