@@ -73,9 +73,6 @@ void CAN_Task(void const * argument)
         /* If stop command arrived, disable motors once */
         if (state_remote_commands == COMMANDS_STOP) {
 					
-					  CM_Motor_CAN_TxMessage(&FDCAN1_TxFrame, &CM_Pitch_Motor, 0, 0, 0, 0, 0);
-						osDelay(30);
-					
 						CM_Motor_Command(&FDCAN1_TxFrame, &CM_Pitch_Motor, Motor_Disable);
             osDelay(30);
             CM_Motor_Command(&FDCAN2_TxFrame, &CM_Chassis_Motor[0], Motor_Disable);
@@ -118,8 +115,6 @@ void CAN_Task(void const * argument)
 								osDelay(30);
 								first_command_on = 0;
 						}
-						CM_Motor_CAN_TxMessage(&FDCAN1_TxFrame, &CM_Pitch_Motor, 0, 0, 0, 0, 0);
-						osDelay(30);
 
             CM_Motor_Command(&FDCAN2_TxFrame, &CM_Chassis_Motor[0], Motor_Enable);
             osDelay(30);
@@ -133,16 +128,13 @@ void CAN_Task(void const * argument)
             osDelay(30);
 						CM_Motor_Command(&FDCAN1_TxFrame, &CM_Pitch_Motor, Motor_Enable);
 						osDelay(30);
-						CM_Motor_CAN_TxMessage(&FDCAN1_TxFrame, &CM_Pitch_Motor, 0, 0, 0, 0, 0);
-						osDelay(30);
 
 						#if IS_HERO
 							if(shooting_powered_off==0){
 							DM_Motor_Command(&FDCAN3_TxFrame, &DM_Rev_Motor, Motor_Enable);
 							osDelay(30);
 							}
-							CM_Motor_CAN_TxMessage(&FDCAN1_TxFrame, &CM_Pitch_Motor, 0, 0, 0, 0, 0);
-							osDelay(30);
+
 						#endif
             is_first_iter = 0;
         }
@@ -159,25 +151,7 @@ void CAN_Task(void const * argument)
 						is_first_rev_on = 0;
 						osDelay(30);
 				}
-//				static bool     g_rev_arm_pending    = false;
-//				static uint32_t g_rev_arm_timestamp  = 0;
 
-//				/* Rising-edge detect on G: start the 4s countdown */
-//				static bool g_prev_key = false;
-//				if (RC_info.Key.Set.G && !g_prev_key) {
-//						g_rev_arm_pending   = true;
-//						g_rev_arm_timestamp = HAL_GetTick();
-//				}
-//				g_prev_key = RC_info.Key.Set.G;
-
-//				/* After 4s, enable + restart homing once */
-//				if (g_rev_arm_pending && (HAL_GetTick() - g_rev_arm_timestamp >= 4000)) {
-//						DM_Motor_Command(&FDCAN3_TxFrame, &DM_Rev_Motor, Motor_Enable);
-//						osDelay(30);
-//						is_homing_rev = true;   // re-run the homing sequence in _control_loop_rev
-//						is_on_reset   = 0;      // clear reset latch so normal shooting resumes
-//						g_rev_arm_pending = false;
-//				}
 				#endif
 
 					
