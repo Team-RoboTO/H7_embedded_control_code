@@ -108,5 +108,10 @@ Finally, look through:
 - `Application/User/Core/` — top-level initializations and high-level application logic
 
 
+## Credits & License
+
+This project is based on [COD-H7](https://github.com/GrassFanWang/COD-H7-Template) by GrassFan_Wang, licensed under the MIT License.
+Our modifications are also released under the MIT License. See [LICENSE](LICENSE).
+
 
 
