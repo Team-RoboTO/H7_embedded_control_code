@@ -16,7 +16,7 @@
 #define IMAGE_TRANSMISSION_H
   
 #include "stdint.h"
-#include "robot_config.h"
+#include "Robot_config.h"
 #include "usart.h"
 
 

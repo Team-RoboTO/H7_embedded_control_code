@@ -4,7 +4,7 @@
 
 #include "bsp_can.h"
 #include "stdbool.h"
-#include "motor.h"
+#include "Motor.h"
 
 /**
  * @file    damiao_motor.h

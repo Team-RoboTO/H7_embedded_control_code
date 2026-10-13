@@ -22,7 +22,7 @@
 #include "stm32h7xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "remote_control.h"
+#include "Remote_Control.h"
 #include "Image_Transmission.h"
 /* USER CODE END Includes */
 

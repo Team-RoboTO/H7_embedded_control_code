@@ -1,6 +1,6 @@
 #include "shooting_control.h"
 #include "PID.h"
-#include "DJI_motor.h"
+#include "DJI_Motor.h"
 #include "Damiao_Motor.h"
 #include "state_machine.h"
 #include "control_utils.h"

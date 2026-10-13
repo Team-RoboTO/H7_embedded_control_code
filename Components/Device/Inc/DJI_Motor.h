@@ -4,7 +4,7 @@
 
 #include "bsp_can.h"
 #include "stdbool.h"
-#include "robot_config.h"
+#include "Robot_config.h"
 
 /**
  * @file    dji_motor.h

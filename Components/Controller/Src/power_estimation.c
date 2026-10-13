@@ -1,6 +1,6 @@
 #include "power_estimation.h"
-#include "robot_config.h"
-#include "cubemars_motor.h"
+#include "Robot_config.h"
+#include "Cubemars_Motor.h"
 #include "LPF.h"
 #include "Referee_System.h"
 #include "mouse_keyboard_command.h"

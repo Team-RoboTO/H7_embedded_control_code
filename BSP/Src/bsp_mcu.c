@@ -19,7 +19,7 @@
 #include "bsp_pwm.h"
 #include "bsp_uart.h"
 #include "bsp_adc.h"
-#include "bmi088.h"
+#include "Bmi088.h"
 #include "usb_device.h"
 #include "buzzer.h"
 

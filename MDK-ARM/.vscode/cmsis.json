@@ -1,0 +1,9 @@
+{
+    "targetSet": {
+        "COD_H7_Template": {
+            "activeTargetType": "COD_H7_Template"
+        }
+    },
+    "activeSolution": "../COD_H7_Template.csolution.yml",
+    "activeTarget": "COD_H7_Template"
+}

@@ -1,6 +1,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "cmsis_os.h"
-#include "gimbal_control.h"
+#include "Gimbal_control.h"
 #include "lidar_lifter_control.h"
 
 void Gimbal_Task(void const * argument)

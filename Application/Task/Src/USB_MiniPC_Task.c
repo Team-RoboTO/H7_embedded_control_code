@@ -8,7 +8,7 @@
   */
 
 #include "USB_MiniPC_Task.h"
-#include "MiniPC.h"
+#include "Minipc.h"
 
   /************/
  /*   TASK   */

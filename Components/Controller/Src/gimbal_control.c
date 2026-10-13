@@ -7,15 +7,15 @@
   */
 /* USER CODE END Header */
 
-#include "gimbal_control.h"
+#include "Gimbal_control.h"
 #include "state_machine.h"
-#include "INS_task.h"
+#include "INS_Task.h"
 #include "Remote_Control.h"
-#include "chassis_control.h"
+#include "Chassis_control.h"
 #include "PID.h"
-#include "cubemars_motor.h"
-#include "damiao_motor.h"
-#include "MiniPC.h"
+#include "Cubemars_Motor.h"
+#include "Damiao_Motor.h"
+#include "Minipc.h"
 #include "control_utils.h"
 
 

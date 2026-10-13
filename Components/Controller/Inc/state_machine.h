@@ -1,7 +1,7 @@
 #ifndef STATE_MACHINE_H
 #define STATE_MACHINE_H
 
-#include "robot_config.h"
+#include "Robot_config.h"
 #include "stdint.h"
 #include "stdbool.h"
 

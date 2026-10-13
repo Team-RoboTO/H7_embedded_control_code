@@ -11,7 +11,7 @@
 /* USER CODE END Header */
 
 #include "Image_Transmission.h"
-#include "remote_control.h"
+#include "Remote_Control.h"
 #include "CRC.h"
 
 __attribute__((section (".AXI_SRAM"))) uint8_t Image_Trans_MultiRx_Buff[2][39];

@@ -3,7 +3,7 @@
 
 #include "bsp_can.h"
 #include "stdbool.h"
-#include "motor.h"
+#include "Motor.h"
 
 /**
  * @file    cubemars_motor.h

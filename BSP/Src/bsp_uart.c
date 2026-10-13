@@ -14,7 +14,7 @@
 
 #include "bsp_uart.h"
 #include "usart.h"
-#include "remote_control.h"
+#include "Remote_Control.h"
 #include "Referee_System.h"
 #include "Image_Transmission.h"
 

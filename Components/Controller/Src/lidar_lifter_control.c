@@ -3,7 +3,7 @@
 #if IS_STD || IS_SENTRY
 
 #include "PID.h"
-#include "DJI_motor.h"
+#include "DJI_Motor.h"
 #include "state_machine.h"
 #include "Remote_Control.h"
 #include "control_utils.h"

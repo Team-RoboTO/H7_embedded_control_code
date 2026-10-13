@@ -1,4 +1,4 @@
-#include "dji_motor.h"
+#include "DJI_Motor.h"
 #include "control_utils.h"
 
 /**

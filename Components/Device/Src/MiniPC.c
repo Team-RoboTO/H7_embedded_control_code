@@ -13,10 +13,10 @@
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
-#include "MiniPC.h"
+#include "Minipc.h"
 #include "usbd_cdc_if.h"
 #include "Referee_System.h"
-#include "gimbal_control.h"
+#include "Gimbal_control.h"
 #include "Cubemars_Motor.h"
 #include "Chassis_control.h"
 #include "buzzer.h"

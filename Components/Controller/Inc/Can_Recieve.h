@@ -21,9 +21,9 @@
  */
 
 #include "main.h"
-#include "dji_motor.h"
-#include "cubemars_motor.h"
-#include "damiao_motor.h"
+#include "DJI_Motor.h"
+#include "Cubemars_Motor.h"
+#include "Damiao_Motor.h"
 #include <stdint.h>
 
   /**********************/

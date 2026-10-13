@@ -13,11 +13,11 @@
 #include "DJI_Motor.h"
 #include "state_machine.h"
 #include "shooting_control.h"
-#include "chassis_control.h"
-#include "gimbal_control.h"
+#include "Chassis_control.h"
+#include "Gimbal_control.h"
 #include "Remote_Control.h"
 #include "lidar_lifter_control.h"
-#include "Referee_system.h"
+#include "Referee_System.h"
 
 static bool is_first_iter = 1;
 static bool is_init = 1;

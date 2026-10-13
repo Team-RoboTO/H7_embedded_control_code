@@ -13,9 +13,9 @@
 /* Includes ------------------------------------------------------------------*/
 #include "cmsis_os.h"
 #include "INS_Task.h"
-#include "bmi088.h"
-#include "lpf.h"
-#include "pid.h"
+#include "Bmi088.h"
+#include "LPF.h"
+#include "PID.h"
 #include "tim.h"
 #include "Quaternion.h"
 #include "bsp_pwm.h"

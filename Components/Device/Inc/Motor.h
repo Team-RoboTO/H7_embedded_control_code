@@ -11,7 +11,7 @@
   ******************************************************************************
   */
 /* USER CODE END Header */
-#include "robot_config.h"
+#include "Robot_config.h"
 
 /* Define to prevent recursive inclusion -------------------------------------*/
 #ifndef DEVICE_MOTOR_H

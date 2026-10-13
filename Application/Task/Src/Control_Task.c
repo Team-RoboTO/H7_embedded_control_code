@@ -25,8 +25,8 @@
 #include "Cubemars_Motor.h"
 #include "DJI_Motor.h"
 #include "state_machine.h"
-#include "gimbal_control.h"
-#include "chassis_control.h"
+#include "Gimbal_control.h"
+#include "Chassis_control.h"
 
 static void Control_Init(Control_Info_Typedef *Control_Info);
 static void Control_Measure_Update(Control_Info_Typedef *Control_Info);

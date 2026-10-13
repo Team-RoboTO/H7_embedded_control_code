@@ -32,13 +32,13 @@
  *   r_x[3] = (-bwd_fwd - left_right) + yaw     wheel 4
  */
 
-#include "chassis_control.h"
+#include "Chassis_control.h"
 #include "state_machine.h"
 #include "Cubemars_Motor.h"
 #include "Damiao_Motor.h"
 #include "power_estimation.h"
 #include "control_utils.h"
-#include "MiniPC.h"
+#include "Minipc.h"
 #include "mouse_keyboard_command.h"
 #include "Referee_System.h"
 #include "LPF.h"

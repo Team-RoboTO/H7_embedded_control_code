@@ -1,3 +1,55 @@
-.vscode/settings.json
-build_log.txt
-flash_log.txt
+# Build directories and caches, wherever tools create them.
+build/
+out/
+tmp/
+.cache/
+
+# Compiler and linker outputs. Keep linker scripts (*.sct) and vendor
+# libraries (*.lib, *.a), which are inputs needed to build the firmware.
+*.o
+*.obj
+*.d
+*.dep
+*.axf
+*.elf
+*.hex
+*.bin
+*.map
+*.lnp
+*.lst
+
+# Keil writes HTML build reports; keep HTML documentation elsewhere.
+MDK-ARM/**/*.htm
+
+# CMSIS build metadata. Keep *.cbuild-pack.yml to lock dependency versions.
+*.cbuild-idx.yml
+*.cbuild.yml
+*.cbuild-run.yml
+
+# Machine-specific settings. Keep shared VS Code tasks, launch files, and
+# settings examples, plus Keil *.uvoptx until shared debug defaults are reviewed.
+**/.vscode/settings.json
+**/.cmsis/tools-environment.yml
+.clangd
+*.uvguix.*
+JLinkSettings.ini
+
+# Tool logs and live telemetry. Do not ignore all CSV files: saved experiment
+# data may belong in the repo. The capture script writes relative to its cwd.
+*.log
+*_log.txt
+variables.csv
+
+# Python environments and bytecode.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Editor backups and operating-system metadata.
+*~
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+Desktop.ini
